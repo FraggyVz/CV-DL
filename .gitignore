@@ -1,0 +1,15 @@
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+data/raw/
+data/processed/
+runs/
+*.mp4
+*.mkv
+*.avi
+*.mov
+*.dem
+*.proposed.json
