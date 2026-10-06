@@ -17,6 +17,10 @@ def main(argv=None) -> int:
     detection.add_argument("--video", type=Path, required=True)
     detection.add_argument("--profile", type=Path, required=True)
     detection.add_argument("--output", type=Path, required=True, help="New run directory; must not exist")
+    detection.add_argument("--start-frame", type=int, default=0,
+                           help="First source frame (zero-based); timestamps retain the source offset")
+    detection.add_argument("--max-frames", type=int,
+                           help="Limit output length for a short preview; default processes to EOF")
     evaluation = commands.add_parser("evaluate", help="Score reviewed held-out point annotations")
     evaluation.add_argument("--run", type=Path, required=True)
     evaluation.add_argument("--annotations", type=Path, required=True)
@@ -34,7 +38,8 @@ def main(argv=None) -> int:
         elif args.command == "detect":
             from .config import load_profile
             from .video import detect_video
-            result = detect_video(args.video, load_profile(args.profile), args.output)
+            result = detect_video(args.video, load_profile(args.profile), args.output,
+                                  start_frame=args.start_frame, max_frames=args.max_frames)
             print(f"Exported {result['frames_processed']} frames to {args.output}")
         else:
             from .evaluation import evaluate_run

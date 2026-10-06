@@ -7,8 +7,11 @@ centres and export overlays plus timestamped positions. Inference uses pixels on
 The standalone `stratscout` package is the maintained implementation. The superseded
 notebook, teammate pilot and checkpoints have been retired to Git history.
 
-Implementation and generated-data tests are present. Real-footage calibration,
-manual review and performance validation are **pending the first recording**.
+Implementation and generated-data tests are present. The supplied Falcons/FURIA
+Mirage recording has an initial revised calibration and a five-second preview;
+see [recording-review.md](recording-review.md). Reviewed held-out labels and
+quantitative performance validation are **still pending**. Partially visible
+carriers improve with calibration; heavily obscured carriers and overlaps remain unresolved.
 
 ## Milestones and dependencies
 
@@ -38,7 +41,8 @@ prove the radar/HUD configuration is unchanged.
 
 - `calibrate --video --profile [--frame]`: crop/colour setup; saves a new version-1
   JSON profile with resolution, crop and per-team settings.
-- `detect --video --profile --output`: streams frames and exports `annotated.mp4`,
+- `detect --video --profile --output [--start-frame N] [--max-frames N]`: streams
+  the whole recording or a preview range with source indices/timestamps and exports `annotated.mp4`,
   `detections.jsonl` and `run.json` into a new directory.
 - `evaluate --run --annotations --output`: consumes reviewed point labels and
   writes metrics. See [annotation-guidelines.md](annotation-guidelines.md).

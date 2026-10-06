@@ -66,8 +66,13 @@ def _verify_export(path: Path, expected: int, resolution: tuple[int, int]) -> No
         raise OSError(f"Overlay export failed verification: decoded {decoded}/{expected} frames")
 
 
-def detect_video(video: str | Path, profile: Profile, output: str | Path) -> dict:
-    """Process a constant-frame-rate recording, refusing existing run directories."""
+def detect_video(video: str | Path, profile: Profile, output: str | Path, *,
+                 start_frame: int = 0, max_frames: int | None = None) -> dict:
+    """Stream a CFR recording or preview range, retaining source frame indices."""
+    if type(start_frame) is not int or start_frame < 0:
+        raise ValueError("start_frame must be a non-negative integer")
+    if max_frames is not None and (type(max_frames) is not int or max_frames <= 0):
+        raise ValueError("max_frames must be a positive integer")
     detector = ColourDetector(profile)
     video, output = Path(video), Path(output)
     if output.exists():
@@ -80,6 +85,10 @@ def detect_video(video: str | Path, profile: Profile, output: str | Path) -> dic
     try:
         advertised = capture.get(cv2.CAP_PROP_FRAME_COUNT)
         advertised = int(advertised) if math.isfinite(advertised) and advertised > 0 else None
+        if advertised is not None and start_frame >= advertised:
+            raise ValueError("start_frame is outside the advertised video frame range")
+        if start_frame and not capture.set(cv2.CAP_PROP_POS_FRAMES, start_frame):
+            raise ValueError(f"Cannot seek to start frame {start_frame}")
         ok, frame = capture.read()
         if not ok:
             raise ValueError("Video contains no decodable frames")
@@ -95,6 +104,7 @@ def detect_video(video: str | Path, profile: Profile, output: str | Path) -> dic
             "started_at_utc": datetime.now(timezone.utc).isoformat(),
             "input": identity, "profile": profile.to_dict(),
             "source_fps": fps, "advertised_frame_count": advertised,
+            "frame_range": {"start_frame": start_frame, "requested_max_frames": max_frames},
             "timestamp_convention": "frame_index / source_fps; constant-frame-rate input required",
             "coordinate_convention": "x right, y down; normalised to native minimap crop",
             "overlay_resolution": list(encoded_size), "overlay_codec": "mp4v",
@@ -110,7 +120,9 @@ def detect_video(video: str | Path, profile: Profile, output: str | Path) -> dic
         with (output / "detections.jsonl").open("x", encoding="utf-8") as records:
             while ok:
                 detections = detector.detect(frame)
-                record = {"frame_index": count, "timestamp_s": count / fps, **detections}
+                source_index = start_frame + count
+                record = {"frame_index": source_index, "timestamp_s": source_index / fps,
+                          **detections}
                 records.write(json.dumps(record, allow_nan=False) + "\n")
                 overlay = draw_detections(frame, profile, detections)
                 if encoded_size != (width, height):
@@ -120,12 +132,18 @@ def detect_video(video: str | Path, profile: Profile, output: str | Path) -> dic
                 count += 1
                 if count % 1000 == 0:
                     print(f"Processed {count} frames ({count / fps:.1f}s)", flush=True)
+                if max_frames is not None and count >= max_frames:
+                    break
                 ok, frame = capture.read()
         writer.release()
         writer = None
         capture.release()
-        if advertised is not None and count < advertised:
-            raise OSError(f"Source decoding stopped early: {count}/{advertised} frames")
+        if advertised is not None:
+            expected = advertised - start_frame
+            if max_frames is not None:
+                expected = min(expected, max_frames)
+            if count < expected:
+                raise OSError(f"Source decoding stopped early: {count}/{expected} requested frames")
         _verify_export(output / "annotated.mp4", count, encoded_size)
         current_stat = video.stat()
         if (current_stat.st_size != identity["size_bytes"]
@@ -133,12 +151,14 @@ def detect_video(video: str | Path, profile: Profile, output: str | Path) -> dic
             raise OSError("Source video changed during processing; repeat with a stable recording")
         metadata.update(status="complete", frames_processed=count, duration_s=count / fps,
                         finished_at_utc=datetime.now(timezone.utc).isoformat())
+        metadata["frame_range"]["end_frame_exclusive"] = start_frame + count
         _write_metadata(output, metadata)
         return metadata
     except BaseException as exc:
         if created and metadata is not None:
             metadata.update(status="failed", frames_processed=count,
                             error=f"{type(exc).__name__}: {exc}")
+            metadata["frame_range"]["end_frame_exclusive"] = start_frame + count
             try:
                 _write_metadata(output, metadata)
             except OSError:

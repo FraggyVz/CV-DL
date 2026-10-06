@@ -14,6 +14,67 @@ from stratscout.video import detect_video
 
 
 class VideoTests(unittest.TestCase):
+    def test_preview_cli_keeps_source_indices_timestamps_and_motion(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source, config, output = root / "input.avi", root / "profile.json", root / "preview"
+            video(source)
+            save_profile(profile(), config)
+            with contextlib.redirect_stdout(io.StringIO()):
+                code = main(["detect", "--video", str(source), "--profile", str(config),
+                             "--output", str(output), "--start-frame", "3", "--max-frames", "2"])
+            self.assertEqual(code, 0)
+            rows = [json.loads(line) for line in
+                    (output / "detections.jsonl").read_text().splitlines()]
+            self.assertEqual([row["frame_index"] for row in rows], [3, 4])
+            self.assertEqual([row["timestamp_s"] for row in rows], [3 / 8, 4 / 8])
+            self.assertAlmostEqual(rows[0]["T"][0]["x"], 33 / 200, delta=.01)
+            metadata = json.loads((output / "run.json").read_text())
+            self.assertEqual(metadata["frame_range"],
+                             {"start_frame": 3, "requested_max_frames": 2,
+                              "end_frame_exclusive": 5})
+            self.assertEqual(metadata["duration_s"], 2 / 8)
+            cap = cv2.VideoCapture(str(output / "annotated.mp4"))
+            self.assertEqual(cap.get(cv2.CAP_PROP_FRAME_COUNT), 2)
+            cap.release()
+
+    def test_preview_limit_can_extend_past_advertised_end(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "input.avi"
+            video(source)
+            result = detect_video(source, profile(), root / "out", start_frame=6, max_frames=10)
+            self.assertEqual(result["frames_processed"], 2)
+            self.assertEqual(result["frame_range"]["end_frame_exclusive"], 8)
+
+    def test_invalid_preview_ranges_do_not_create_outputs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "input.avi"
+            video(source)
+            for kwargs in ({"start_frame": -1}, {"start_frame": 8}, {"start_frame": True},
+                           {"max_frames": 0}, {"max_frames": -1}, {"max_frames": 1.5}):
+                with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
+                    detect_video(source, profile(), root / "out", **kwargs)
+                self.assertFalse((root / "out").exists())
+
+    def test_preview_still_reports_early_decode_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "input.avi"
+            video(source)
+            from helpers import frame
+            with patch("stratscout.video.open_video") as opened:
+                cap = opened.return_value[0]
+                opened.return_value = (cap, 8.0)
+                cap.get.return_value = 8
+                cap.read.side_effect = [(True, frame(3)), (False, None)]
+                with self.assertRaisesRegex(OSError, "stopped early"):
+                    detect_video(source, profile(), root / "out", start_frame=3, max_frames=2)
+            result = json.loads((root / "out" / "run.json").read_text())
+            self.assertEqual(result["status"], "failed")
+            self.assertEqual(result["frame_range"]["end_frame_exclusive"], 4)
+
     def test_public_cli_streams_and_exports_timestamped_detections(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

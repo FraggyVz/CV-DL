@@ -1,0 +1,35 @@
+{
+  "source_resolution": [
+    2560,
+    1440
+  ],
+  "crop": [
+    16,
+    12,
+    508,
+    510
+  ],
+  "teams": {
+    "T": {
+      "hue": 27,
+      "hue_tolerance": 4,
+      "saturation_min": 100,
+      "value_min": 190,
+      "area_min": 50,
+      "area_max": 550,
+      "aspect_max": 1.8,
+      "fill_min": 0.35
+    },
+    "CT": {
+      "hue": 94,
+      "hue_tolerance": 10,
+      "saturation_min": 100,
+      "value_min": 170,
+      "area_min": 50,
+      "area_max": 454,
+      "aspect_max": 3.0,
+      "fill_min": 0.35
+    }
+  },
+  "schema_version": 1
+}
