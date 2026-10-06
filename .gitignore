@@ -1,0 +1,4 @@
+# rendered replays are multi-GB - keep them out of git
+*.mp4
+
+__pycache__/
