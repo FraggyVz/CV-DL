@@ -24,19 +24,28 @@ Scope is deliberately narrow: **one map (de_mirage)**.
 
 | # | Objective | Status |
 |---|---|---|
-| 1 | Identify the strategy in play (A/B rush, A/B split, retake) | pipeline built, needs real labels |
+| 1 | Identify the strategy: attacker tactic before the plant, defender response after it | pipeline built, needs real labels |
 | 2 | Player tendency heatmaps — where attackers go, how defenders set up | built, nearly free from tracker output |
 | 3 | Win rates — overall side advantage, and **per-tactic success rate** | built as *annotation + aggregation*, not a model |
 
-### Five classes
+### Two questions per round (decided 2026-10-07; replaces the old five-class list)
 
 ```python
-CLASSES = ["A_RUSH", "B_RUSH", "A_SPLIT", "B_SPLIT", "RETAKE"]
+T_CLASSES  = ["A_RUSH", "B_RUSH", "A_SPLIT", "B_SPLIT", "DEFAULT"]   # before the plant, every round
+CT_CLASSES = ["RETAKE", "TRICKLE", "SAVE"]                          # after the plant, planted rounds only
+PHASES = {"pre": T_CLASSES, "post": CT_CLASSES};  CLASSES = T_CLASSES  # headline head
 ```
 
-- **RUSH** — all five attackers, one route, fast.
-- **SPLIT** — three on one route, two on another, converging.
-- **RETAKE** — attackers already hold the site; the *defenders* converge on it.
+- **RUSH** — all five attackers, one route, fast. **SPLIT** — 3 + 2, converging.
+- **DEFAULT** — slow map control, spread out, no convergence (settles the old §9 question).
+- **RETAKE** — defenders regroup, then arrive on the site together. **TRICKLE** — they arrive one
+  at a time. **SAVE** — they give the site up to keep weapons.
+- The **site comes from where the bomb was planted**, so no label names it (RETAKE_A/RETAKE_B was
+  rejected: it would just re-learn the plant location). `Round` carries `label`, `plant_site`,
+  `ct_label`, `positions`/`frames` (pre-plant) and `post_positions`/`post_frames`.
+- `RoundLabeller` keys: `1-5` attacker tactic, `a`/`b` plant now at A/B, `6/7/8` defender
+  response, `x` clear plant, `t`/`c` winner. It disables matplotlib's own keymaps (`s`, `c`, `q`,
+  arrows used to also trigger save-dialog / back / quit).
 
 ---
 
@@ -46,17 +55,24 @@ CLASSES = ["A_RUSH", "B_RUSH", "A_SPLIT", "B_SPLIT", "RETAKE"]
 
 ```
 project/
-├── stratscout_prototype.ipynb   THE only code file. Self-contained, 63 cells.
-├── mirage_radar.png             Mirage radar, used as synthetic fallback background (currently MISSING)
+├── stratscout_prototype.ipynb   the main pipeline. Self-contained, 69 cells.
+├── stratscout_dem_ingest.ipynb  companion (2026-10-07, under review): radar-only clips + .dem positions
+├── demos/                       .dem files, searched recursively (gitignored)
+├── mirage_radar.png             clean radar screenshot (286², has the bomb icon) = background for
+│                                EVERY plot via plot_background(). Frames the same area as the crop
+│                                (corr 0.986 vs footage median, plain resize). NOT used for synthetic
+│                                training frames while footage exists (the median is): the baked-in
+│                                orange bomb icon would look like a static T player.
 ├── data/                        rendered demo replays, *.mp4, ONE FILE = ONE MATCH (gitignored)
 └── labels/                      round labels, <match_id>.rounds.json per video (created on use)
 ```
 
-**Ingest:** every `*.mp4` in `Config.data_dir` (`data/`) is picked up. The file stem is the
+**Ingest:** every `.mp4` (any case) in `Config.data_dir` (`data/`) is picked up; files OpenCV
+cannot open, and videos whose radar cannot be found, are skipped with a warning. The file stem is the
 `match_id`, which is what train/val/test splits group by — never put two matches in one file or
 split one match across files. `Config.video_path=None` → the first video (sorted) is the
 "primary" one used by §3.1 verify and §16 examples. Each video gets its own auto-detected crop
-box, cached in `crops.json` keyed by file name + resolution (`CROPS[name]`; `CROP` = primary's).
+box, cached in `crops.json` keyed by file name (a renamed file is matched by byte size + resolution; entries for removed videos are dropped) (`CROPS[name]`; `CROP` = primary's).
 
 `requirements: numpy matplotlib torch opencv-python`
 
@@ -74,6 +90,8 @@ was deliberately collapsed into the notebook.
 
 §4 refuses to re-extract `pilot_frames.npy` while `pilot_labels.json` exists — the labels index
 into those frames, so re-extracting would silently scramble them. Delete both to start over.
+Without labels, it reuses the file if the set of videos (name + byte size) is unchanged, and
+otherwise moves the old one aside as `pilot_frames.bak-<timestamp>.npy` before re-extracting.
 
 ### Where the project actually is
 
@@ -83,7 +101,16 @@ into those frames, so re-extracting would silently scramble them. Delete both to
   `P 0.617 / R 0.512 / 1.94px` at only 10 epochs, still climbing steeply, never re-run longer.
   **That footage and those labels are now obsolete** — the project moved from player-POV to
   demo-replay recording.
-- **No real demo-replay data has been processed yet.** That is the immediate next step.
+- **Real demo replays are in `data/`** (2 as of 2026-10-07), both 1280×720 @ 60fps, both
+  auto-cropped to `(4,4,196,196)` at ≤1.9% change. Files are named by match (renamed 2026-10-07); keep
+  names fixed once labelling starts — the stem is the `match_id`, and `labels/` + `crops.json` are keyed by it.
+
+  | file | match (read from HUD name tags) | length |
+  |---|---|---|
+  | `vitality_vs_falcons.mp4` | Vitality vs Falcons | 40.9 min |
+  | `aurora_vs_betboom.mp4` | Aurora vs BetBoom | 38.9 min |
+
+- Next: pilot frame extraction (§4) on these, then icon labelling.
 
 ---
 
@@ -108,7 +135,7 @@ demo replay .mp4
 | detector | `detections` | list of `{"T": (k,3), "CT": (m,3)}` | rows `(x, y, score)`, normalised |
 | tracker | `positions` | `float32 (N, 10, 2)` | slots **0–4 = T, 5–9 = CT** |
 | trajectory | `sequence` | `float32 (32, D)` | D=16 for `features`, 20 for `coords` |
-| classifier | `logits` | `float32 (B, 5)` | order fixed by `CLASSES` |
+| classifier | `logits` | `float32 (B, 5)` attacker + `(B, 3)` defender | order fixed by `T_CLASSES` / `CT_CLASSES` |
 
 Coordinates are **normalised to the crop**, x right, y down. Never pass raw pixels across a
 stage boundary — pixels change the moment someone edits the resolution; fractions do not.
@@ -215,7 +242,37 @@ unchanged.
 - Orange and magenta sit only 9–12 hue units from the red reject band. If icons start going
   missing, suspect the hue bands before anything else.
 
-### 5.6 Mechanical traps
+### 5.6 Real demo footage (first measured on data/vitality_vs_falcons.mp4, formerly mirage-demo.mp4, 1280×720 @ 60fps, 41 min)
+
+- **The radar sits flush in the corner**, and its outer frame lets the 3D world bleed through:
+  the outer 4px top/left changed in ~95% of frames. With that border included the box was
+  `(0,0,198,198)` and the change figure was **8.8%**. `find_radar_box` now trims edge lines that
+  are less than 90% stable, giving **`(4,4,196,196)`, 1.9% change**.
+- **The end-of-match "MATCH RESULT" screen covers the radar**, and stopping 20 s before the end
+  does not avoid it: 2 of the 400 old pilot frames were that screen (98.6% changed). `radar_hidden()`
+  now drops any frame where more than 30% of the crop differs from the median map. Expect the same
+  at half-time, pauses and menus.
+- **T icons look yellow-orange, not pure orange**: `learn_team_hues` measured **T=27, CT=94** on
+  the two matches (defaults 17/105). Always learn hues; never trust the defaults on new footage.
+- **Classical finder on real frames is weak:** mean 2.7 T / 3.0 CT per frame, all ten players in
+  only **9/100** frames (overlaps, bomb-carrier and death-marker icons, real deaths — can't be
+  separated without labels). This is the real baseline the CNN must beat.
+- The old 198×198 `pilot_frames.npy` came from this video with the untrimmed crop. It is obsolete;
+  §4 backs it up and re-extracts the first time it runs on `data/`.
+
+### 5.6b Off-map detections (fixed 2026-10-07)
+
+Synthetic spawn/arrival jitter put attackers on the black area beside T spawn, and the detector
+duly detected them (§10.4). Fixes: `MAP_MASK` (walkable = radar brightness > 25) built in §7;
+`_jitter_on_map` re-draws offsets until on the map; `snap_to_map` is the last resort; and
+`decode_heatmap` zeroes peaks outside `DETECT_MASK` (MAP_MASK dilated 2px). The margin matters:
+filtering at the exact map edge cost **2.7 points of recall**, because correct peaks land a pixel
+past it. Old recall 0.954 was flattered by isolated off-map players; on-map rounds give 0.923.
+
+**Consistency rule (user demand):** the slides and the results web page show exactly the
+figures the notebook draws (29 as of 2026-10-07), no more, no fewer. Add a figure to the notebook first, then to both.
+
+### 5.7 Mechanical traps
 
 - **OpenCV gives BGR.** Convert to RGB or the team channels swap.
 - **`frames` must be `uint8`.** The preprocessor divides by 255 itself; hand it floats in [0,1]
@@ -274,6 +331,30 @@ It pools over time and discards ordering entirely. **If the temporal models cann
 are doing nothing a bag of averages couldn't.** On an earlier, cruder synthetic map it *tied* at
 1.000 — which revealed the task didn't need time at all. Watch this comparison on real data.
 
+### Pixels only where pixels are needed (`stratscout_dem_ingest.ipynb`)
+
+> **User decision 2026-10-07:** nothing from this notebook goes into the slides, the results
+> page, or the main notebook. It is parked for later review.
+
+Only the detector needs pixels. Model 2, heatmaps and win rates run on positions, so they can be
+trained from `.dem` files (`demoparser2`) with no rendering. Rendered matches are needed only for
+detector labels and for held-out vision evaluation (Experiment B). This is development-time use
+of `.dem`; the deployed path is still pixels-only.
+
+- **Radar-only clips:** 2.5 GB → ~80 MB per match (192×192 @ 8 fps, mp4v; no H.264 in this
+  OpenCV build). Main notebook reads them with `data_dir="data_radar"`, `crop_box=(0,0,192,192)`.
+- **World → crop mapping:** de_mirage overview `pos_x −3230, pos_y 1713, scale 5.0` (1024 px),
+  then a fitted `{s: 1.01, ox: −0.005, oy: −0.005}` in `radar_fit.json`. 99.6% of 33k demo
+  positions land on walkable radar pixels. **Fit is relative to crop `(4,4,196,196)`** — refit if
+  the crop changes.
+- Demo rounds: `round_freeze_end → round_end`, 32 steps, slots sorted by Steam ID (true identity),
+  dead players NaN, winner + plant site from the demo. Label key `x` = EXCLUDED (the §9 question).
+- **Split by `match_group`** (demo `vitality-vs-falcons-m3-mirage` ↔ video `vitality_vs_falcons`),
+  or a match trains on its demo and tests on its own video.
+- demoparser2 gotcha: `bomb_planted.user_steamid` is a **str**, `parse_ticks` steamid is
+  **uint64** — compare as strings or every plant silently goes missing.
+- Not built yet: demo ↔ video time sync (would give free tracker evaluation + icon labels).
+
 ### Win rate is annotation, not vision
 
 The radar cannot distinguish a bomb detonation from a defuse, and the round timer is outside the
@@ -286,17 +367,19 @@ the classifier, which is what makes it worth building.
 
 ---
 
-## 7. Measured results (latest full run, synthetic mode)
+## 7. Measured results (full run 2026-10-07: real footage for §1–6, synthetic from §7 on)
 
 > **These numbers are not findings.** In synthetic mode the generator draws the dots and the
 > detector then learns to find dots the generator drew — a closed loop. They prove the plumbing.
 
 | | |
 |---|---|
-| Detector | precision 1.000, recall 0.954, **0.47px** error |
-| + tracker | 0.86px |
-| Experiment A (oracle) → B (vision) | gap **+0.050 acc / +0.043 macro-F1** |
-| B′ (trained on vision, n=60) | 0.900 / 0.750 — **worse, but a sample-size confound** |
+| Detector | precision 1.000, recall **0.945**, 0.49px error (players kept on-map; misses = stacked clusters) |
+| + tracker | 1.01px |
+| Q1 attacker (test acc) | all four models **1.000**, MLP control ties — synthetic Q1 too easy to rank them |
+| Q2 defender (test acc) | TCN 0.938 · Transformer 0.938 · GRU 0.896 (best on val) · **MLP control 0.771** — timing matters |
+| Experiment A → B | Q1 1.000 → 0.950; **Q2 0.896 → 0.729** (crowded post-plant sites are the detector's worst case) |
+| B′ (Q1, trained on vision, n=60) | 0.633 / 0.334 — **collapses; a sample-size confound** |
 | Overall side win rate | 49.4% T, 95% CI [44.3, 54.6] → *no significant advantage* |
 
 Model sizes: `feature_mlp` 14,501 · `tcn` 61,765 · `gru` 66,661 · `transformer` 154,949.
@@ -327,7 +410,9 @@ heatmap, which would just be a few paths smeared into a blob.
 
 ---
 
-## 9. Open decision — unresolved, flagged repeatedly
+## 9. Class-scheme decision — RESOLVED 2026-10-07 (see §1: two questions per round)
+
+Kept for the record of why:
 
 **The five classes have no bucket for a slow default round.** Most competitive rounds are map
 control — take mid, poke B, rotate, commit late — and are neither a rush nor a split. Annotators
@@ -350,8 +435,8 @@ purposes.
 
 ## 10. Next steps, in order of risk removed
 
-1. **Record one demo replay.** Run notebook §1–6 only. Confirm auto-crop lands on the radar and
-   §3.1 reports a low difference percentage. *Everything else waits on this.*
+1. ~~**Record one demo replay.** Confirm auto-crop lands on the radar and §3.1 is low.~~
+   **Done 2026-10-07** on vitality_vs_falcons.mp4: crop `(4,4,196,196)`, 1.9% change (see §5.6).
 2. **Icon labels (~200 frames).** `auto_label_icons` → `ReviewTool` → retrain the detector.
    Target recall **> 0.85**. Click all five on overlapping spawn clusters.
 3. **Round labels.** `RoundLabeller` on each match, **including the winner keypress**. This is
@@ -364,7 +449,9 @@ purposes.
 - **Dead-player handling in the tracker.** Real rounds lose icons permanently; the tracker coasts
   then sits still, which quietly drags the centroid feature. **This is a correctness bug, not a
   refinement** — fix it early.
-- **Class imbalance.** `RETAKE` will be rarer. Add class weights to the cross-entropy once real
+- **Plant detection from pixels.** The labeller marks the plant by hand; at deployment the planted
+  bomb must be spotted on the radar or question 2 cannot be asked live.
+- **Class imbalance.** `DEFAULT` will dominate real rounds, `SAVE` will be rare. Add class weights to the cross-entropy once real
   counts are known.
 - **Annotator agreement.** Have two people label the same 30 rounds. If humans agree only 70% of
   the time on `A_RUSH` vs `A_SPLIT`, that is roughly the model's ceiling — and knowing it early
@@ -427,7 +514,7 @@ Windows, VS Code, project at `C:\Users\xryan\source\repos\CV-DL`, Python 3.11.
 | 15 | **Experiment A vs B vs B′** |
 | 16 | `RoundLabeller` (with winner keypress), `rounds_to_dataset` |
 | 17 | End-to-end pipeline, scouting report |
-| 18 | **Objective 2** — occupancy heatmaps, route trails |
+| 18 | **Objective 2** — shared helpers; 18.1 T vs CT occupancy; 18.2 per-tactic grid (T/CT rows); 18.3 route trails for all 5 tactics (RETAKE drawn from CT) |
 | 19 | **Objective 3** — win rates with Wilson intervals |
 | 20–21 | Saving, what to replace next |
 
