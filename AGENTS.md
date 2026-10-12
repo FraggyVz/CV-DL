@@ -6,6 +6,10 @@ Use UK English. Be direct about faults and distinguish synthetic results from me
 real-footage performance. Continue from the shared prototype; avoid wholesale rewrites.
 Read [README](README.md), [architecture](docs/architecture.md) and the
 [baseline review](docs/base-review-2026-10-12.md) before changing behaviour.
+For capture/preparation, read [recording setup](docs/recording-setup.md) and
+[development direction](docs/development-direction.md). Recording is manual; keep
+processing checks distinct from model-accuracy evidence and never overwrite a master.
+Use `process-recordings` for the inbox workflow; keep encoding in the shared preparation API.
 
 ## Structure and Style
 

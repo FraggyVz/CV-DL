@@ -18,10 +18,21 @@ import or duplicated notebook implementation. Normal Python imports connect modu
 | `visualisation`, `reports` | Diagnostic figures, occupancy, trails and win-rate summaries |
 | `storage`, `workflow`, `__main__` | Protected experiment outputs, explicit stages and CLI |
 | `ingest/` | Separate configuration, video shrinking, demo parsing, mapping, labels and export |
+| `media`, `video_profiles`, `video_preparation` | FFmpeg/probe helpers, half-open crops, aligned native-resolution exports |
+| `fps_comparison` | Independent visual/timing/storage reports from prepared videos |
+| `recording_batch` | Inbox scan, shared crop, safe reruns and automatic preparation/comparison |
 
 The [migration inventory](module-inventory.json) maps all 125 original functions and
 classes to their current modules and original zero-based notebook cell indices.
 The original notebooks are available at Git commit `00e024f`.
+
+Preparation commands bypass the prototype workflow. They use JSON profiles/manifests
+and explicit arguments, not `RunContext`, the 32-frame sampler or tracker.
+`process-recordings.ps1` launches the batch CLI using a local project environment.
+The batch calls the existing preparation/comparison APIs; it does not duplicate
+their encoding logic. Preparation/comparison depend on `media`. Capture is manual and has no Python OBS
+dependency. See [recording setup](recording-setup.md) for
+formats, paths and recovery semantics.
 
 ## Explicit state
 

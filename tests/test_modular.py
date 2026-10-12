@@ -146,7 +146,7 @@ class ModuleTests(unittest.TestCase):
 
     def test_imports_do_not_execute_processing(self):
         code = """
-import importlib, pkgutil
+import importlib, pkgutil, subprocess
 from pathlib import Path
 from unittest.mock import patch
 import cv2, numpy, torch, matplotlib
@@ -155,7 +155,7 @@ import matplotlib.pyplot as plt
 import stratscout
 def forbidden(*args, **kwargs):
     raise AssertionError("Processing during import")
-with patch.object(cv2,"VideoCapture",forbidden), patch.object(torch,"save",forbidden), patch.object(numpy,"save",forbidden), patch.object(numpy,"savez_compressed",forbidden), patch.object(Path,"write_text",forbidden), patch.object(plt,"show",forbidden):
+with patch.object(subprocess,"Popen",forbidden), patch.object(cv2,"VideoCapture",forbidden), patch.object(torch,"save",forbidden), patch.object(numpy,"save",forbidden), patch.object(numpy,"savez_compressed",forbidden), patch.object(Path,"write_text",forbidden), patch.object(plt,"show",forbidden):
     for item in pkgutil.walk_packages(stratscout.__path__, "stratscout."):
         importlib.import_module(item.name)
 """

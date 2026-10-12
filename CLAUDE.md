@@ -1,5 +1,14 @@
 # StratScout — project handoff
 
+> **13 October 2026:** independent `video-profile`, `prepare-video` and `compare-fps`
+> commands implement the 5/10/30 fps workflow. `process-recordings` now chains them
+> for videos in `data/raw/inbox/`; `process-recordings.ps1` is the Windows launcher.
+> Future output is 1080p/30 fps, with a crop calibrated per layout. Recording is manual; the OBS controller
+> was removed at the user's request. Use
+> [recording setup](docs/recording-setup.md) and [validation](docs/processing-validation.md).
+> Historical capture instructions below do not supersede the new guide;
+> legacy ingest remains available.
+
 > **Current implementation update (12 October 2026):** reusable code from both
 > notebooks now lives in `stratscout/`. The notebooks import named workflow steps.
 > Use [README](README.md), [architecture](docs/architecture.md) and

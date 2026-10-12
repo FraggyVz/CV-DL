@@ -1,5 +1,7 @@
 # rendered replays are multi-GB - keep them out of git
 *.mp4
+*.mkv
+data/processed/
 
 __pycache__/
 
@@ -14,6 +16,8 @@ __pycache__/
 *.py[cod]
 .ipynb_checkpoints/
 data/raw/
+# Per-machine crop selected by the inbox workflow
+/configs/recording-video.json
 data_radar/
 runs/
 debug.log
