@@ -5,3 +5,15 @@ __pycache__/
 
 # demos are ~300 MB each
 *.dem
+
+# Local environments, dependency caches and experiment outputs
+.venv*/
+.uv-cache/
+.ruff_cache/
+.test-tmp/
+*.py[cod]
+.ipynb_checkpoints/
+data/raw/
+data_radar/
+runs/
+debug.log

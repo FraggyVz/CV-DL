@@ -1,5 +1,14 @@
 # StratScout — project handoff
 
+> **Current implementation update (12 October 2026):** reusable code from both
+> notebooks now lives in `stratscout/`. The notebooks import named workflow steps.
+> Use [README](README.md), [architecture](docs/architecture.md) and
+> [AGENTS.md](AGENTS.md) for current setup and contributor instructions. The numbered
+> sections, cell references and measured results below describe the original
+> prototype at `00e024f`; they are historical context, not current validation.
+> The companion schema mismatch and tracker/annotation faults remain. B-prime is
+> disabled by default because its model-selection split leaks test data.
+
 > Context file for Claude Code. Read this first; it carries the decisions, the measured
 > numbers, and the bugs already paid for. Treat the "Hard-won lessons" section as load-bearing —
 > every item there cost real debugging time and several are silent failures that look like
@@ -55,8 +64,10 @@ PHASES = {"pre": T_CLASSES, "post": CT_CLASSES};  CLASSES = T_CLASSES  # headlin
 
 ```
 project/
-├── stratscout_prototype.ipynb   the main pipeline. Self-contained, 69 cells.
-├── stratscout_dem_ingest.ipynb  companion (2026-10-07, under review): radar-only clips + .dem positions
+├── stratscout/                 implementation modules and explicit workflows
+├── stratscout_prototype.ipynb   thin main experiment interface
+├── stratscout_dem_ingest.ipynb  thin companion: radar-only clips + .dem positions
+├── tests/                     regression fixtures and synthetic workflow checks
 ├── demos/                       .dem files, searched recursively (gitignored)
 ├── mirage_radar.png             clean radar screenshot (286², has the bomb icon) = background for
 │                                EVERY plot via plot_background(). Frames the same area as the crop
@@ -76,10 +87,10 @@ box, cached in `crops.json` keyed by file name (a renamed file is matched by byt
 
 `requirements: numpy matplotlib torch opencv-python`
 
-The notebook imports **nothing local** — stdlib plus numpy, matplotlib, torch, cv2. Verified by
-AST scan. Do not reintroduce helper `.py` files; a previous split into
-`setup_capture_tools.py` / `setup_autolabel.py` / `stratscout_v2.py` caused a circular import and
-was deliberately collapsed into the notebook.
+**Implemented direction (2026-10-12):** the lecturer accepts either format, and both
+notebooks now import the Python package. Configuration and intermediate results are
+passed using per-run contexts. Keep imports one-way; never launch experiments on
+import. See [architecture](docs/architecture.md) for module ownership and examples.
 
 ### Everything the notebook writes (all outputs, none are inputs)
 

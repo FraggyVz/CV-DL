@@ -1,0 +1,756 @@
+{
+  "prototype": [
+    {
+      "name": "Config",
+      "module": "config",
+      "cell": 2,
+      "context": false
+    },
+    {
+      "name": "set_seed",
+      "module": "config",
+      "cell": 2,
+      "context": false
+    },
+    {
+      "name": "list_videos",
+      "module": "video",
+      "cell": 2,
+      "context": true
+    },
+    {
+      "name": "match_id_of",
+      "module": "video",
+      "cell": 2,
+      "context": false
+    },
+    {
+      "name": "check_contract",
+      "module": "contracts",
+      "cell": 4,
+      "context": false
+    },
+    {
+      "name": "show_pipeline",
+      "module": "visualisation",
+      "cell": 4,
+      "context": false
+    },
+    {
+      "name": "sample_probe_frames",
+      "module": "video",
+      "cell": 6,
+      "context": false
+    },
+    {
+      "name": "video_resolution",
+      "module": "video",
+      "cell": 6,
+      "context": false
+    },
+    {
+      "name": "_stability_and_detail",
+      "module": "video",
+      "cell": 6,
+      "context": false
+    },
+    {
+      "name": "find_radar_box",
+      "module": "video",
+      "cell": 6,
+      "context": false
+    },
+    {
+      "name": "crop_change",
+      "module": "video",
+      "cell": 6,
+      "context": false
+    },
+    {
+      "name": "radar_hidden",
+      "module": "video",
+      "cell": 6,
+      "context": false
+    },
+    {
+      "name": "detect_crops",
+      "module": "video",
+      "cell": 6,
+      "context": true
+    },
+    {
+      "name": "verify_crop",
+      "module": "visualisation",
+      "cell": 9,
+      "context": false
+    },
+    {
+      "name": "show_crop_on_screen",
+      "module": "visualisation",
+      "cell": 9,
+      "context": false
+    },
+    {
+      "name": "extract_clip",
+      "module": "video",
+      "cell": 11,
+      "context": false
+    },
+    {
+      "name": "video_duration",
+      "module": "video",
+      "cell": 11,
+      "context": false
+    },
+    {
+      "name": "stack_resized",
+      "module": "video",
+      "cell": 11,
+      "context": false
+    },
+    {
+      "name": "_pilot_signature",
+      "module": "pilot",
+      "cell": 12,
+      "context": true
+    },
+    {
+      "name": "_pilot_sources_match",
+      "module": "pilot",
+      "cell": 12,
+      "context": true
+    },
+    {
+      "name": "extract_pilot_frames",
+      "module": "pilot",
+      "cell": 12,
+      "context": true
+    },
+    {
+      "name": "_hue_dist",
+      "module": "segmentation",
+      "cell": 14,
+      "context": false
+    },
+    {
+      "name": "learn_background",
+      "module": "segmentation",
+      "cell": 14,
+      "context": false
+    },
+    {
+      "name": "learn_team_hues",
+      "module": "segmentation",
+      "cell": 14,
+      "context": true
+    },
+    {
+      "name": "find_icons_teams",
+      "module": "segmentation",
+      "cell": 14,
+      "context": true
+    },
+    {
+      "name": "show_detections",
+      "module": "visualisation",
+      "cell": 17,
+      "context": true
+    },
+    {
+      "name": "show_mask_pipeline",
+      "module": "visualisation",
+      "cell": 17,
+      "context": true
+    },
+    {
+      "name": "show_counts",
+      "module": "visualisation",
+      "cell": 17,
+      "context": true
+    },
+    {
+      "name": "_grid",
+      "module": "synthetic",
+      "cell": 20,
+      "context": true
+    },
+    {
+      "name": "_polyline",
+      "module": "synthetic",
+      "cell": 20,
+      "context": false
+    },
+    {
+      "name": "_jitter_on_map",
+      "module": "synthetic",
+      "cell": 20,
+      "context": true
+    },
+    {
+      "name": "_walk",
+      "module": "synthetic",
+      "cell": 20,
+      "context": true
+    },
+    {
+      "name": "_hold",
+      "module": "synthetic",
+      "cell": 20,
+      "context": false
+    },
+    {
+      "name": "make_round",
+      "module": "synthetic",
+      "cell": 20,
+      "context": true
+    },
+    {
+      "name": "_walk_xy",
+      "module": "synthetic",
+      "cell": 20,
+      "context": false
+    },
+    {
+      "name": "make_post_plant",
+      "module": "synthetic",
+      "cell": 20,
+      "context": true
+    },
+    {
+      "name": "_drawn_background",
+      "module": "synthetic",
+      "cell": 20,
+      "context": true
+    },
+    {
+      "name": "map_image_background",
+      "module": "synthetic",
+      "cell": 20,
+      "context": false
+    },
+    {
+      "name": "build_background",
+      "module": "synthetic",
+      "cell": 20,
+      "context": true
+    },
+    {
+      "name": "plot_background",
+      "module": "synthetic",
+      "cell": 20,
+      "context": true
+    },
+    {
+      "name": "pick_map_points",
+      "module": "synthetic",
+      "cell": 20,
+      "context": true
+    },
+    {
+      "name": "walkable_mask",
+      "module": "synthetic",
+      "cell": 20,
+      "context": false
+    },
+    {
+      "name": "_nearest_walkable",
+      "module": "synthetic",
+      "cell": 20,
+      "context": false
+    },
+    {
+      "name": "snap_to_map",
+      "module": "synthetic",
+      "cell": 20,
+      "context": true
+    },
+    {
+      "name": "render_frames",
+      "module": "synthetic",
+      "cell": 20,
+      "context": true
+    },
+    {
+      "name": "Round",
+      "module": "contracts",
+      "cell": 22,
+      "context": false
+    },
+    {
+      "name": "generate_split",
+      "module": "synthetic",
+      "cell": 22,
+      "context": true
+    },
+    {
+      "name": "MinimapPreprocessor",
+      "module": "preprocessing",
+      "cell": 24,
+      "context": false
+    },
+    {
+      "name": "MinimapDetector",
+      "module": "detector",
+      "cell": 26,
+      "context": true
+    },
+    {
+      "name": "gaussian_heatmap",
+      "module": "detector",
+      "cell": 26,
+      "context": true
+    },
+    {
+      "name": "focal_heatmap_loss",
+      "module": "detector",
+      "cell": 26,
+      "context": false
+    },
+    {
+      "name": "load_icon_labels",
+      "module": "datasets",
+      "cell": 28,
+      "context": false
+    },
+    {
+      "name": "IconDataset",
+      "module": "datasets",
+      "cell": 28,
+      "context": true
+    },
+    {
+      "name": "synthetic_icon_dataset",
+      "module": "datasets",
+      "cell": 28,
+      "context": true
+    },
+    {
+      "name": "_on_map",
+      "module": "detector",
+      "cell": 30,
+      "context": true
+    },
+    {
+      "name": "decode_heatmap",
+      "module": "detector",
+      "cell": 30,
+      "context": true
+    },
+    {
+      "name": "detector_metrics",
+      "module": "evaluation",
+      "cell": 30,
+      "context": true
+    },
+    {
+      "name": "train_detector",
+      "module": "training",
+      "cell": 32,
+      "context": true
+    },
+    {
+      "name": "show_training_curve",
+      "module": "visualisation",
+      "cell": 32,
+      "context": true
+    },
+    {
+      "name": "show_detector_output",
+      "module": "visualisation",
+      "cell": 34,
+      "context": true
+    },
+    {
+      "name": "FixedSlotTracker",
+      "module": "tracking",
+      "cell": 36,
+      "context": false
+    },
+    {
+      "name": "positions_from_video",
+      "module": "tracking",
+      "cell": 36,
+      "context": true
+    },
+    {
+      "name": "positional_error",
+      "module": "tracking",
+      "cell": 36,
+      "context": true
+    },
+    {
+      "name": "auto_label_icons",
+      "module": "annotations",
+      "cell": 38,
+      "context": true
+    },
+    {
+      "name": "ReviewTool",
+      "module": "annotations",
+      "cell": 38,
+      "context": true
+    },
+    {
+      "name": "to_features",
+      "module": "features",
+      "cell": 40,
+      "context": true
+    },
+    {
+      "name": "to_sequence",
+      "module": "features",
+      "cell": 40,
+      "context": true
+    },
+    {
+      "name": "ct_post_signals",
+      "module": "features",
+      "cell": 42,
+      "context": true
+    },
+    {
+      "name": "FeatureMLP",
+      "module": "models",
+      "cell": 44,
+      "context": true
+    },
+    {
+      "name": "GRUClassifier",
+      "module": "models",
+      "cell": 44,
+      "context": true
+    },
+    {
+      "name": "TCNClassifier",
+      "module": "models",
+      "cell": 44,
+      "context": true
+    },
+    {
+      "name": "TinyTransformer",
+      "module": "models",
+      "cell": 44,
+      "context": true
+    },
+    {
+      "name": "SequenceDataset",
+      "module": "datasets",
+      "cell": 46,
+      "context": true
+    },
+    {
+      "name": "confusion_matrix",
+      "module": "evaluation",
+      "cell": 46,
+      "context": false
+    },
+    {
+      "name": "macro_f1",
+      "module": "evaluation",
+      "cell": 46,
+      "context": false
+    },
+    {
+      "name": "evaluate",
+      "module": "evaluation",
+      "cell": 46,
+      "context": true
+    },
+    {
+      "name": "train_classifier",
+      "module": "training",
+      "cell": 46,
+      "context": true
+    },
+    {
+      "name": "plot_confusion",
+      "module": "visualisation",
+      "cell": 48,
+      "context": false
+    },
+    {
+      "name": "rounds_json_for",
+      "module": "annotations",
+      "cell": 52,
+      "context": true
+    },
+    {
+      "name": "RoundLabeller",
+      "module": "annotations",
+      "cell": 52,
+      "context": true
+    },
+    {
+      "name": "rounds_to_clips",
+      "module": "annotations",
+      "cell": 52,
+      "context": true
+    },
+    {
+      "name": "build_rounds_dataset",
+      "module": "annotations",
+      "cell": 52,
+      "context": true
+    },
+    {
+      "name": "load_real_rounds",
+      "module": "annotations",
+      "cell": 52,
+      "context": true
+    },
+    {
+      "name": "StratScoutPipeline",
+      "module": "pipeline",
+      "cell": 54,
+      "context": true
+    },
+    {
+      "name": "scouting_report",
+      "module": "reports",
+      "cell": 55,
+      "context": false
+    },
+    {
+      "name": "plot_routes",
+      "module": "reports",
+      "cell": 55,
+      "context": true
+    },
+    {
+      "name": "round_positions",
+      "module": "reports",
+      "cell": 57,
+      "context": true
+    },
+    {
+      "name": "team_slice",
+      "module": "reports",
+      "cell": 57,
+      "context": true
+    },
+    {
+      "name": "side_of",
+      "module": "reports",
+      "cell": 57,
+      "context": false
+    },
+    {
+      "name": "phase_of",
+      "module": "reports",
+      "cell": 57,
+      "context": false
+    },
+    {
+      "name": "radar_bg",
+      "module": "reports",
+      "cell": 57,
+      "context": true
+    },
+    {
+      "name": "occupancy_map",
+      "module": "reports",
+      "cell": 57,
+      "context": true
+    },
+    {
+      "name": "_heat_panel",
+      "module": "reports",
+      "cell": 57,
+      "context": false
+    },
+    {
+      "name": "show_side_occupancy",
+      "module": "reports",
+      "cell": 59,
+      "context": true
+    },
+    {
+      "name": "show_tactic_occupancy",
+      "module": "reports",
+      "cell": 61,
+      "context": true
+    },
+    {
+      "name": "_draw_trails",
+      "module": "reports",
+      "cell": 63,
+      "context": true
+    },
+    {
+      "name": "show_trails",
+      "module": "reports",
+      "cell": 63,
+      "context": true
+    },
+    {
+      "name": "wilson_interval",
+      "module": "reports",
+      "cell": 65,
+      "context": false
+    },
+    {
+      "name": "win_rate_report",
+      "module": "reports",
+      "cell": 65,
+      "context": false
+    },
+    {
+      "name": "plot_win_rates",
+      "module": "reports",
+      "cell": 65,
+      "context": false
+    },
+    {
+      "name": "rounds_needed",
+      "module": "reports",
+      "cell": 65,
+      "context": false
+    }
+  ],
+  "ingest": [
+    {
+      "name": "DemCfg",
+      "module": "ingest.config",
+      "cell": 2,
+      "context": false
+    },
+    {
+      "name": "_open_writer",
+      "module": "ingest.video",
+      "cell": 4,
+      "context": false
+    },
+    {
+      "name": "radar_only_clip",
+      "module": "ingest.video",
+      "cell": 4,
+      "context": true
+    },
+    {
+      "name": "crop_for",
+      "module": "ingest.video",
+      "cell": 4,
+      "context": false
+    },
+    {
+      "name": "shrink_all",
+      "module": "ingest.video",
+      "cell": 4,
+      "context": true
+    },
+    {
+      "name": "radar_background",
+      "module": "ingest.background",
+      "cell": 6,
+      "context": true
+    },
+    {
+      "name": "load_plot_bg",
+      "module": "ingest.background",
+      "cell": 6,
+      "context": true
+    },
+    {
+      "name": "list_demos",
+      "module": "ingest.demos",
+      "cell": 8,
+      "context": true
+    },
+    {
+      "name": "match_group",
+      "module": "ingest.demos",
+      "cell": 8,
+      "context": false
+    },
+    {
+      "name": "_event",
+      "module": "ingest.demos",
+      "cell": 8,
+      "context": false
+    },
+    {
+      "name": "_winner",
+      "module": "ingest.demos",
+      "cell": 8,
+      "context": false
+    },
+    {
+      "name": "round_windows",
+      "module": "ingest.demos",
+      "cell": 8,
+      "context": false
+    },
+    {
+      "name": "parse_demo",
+      "module": "ingest.demos",
+      "cell": 8,
+      "context": true
+    },
+    {
+      "name": "world_to_radar",
+      "module": "ingest.coordinates",
+      "cell": 10,
+      "context": true
+    },
+    {
+      "name": "_fit_score",
+      "module": "ingest.coordinates",
+      "cell": 10,
+      "context": false
+    },
+    {
+      "name": "fit_radar",
+      "module": "ingest.coordinates",
+      "cell": 10,
+      "context": true
+    },
+    {
+      "name": "show_fit",
+      "module": "ingest.coordinates",
+      "cell": 10,
+      "context": true
+    },
+    {
+      "name": "show_round",
+      "module": "ingest.visualisation",
+      "cell": 12,
+      "context": true
+    },
+    {
+      "name": "show_match",
+      "module": "ingest.visualisation",
+      "cell": 12,
+      "context": true
+    },
+    {
+      "name": "demo_labels_path",
+      "module": "ingest.annotations",
+      "cell": 14,
+      "context": true
+    },
+    {
+      "name": "load_demo_labels",
+      "module": "ingest.annotations",
+      "cell": 14,
+      "context": true
+    },
+    {
+      "name": "DemoRoundLabeller",
+      "module": "ingest.annotations",
+      "cell": 14,
+      "context": true
+    },
+    {
+      "name": "pairing_table",
+      "module": "ingest.dataset",
+      "cell": 16,
+      "context": true
+    },
+    {
+      "name": "build_dem_dataset",
+      "module": "ingest.dataset",
+      "cell": 16,
+      "context": true
+    }
+  ]
+}
