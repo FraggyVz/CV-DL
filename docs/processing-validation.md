@@ -1,105 +1,65 @@
-# Recording-Preparation Validation — 13 October 2026
+# Processing Validation
 
-## Real source and reproducible exports
+## Current status — 14 October 2026
 
-Input: `data/raw/falcons-vs-furia/Falcons vs Furia Major Final.mp4`.
-User-supplied match identity: `falcons-vs-furia-major-final`. The original
-2,618,207,526-byte, 2560×1440, nominal 60 fps recording was preserved. Its SHA-256
-was checked again after processing and matches the pre-processing value:
+The user has reset the recording dataset for a new **1440p/60 fps, 2×** capture.
+Old recordings, derived videos, crop profiles, contact sheets and capture-specific
+reports/scripts were removed. Earlier full-match timings and screenshots are not
+acceptance evidence for the replacement recording.
 
-```text
-55df9095664c1e3b1b2cc052f5719e221912cc73cee9b770a70a5cf7b97a647b
-```
+The reusable processing implementation and synthetic regression fixtures remain.
+See [recording setup](recording-setup.md) for the current prompt-based workflow.
 
-Profile: `configs/falcons-furia-video.json`, half-open crop `[16,12,508,510]`, native
-492×498. All branches were encoded together from one source decode/crop with libx264
-CRF 18, medium, yuv420p, no audio and fast-start. Each output passed a complete FFmpeg
-decode and count/rate/dimension/duration validation.
+The replacement FURIA–Falcons and Spirit–Falcons recordings have since been processed.
+Both manifests report complete 5/10/30 fps exports using the same native 494×500 crop.
+Their readable output folders are `furia-falcons-mirage-cologne-major-2026` and
+`spirit-falcons-mirage-cologne-major` under `data/processed/recordings/`.
+Renaming preserved all 70 files byte-for-byte, and a batch rerun skipped both sources.
+The share archive `data/processed/stratscout-processed-matches-2026-10-14.zip`
+contains those files and an extraction guide (191,399,489 bytes). ZIP integrity and
+each archived file's SHA-256 were checked against the originals.
 
-Final local bundle: `data/processed/falcons-furia-fps-002/`; open its
-`comparison/report.html`. Generated media are ignored by Git. Reproduction commands
-with a fresh destination are in [recording setup](recording-setup.md).
+## Automated coverage
 
-| Rate | Decoded frames | Duration (s) | Bytes | Decode wall time (s) |
-|---|---:|---:|---:|---:|
-| 5 fps | 13,624 | 2,724.800 | 22,801,451 | 1.252 |
-| 10 fps | 27,247 | 2,724.700 | 28,892,909 | 1.652 |
-| 30 fps | 81,739 | 2,724.633 | 40,936,245 | 3.044 |
+After the capture reset, **47 tests passed**. Ruff lint/format, documentation-link
+checks and the synthetic prototype smoke at `runs/capture-reset-smoke-001/` passed.
+The launcher correctly reported an empty inbox without relying on deleted assets.
+No new recording was processed during these checks.
 
-Shared conversion took **102.670 seconds**; encoding plus output validation took
-**110.649 seconds**, excluding preflight/hashing and report generation. Timings are
-one local run, affected by cache, load, threading and process start-up. They do not
-measure detector inference. FFmpeg/ffprobe build: `2026-02-26-git-6695528af6-full_build`
-from the installed Gyan build. Python 3.13.14; OpenCV 4.12.0; NumPy 2.2.6.
+After fixing odd-sized interactive crop selections, **49 tests passed**, including
+two-video crop reuse. Ruff lint/format and the synthetic smoke at
+`runs/crop-selection-smoke-001/` also passed.
 
-The earlier `fps-001` run is retained. The final run uses nearest timestamp rounding,
-also tested against OBS-like millisecond-quantised MKV timestamps. Both runs produced
-the same frame counts and file sizes on this MP4 source.
+Readable bundle naming passed **51 tests**, including renamed-source lookup, legacy
+hash-folder recovery, name collisions and incomplete-destination refusal. Ruff and
+the synthetic smoke at `runs/readable-bundles-smoke-001/` also passed.
 
-Source header duration is 2,724.650 seconds. End rounding differs by output frame
-interval; the 30 fps export ends about 0.017 seconds earlier. Earlier OpenCV checks
-could not read the source's final advertised frame. FFmpeg reported no fatal decode
-error in this conversion; do not infer exact demo-tick alignment from header counts.
+Tests cover numbered-frame sampling, common observations at 5/10/30 fps, RGB/crop
+preservation, 2× timestamp correction, source-time trimming, fractional duration,
+Matroska timestamp quantisation and comparison frame holding. They also cover
+invalid profiles/rates/tools/videos, overwrite refusal, interrupted encoding,
+prompt validation, cancellation, first-use crops and completed-bundle reuse.
+Interactive crop checks cover one-pixel adjustment at image boundaries, unchanged
+preview pixels, confirmation before saving and reuse across two different videos.
+GUI actions are mocked in these checks; confirm the actual crop visually when running.
 
-## Development comparisons
+Notebook/modular regressions and import-safety checks remain. A synthetic prototype
+smoke run checks wiring only. The legacy ingest test can emit an OpenH264 warning
+before succeeding through its MP4V fallback; the new processor uses FFmpeg libx264.
 
-Isolated pilot bundles (`runs/fps-pilot-55`, `-115`, `-190`) and full-bundle comparisons
-cover source windows `55:10`, `115:10`, `190:25`. Previews are labelled 30 fps side-by-
-side videos with held lower-rate observations, timestamped PNGs and HTML/JSON reports.
-The previews themselves passed full decoding checks.
+## Acceptance for the replacement recording
 
-Inspected stills at 60, 120 and 202.5 seconds show the native crop, team colours,
-player numbers, death markers, spectator cone and bomb graphics. At 202.5 s the
-5 fps panel holds 202.4 s while 10/30 fps show 202.5 s, making temporal loss visible.
-Bomb graphics still obscure players; encoding does not resolve occlusion. These
-are development frames, not a held-out labelled accuracy evaluation.
+1. Wait for OBS to finish. Check saved dimensions are 2560×1440 at nominal 60 fps
+   and confirm constant 2× playback; inspect motion for repeated/stalled frames.
+2. Run the batch, select the useful raw-time interval and review the new minimap crop.
+3. Confirm all three exports decode, retain native crop dimensions and play at
+   normal speed. Expected duration is retained raw duration multiplied by two.
+4. Inspect opening, middle and ending footage plus deaths, close icons, numbers,
+   objective graphics and bomb-carrier overlap.
+5. Review comparison previews, stills, sizes and timings. Rerun to verify completed
+   outputs are skipped and the master remains unchanged.
 
-## Inbox workflow and 1080p sample
-
-The new `process-recordings` command and Windows launcher were exercised on
-`2026-10-13 02-08-54.mkv`: 1920×1080, 30 fps, 65.866 seconds, 11,171,872 bytes.
-A copy was placed in `data/raw/inbox/`; the original recording remains in the
-user's Raw Demos folder. Both copies had SHA-256
-`a6f58a05660b0da6fe431d8dc773e7311c22c39f9f70d3c73d85f99a4ece2d40`.
-
-The crop `[8,12,380,380]` was selected after inspecting the source at 25 seconds,
-producing a native 372×368 minimap. The local, Git-ignored profile is
-`configs/recording-video.json`; it applies only to this capture layout.
-Bundle: `data/processed/recordings/a6f58a05660b0da6/`.
-
-| Rate | Decoded frames | Duration (s) | Bytes |
-|---|---:|---:|---:|
-| 5 fps | 330 | 66.000 | 531,028 |
-| 10 fps | 659 | 65.900 | 690,691 |
-| 30 fps | 1,976 | 65.866667 | 955,000 |
-
-All exports and three automatic comparison previews passed full decode checks.
-The middle comparison still was inspected for crop coverage, colours and time labels.
-Rerunning the actual PowerShell launcher skipped the completed source successfully.
-This verifies preparation of the 1080p sample, not detector accuracy or equivalence
-to a 1440p master. The sample still contains player numbers and bomb occlusion.
-
-## Checks and remaining acceptance
-
-Tests exercise lossless numbered frames with exact timestamps, 5/10/30 selection,
-shared observations, RGB/crop preservation, fractional duration/offsets, preview
-holding, invalid profiles/rates/tools/videos, overwrite refusal, interruption and
-Matroska timestamp quantisation. Existing notebook/modular regression and import-safety
-tests pass. The legacy prototype smoke CLI completed in
-`runs/recording-workflow-smoke-001/`.
-
-After adding inbox processing, **35 tests passed**, including first-use profile
-creation, real batch encoding/comparison, renamed duplicate skipping, interrupted
-processing, missing-comparison recovery, damaged output refusal, profile/resolution
-changes and continuing after a corrupt input. Ruff lint/format and `git diff --check`
-passed. The prototype smoke also passed in `runs/inbox-workflow-smoke-001/`.
-
-The legacy ingest regression emits its existing missing-OpenH264 warning and succeeds
-through its old MP4V fallback. The new processor uses the installed FFmpeg libx264
-encoder directly and does not depend on that OpenCV encoder.
-
-The OBS controller and its mock tests were removed when the user chose manual
-recording. Automated capture acceptance is no longer part of this scope. For a new
-layout, manually record a short clip and inspect its master and minimap crop before
-a full match. Processing is validated on the supplied recording; there is still no
-measured detector accuracy or selected training frame rate here.
+Automated export validation is recorded in the new manifests; a complete manual
+review of the footage above remains pending. Choosing a training
+frame rate still requires labelled, match-separated detection/tracking evaluation.
+No current detector-accuracy result or winning frame rate is claimed.

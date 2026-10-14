@@ -32,6 +32,27 @@ def load_profile(path, resolution=None):
     return validate_profile(json.loads(Path(path).read_text(encoding="utf-8")), resolution)
 
 
+def even_selection(roi, resolution):
+    """Adjust interactive edges by one pixel, favouring expansion over clipping."""
+    x, y, width, height = roi
+    frame_width, frame_height = resolution
+    if width <= 0 or height <= 0:
+        raise RuntimeError("Crop selection cancelled or empty; no profile saved")
+    if not (0 <= x < x + width <= frame_width and 0 <= y < y + height <= frame_height):
+        raise ValueError("Selected crop is outside the video")
+    crop = [x, y, x + width, y + height]
+    for low, high, limit in ((0, 2, frame_width), (1, 3, frame_height)):
+        if (crop[high] - crop[low]) % 2:
+            if crop[high] < limit:
+                crop[high] += 1
+            elif crop[low] > 0:
+                crop[low] -= 1
+            else:
+                crop[high] -= 1  # Full odd-sized source: no room to expand.
+    validate_profile({"schema_version": 1, "source_resolution": list(resolution), "crop": crop})
+    return crop
+
+
 def create_profile(video, output, *, crop=None, at=0):
     import cv2
 
@@ -50,7 +71,12 @@ def create_profile(video, output, *, crop=None, at=0):
         if crop is None:
             cv2.namedWindow("Select minimap", cv2.WINDOW_NORMAL)
             x, y, w, h = cv2.selectROI("Select minimap", frame, showCrosshair=True)
-            crop = [x, y, x + w, y + h]
+            cv2.destroyWindow("Select minimap")
+            crop = even_selection((x, y, w, h), (info["width"], info["height"]))
+            if crop != [x, y, x + w, y + h]:
+                print(
+                    "Adjusted crop edges by one pixel for encoding; image pixels are not resized."
+                )
             profile = validate_profile(
                 {
                     "schema_version": 1,
@@ -59,6 +85,7 @@ def create_profile(video, output, *, crop=None, at=0):
                 }
             )
             x0, y0, x1, y1 = crop
+            print(f"Preview {x1 - x0}x{y1 - y0}: press Enter in the preview to save this crop.")
             cv2.imshow("Native crop: Enter saves; Escape cancels", frame[y0:y1, x0:x1])
             while True:
                 key = cv2.waitKey(100) & 0xFF
@@ -78,6 +105,7 @@ def create_profile(video, output, *, crop=None, at=0):
         with output.open("x", encoding="utf-8") as target:
             json.dump(profile, target, indent=2)
             target.write("\n")
+        print(f"Reusable crop saved: {output.resolve()}")
         return profile
     finally:
         cap.release()

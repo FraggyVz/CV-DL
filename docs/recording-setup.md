@@ -1,41 +1,40 @@
 # Recording and Frame-Rate Comparison
 
-## Manual OBS setup
+## Current capture setup
 
-Recording is manual. The Python tools start from an existing video; they do not
-connect to OBS. No WebSocket server, password or specially named profile is needed.
-You can disable OBS WebSocket if no other application uses it.
+Use **2560×1440 output, 60 fps, constant 2× demo playback**. Record manually in OBS.
+The processor restores normal game speed, crops the minimap and exports aligned
+5/10/30 fps videos. It does not operate CS2, control OBS or identify match endings.
 
-1. Create a separate OBS profile and scene collection for recording demos so your
-   personal capture settings remain separate. Names are your choice.
-2. Add Game Capture targeting CS2, or a working display capture source. Fit the
-   full 2560×1440 game frame without source crop, stretch or overlays. Check the
-   preview is moving and not black.
-3. Settings → Video: base **2560×1440** for your 1440p game, output **1920×1080**,
-   common FPS **30**. This intentionally downscales once in OBS to reduce master
-   storage. A teammate playing at 1080p can use a 1080p canvas/output. Calibrate
-   each layout separately; the same output resolution alone does not prove the
-   radar occupies the same pixels. 1440p output is also supported if needed later.
-4. Settings → Output → **Simple**: **High Quality, Medium File Size**, **Hardware
-   (NVENC, H.264)**, **Matroska Video (.mkv)**. Turn automatic remuxing off to avoid
-   an extra full-screen MP4. Keep the match in one recording.
+Old recordings, exports and crop presets have been cleared. Calibrate the new
+recording instead of reusing coordinates from an earlier match.
 
-These are capture recommendations, not settings enforced by the processor. MKV
-protects recordings against interrupted finalisation; see the
+## OBS and CS2
+
+1. Use a separate OBS profile/scene collection for demos.
+2. Capture the full game frame. Set base and output resolution to 2560×1440,
+   common FPS to 60, with no output scaling, stretch or overlays.
+3. In Simple output mode, use High Quality, Medium File Size, hardware NVENC H.264
+   and Matroska MKV. Disable automatic remuxing to avoid a duplicate full-screen MP4.
+4. Keep radar orientation, zoom, position and team colours fixed throughout.
+   Move the spectator camera away if its white cone covers the map.
+5. Keep demo playback at 2×; pauses, seeks and speed changes invalidate a single
+   speed multiplier. Check game rendering FPS as well as OBS output FPS.
+
+MKV tolerates interrupted recording better than ordinary MP4; see the
 [OBS recording guide](https://obsproject.com/kb/standard-recording-output-guide).
+A nominal 60 fps file can contain repeated frames. Timestamp correction cannot
+recover frames that CS2 never rendered.
 
-## CS2 capture preset and restoring gameplay
+## Radar preset and restoring gameplay
 
-Load the `.dem` yourself. Before changing settings, save your **current playing values**
-for every command below in your personal `autoexec.cfg`, or a `gameplay-radar.cfg`
-loaded by it. Query command names without values if you still need to collect them.
-Keep personal settings outside version control. Restore with `exec autoexec.cfg`
-after recording; restarting CS2 alone is not a reliable reset.
+Before changing settings, save your current radar values in your personal
+`autoexec.cfg` or a separate gameplay preset. Query command names without values
+in the CS2 console if necessary. Personal game settings stay outside this repository.
 
-This preset is retained from the earlier project recording guide. Recheck it in your
-installed CS2 build; the processor does not set game options.
-Save this block as `stratscout_recording.cfg` alongside your autoexec in CS2's
-`game/csgo/cfg` folder. Do not load the recording preset automatically at launch.
+Save the following as `stratscout_recording.cfg` in CS2's `game/csgo/cfg` folder,
+beside your autoexec. Load it manually with `exec stratscout_recording.cfg`;
+do not load the recording preset automatically at launch.
 
 ```text
 cl_hud_radar_scale 1.3
@@ -55,141 +54,120 @@ cl_teammate_colors_show 0
 cl_radar_show_all_players_when_spectating 1
 ```
 
-Confirm a fixed, opaque, square radar with both teams in distinct colours, without
-rotation, dynamic zoom, blur or map blending. Verify T/CT colours from the replay.
-Move the spectator camera away if its white cone covers the radar; the processor
-does not remove it. Close console, scoreboard and replay UI. Keep normal replay
-speed throughout; pauses/seeks break demo/video synchronisation.
+Check these settings in your installed CS2 build. Confirm a fixed, opaque radar
+with distinct team colours. Close the console, scoreboard and replay UI before
+capturing. After recording, use `exec autoexec.cfg` to restore your saved gameplay
+values. Restarting CS2 alone is not a reliable reset.
 
-If a command is unknown, check console help/menu equivalents before capture. The
-teammate's historical capture used different icon/teammate settings; do not mix
-presets within a match. Recalibrate after changing HUD size/resolution. The retained
-crop `[16,12,508,510]` belongs to the supplied Falcons–FURIA video, not every 1440p
-recording. Confirm it on a short new recording before recording a whole match.
+## Prompt-based processing
 
-## Record manually, then process
-
-Load the demo, apply `exec stratscout_recording.cfg`, position the spectator camera
-and start playback. Click **Start Recording** in OBS. Click **Stop Recording** when
-finished and wait for OBS to finish writing the MKV before processing it. Restore
-gameplay settings with `exec autoexec.cfg` if your normal radar values are saved there.
-
-The preferred route is to save/copy the finished video into `data/raw/inbox/` and
-run `.\process-recordings.ps1` from the repository root. It selects a crop on first
-use, then runs preparation and comparison automatically. The following separate
-commands remain useful for debugging or choosing specific comparison events.
-
-First make a 30-second test. Save the master under a match-specific directory, such
-as `data/raw/mirage-match-001/mirage.mkv`. Preserve the source demo beside it when
-available, with a short note of the match, map, radar settings, resolution, frame
-rate and replay speed. Processing itself requires only video.
-
-Play the master to check motion and icon clarity. Then select its crop and prepare
-the three variants (activate the project environment first):
+Wait until OBS has stopped and finished writing the recording. Put the completed
+file directly in `data/raw/inbox/`, then run from the repository root:
 
 ```powershell
-python -m stratscout video-profile --video data/raw/mirage-match-001/mirage.mkv --output configs/mirage-match-001.json --at 5
-python -m stratscout prepare-video --video data/raw/mirage-match-001/mirage.mkv --profile configs/mirage-match-001.json --match-id mirage-match-001 --fps 5 10 30 --output data/processed/mirage-test-001
-python -m stratscout compare-fps --input data/processed/mirage-test-001 --windows 5:10
+.\process-recordings.ps1
 ```
 
-Choose a native crop with even width and height. Confirm the selection with Enter,
-inspect the preview and press Enter again to save. Check the exports include the
-entire map. A 1440p source alone does not prove the old Falcons–FURIA crop fits.
+The launcher uses the project's Python environment. For each new video it asks:
 
-After the short test passes, record the full match once and run the same processor
-with a new output directory. Keep all clips/variants from one match under the same
-`--match-id`. Output bundles contain the three MP4s, `manifest.json` and logs;
-comparisons add `comparison/report.html`, JSON, previews and stills.
+```text
+Demo playback speed [1 = normal, 2 = double; Enter = 2]:
+Start time [Enter = 0:00]:
+End time [Enter = end of video]:
+```
 
-Existing destinations are refused. Cancellation or encoding failure preserves the
-master and leaves an incomplete bundle/logs for diagnosis. Retry `prepare-video`
-with a new destination; do not overwrite either the source or a completed bundle.
+Press Enter for the current 2× setup. Choose start/end by watching the raw video:
+use seconds, `MM:SS` or `HH:MM:SS`, including fractional seconds if needed.
+These are raw-player times, not the demo clock or restored playback time.
+For example, start `0` and end `23:51` retain 1431 recorded seconds and produce
+approximately 2862 seconds at normal speed. The example is not a recommended cut.
 
-## Batch processing and recovery
+Invalid answers are explained and asked again. Type `s` at any prompt to skip
+that file. Ctrl+C or closed terminal input stops the batch. No per-video settings
+JSON is required; answers are retained automatically in output metadata.
 
-Run `.\process-recordings.ps1` (or `python -m stratscout process-recordings` in your
-active environment). It creates `data/raw/inbox/` if missing. Only finished video
-files directly inside that folder are processed; `.dem` files and subfolders are
-ignored. No watcher or OBS connection runs in the background.
+## Crop selection
 
-The first usable video opens crop selection at ten seconds, or halfway through a
-short clip. Override with `--at 60` if the minimap appears later. Select an even-sized
-rectangle; Enter confirms selection, then Enter confirms the native preview.
-`configs/recording-video.json` is reused thereafter. Keep radar position/size and
-output resolution fixed. Dimension mismatches are rejected; same-resolution HUD
-changes cannot be detected automatically. Use `--profile configs/new-layout.json`
-for a different layout, with a separate input folder if needed.
+On first use, select the entire minimap. Odd dimensions are made even by extending
+an edge by one pixel where possible (or trimming one pixel if the whole source
+dimension is odd). Pixels are never resized. Enter confirms the rectangle, then
+Enter confirms the adjusted native-resolution preview; Escape cancels the preview.
+The terminal prints the saved profile path after confirmation.
+The script saves `configs/recording-video.json` automatically and
+reuses it for the same resolution and radar layout.
 
-Each source gets `data/processed/recordings/<first-16-SHA256-characters>/` containing
-three MP4s, a manifest, logs and `comparison/report.html`. Full hashes are checked
-before reuse, so renamed byte-identical copies are skipped too. The manifest retains
-the full source hash as match identity unless a matching source-pinned profile
-supplies one. Record one whole match per file; separate recordings of the same match
-still need a shared `--match-id` via the individual `prepare-video` interface before
-dataset splitting. The batch does not infer match identity from team names.
+The initial preview is ten raw seconds after the selected start, or halfway through
+a short retained clip. Use `--at SECONDS` to change that offset. Dimension mismatches
+are rejected; same-resolution HUD changes cannot be recognised automatically.
+For a changed layout, pass a fresh `--profile configs/new-layout.json` and select
+the crop again. No historical crop coordinates are supplied.
+Explicit `--crop` coordinates and existing profiles remain strictly validated;
+automatic edge adjustment applies only to a newly dragged selection.
 
-Automatic previews sample three spread-out windows of up to ten seconds. Short
-videos use one window. These are visual spot checks, not event detection or labels.
-Use `compare-fps --output NEW_DIRECTORY --windows ...` for selected gameplay events.
+## Outputs and recovery
 
-Reruns check completed manifests, settings and exported file sizes/existence before
-skipping; they do not decode every existing video again or detect same-size file
-corruption. If preparation completed but comparison never started, rerunning adds
-the comparison without encoding again. An incomplete existing bundle/comparison,
-missing output or changed crop is refused. Keep it for diagnosis and retry with
-`--output data/processed/recordings-retry-001`; no masters or prior results are deleted.
-One failed file does not block other files; any failure gives a non-zero exit status.
-Ctrl+C stops the batch and preserves diagnostic outputs. Only process files after
-OBS has stopped writing them; the source hash/stat checks are not an OBS lock.
+Each source gets `data/processed/recordings/<match-name>/`, named from its video
+filename (for example, `furia-falcons-mirage-cologne-major-2026/`), containing:
 
-## Prepare existing footage
+- Three native-resolution MP4s at 5, 10 and 30 fps, restored to normal game speed.
+- A manifest with source hash, match identity, crop, speed, trim, counts and versions.
+- Encoding/validation logs and `comparison/report.html`, previews and timestamped stills.
 
-The full-screen source stays unchanged. From the repository root:
+The comparison samples up to three spread-out ten-second windows in game time.
+It does not identify deaths, bomb events or rounds. Inspect the preview to check
+the crop, start/end, normal playback speed, frame holding and visible artefacts.
+
+FFmpeg decodes/crops once. Speed correction precedes a canonical 30 fps stream;
+10/5 fps select every third/sixth frame and are independently encoded. Settings are
+libx264, CRF 18, medium, yuv420p, no audio and MP4 fast-start. Every new output is
+fully decoded and checked before the bundle is marked complete.
+
+Completed sources are skipped before prompts using their saved settings. Reruns
+find bundles by the full source hash in their manifests, so readable names do not
+break duplicate detection. Existing hash-only folders remain recognised. Different
+source files with the same cleaned name get a short hash suffix to prevent collisions.
+Keep each manifest with its videos; the folder name is for display, not dataset identity.
+Reruns
+check full source hashes, crop compatibility and output sizes/existence; they do
+not detect same-size output corruption. A missing comparison can be generated
+without re-encoding. Incomplete or incompatible destinations are refused. Use a
+new `--output` directory to retry or change a cut; existing results are not overwritten.
+
+Only direct MKV/MP4/MOV/AVI children of the inbox are scanned. Subfolders and demos
+are ignored. One failed file does not block the others; failures produce a non-zero
+exit status. The script is not a watcher and must not run on an active OBS recording.
+
+## Sharing processed matches
+
+ZIP the complete match folders and share the archive through shared storage.
+Teammates should extract the ZIP, then open each match's `comparison/report.html`
+or the `minimap-5fps.mp4`, `minimap-10fps.mp4` and `minimap-30fps.mp4` files directly.
+Keep relative folders intact so report videos and stills load correctly. Raw masters
+are not needed for viewing these exports. Manifests retain provenance and match IDs.
+Generated media and archives under `data/processed/` stay outside Git; share the
+code through Git and the archive separately. These videos are not labelled datasets.
+
+## Individual commands
+
+These reusable commands remain available for explicit processing or debugging:
 
 ```powershell
-python -m stratscout prepare-video --video "data/raw/falcons-vs-furia/Falcons vs Furia Major Final.mp4" --profile configs/falcons-furia-video.json --fps 5 10 30 --output data/processed/falcons-furia-fps-003
-python -m stratscout compare-fps --input data/processed/falcons-furia-fps-003 --windows 55:10 115:10 190:25
+python -m stratscout video-profile --video data/raw/inbox/match.mkv --output configs/recording-video.json --at 60
+python -m stratscout prepare-video --video data/raw/inbox/match.mkv --profile configs/recording-video.json --playback-speed 2 --start 0 --duration 120 --fps 5 10 30 --output data/processed/pilot-001
+python -m stratscout compare-fps --input data/processed/pilot-001 --windows 10:5 50:5 100:5
 ```
 
-Use a fresh suffix: `fps-002` contains the final processing acceptance run. Pilot
-example: add `--start 115 --duration 10` and choose a fresh output directory. Its
-comparison window is `115:10`, not `0:10`. The three default rates share a timestamp-
-based 30 fps stream; every third/sixth frame supplies 10/5 fps. Requested subsets
-use their highest rate as the base. Rates outside 5/10/30, duplicate rates, invalid
-intervals and sources below the highest requested rate are refused.
+Skip the first command if that profile already exists. The standalone preparation
+command defaults to speed 1, so explicitly pass `--playback-speed 2`. Start/duration
+and comparison windows use raw-video seconds. A five-second window plays over ten
+seconds at normal speed. Source time is `start + output_elapsed / playback_speed`.
 
-FFmpeg decodes/crops once and directly encodes each branch: **libx264, CRF 18, medium,
-yuv420p, no audio, MP4 fast-start**. Lower rates are never recompressed from the 30 fps
-export. Native icon resolution is preserved. Every output is fully decoded before
-publication, with frame-count, dimension, rate and duration checks. See the
-[timestamp-aware fps filter](https://ffmpeg.org/ffmpeg-filters.html#fps).
+For unattended whole-file batch processing, use `--non-interactive` with an existing
+crop profile; its speed default remains 2. Use `prepare-video --match-id NAME` for
+separate recordings belonging to the same match. Otherwise identity defaults to the
+source hash. All variants of one match must stay in one future dataset split.
 
-The manifest records the requested source offset and sampling grid, not an exact
-mapping to every original frame/demo tick. Non-grid start times and quantised source
-timestamps can shift the chosen observation slightly. End duration is rounded to
-complete frames, up to a low-rate sampling interval; playback is not slowed down.
-Nominal/average source FPS cannot prove that a recording has no dropped frames.
-
-## Review the comparison
-
-Open `comparison/report.html`. Previews play at 30 fps; lower-rate panels hold the
-previous observation. Labels show common playback time and held observation time.
-PNG stills show start/middle/end; JSON records their frame indices. File sizes use
-decimal MB. Decode times are complete-file validation wall times, include process
-start-up and depend on caching/CPU load. They exclude detector processing.
-
-Review 55–65 s for deaths/movement, 115–125 s for bomb carriers, and 190–215 s for
-numbered/overlapping icons. Lower rates cannot uncover bomb-covered players. These
-reports establish neither accuracy nor a winning frame rate. All variants/windows
-retain one match ID for future dataset splitting. The old 32-frame sampler and
-tracker are outside this comparison.
-
-Use `--match-id` when separate source files belong to one match. Otherwise identity
-defaults to the source SHA-256. The supplied profile's readable match name is used
-only when its pinned source hash matches, so reusing a crop cannot silently label
-an unrelated recording as Falcons–FURIA.
-
-Manual capture replaces the former OBS automation workflow. Processing has been
-validated on the existing match; check each new capture layout separately. Choose
-the training frame rate later using reviewed labels and held-out matches.
+The processor checks `source_fps / playback_speed >= highest_output_fps`.
+Timestamp rounding can shift observations slightly and round the final duration
+to complete frames. Keep the source demo separately for later alignment; processing
+requires only video. Storage and visual comparisons are not detector accuracy tests.

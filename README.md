@@ -20,7 +20,7 @@ Existing tracking, label-safety and ingest-schema problems are recorded in the
 Independent recording-preparation commands now export aligned **5, 10 and 30 fps**
 videos with validated manifests and visual comparison reports. Recording is manual
 in OBS; the Python tools process saved videos. See the
-[real-footage processing results](docs/processing-validation.md).
+[validation status and acceptance checks](docs/processing-validation.md).
 
 ## Windows setup
 
@@ -54,15 +54,32 @@ commands do not import Torch or the legacy pipeline.
 .\process-recordings.ps1
 ```
 
+For each new recording, answer three terminal prompts: **demo playback speed,
+start time and end time**. For example, enter `2`, `0:00` and `23:51` for a 2×
+recording whose useful footage ends at raw-video time 23:51. Press Enter to accept
+2× speed, start at zero or keep the remainder. Times refer to the raw video
+player, not the demo clock. Type `s` to skip a file or Ctrl+C to stop.
+
+There are no per-video settings files to create or edit. The processor restores
+normal game time before creating 5/10/30 fps versions; 60 fps alone does not imply
+2× playback. The batch defaults to 2× because the current capture setup is
+**2560×1440, 60 fps, constant 2× demo playback**. See the
+[speed and trimming guide](docs/recording-setup.md#prompt-based-processing).
+Old recordings, exports, capture-specific scripts/profiles and unlabelled pilot
+caches were removed on 14 October. The new recording needs its own crop and validation.
+
 The launcher uses `.venv-modular` or `.venv`. Alternatively, with your environment
 active, run `python -m stratscout process-recordings`. The first run opens a crop
-selector and saves `configs/recording-video.json`. Select the entire minimap with
-even width/height and confirm both selection and preview with Enter. Later runs
+selector and saves `configs/recording-video.json`. Select the entire minimap;
+odd dimensions are adjusted by one pixel without resizing. Confirm both selection
+and preview with Enter. Later runs
 reuse that crop for recordings with the same resolution **and radar layout**.
 
 The batch scans MKV/MP4/MOV/AVI files directly in the inbox, encodes and validates
 5/10/30 fps minimap videos, and generates comparison previews, stills and an HTML
-report. Outputs go under `data/processed/recordings/<source-hash>/`; the command
+report. Outputs go under `data/processed/recordings/<match-name>/`, using a cleaned
+version of the source filename. Full hashes in the manifests still identify duplicates;
+a short hash suffix distinguishes different sources with the same name. The command
 prints each report path. It leaves masters untouched, skips completed bundles and
 continues past failed files. Run it again after adding recordings; it is not a
 background watcher. Wait for OBS to stop and finish saving before running it.
@@ -73,34 +90,42 @@ visual review are still human tasks; encoding/export/reporting are automatic.
 
 Use `--input FOLDER`, `--profile FILE`, `--output FOLDER` or `--at SECONDS` to override
 defaults. Changing resolution/HUD layout requires a new profile; use a new output
-root to retry incomplete bundles or change their crop. See
-[recovery and identity rules](docs/recording-setup.md#batch-processing-and-recovery).
+root to retry incomplete bundles or change their crop, speed or trim. Completed
+bundles retain their saved settings and are skipped before any prompts. For unattended
+whole-file processing, use `--non-interactive --playback-speed 2` with an existing
+crop profile. See
+[recovery and identity rules](docs/recording-setup.md#outputs-and-recovery).
 
 For explicit control of individual steps, the original commands remain available:
 
 ```powershell
-python -m stratscout video-profile --video data/raw/mirage.mkv --output configs/mirage-video.json --at 60
-python -m stratscout prepare-video --video data/raw/mirage.mkv --profile configs/mirage-video.json --fps 5 10 30 --match-id mirage-match-001 --output data/processed/mirage-001
-python -m stratscout compare-fps --input data/processed/mirage-001 --windows 55:10 115:10 190:25
+python -m stratscout video-profile --video data/raw/inbox/match.mkv --output configs/recording-video.json --at 60
+python -m stratscout prepare-video --video data/raw/inbox/match.mkv --profile configs/recording-video.json --playback-speed 2 --fps 5 10 30 --match-id mirage-match-001 --output data/processed/mirage-001
+python -m stratscout compare-fps --input data/processed/mirage-001 --windows 55:5 115:5 190:5
 ```
 
-Select an even-sized rectangle and confirm with Enter, then inspect the native crop
+Select a rectangle and confirm with Enter, then inspect the adjusted native crop
 and press Enter to save (Escape cancels). `--at` selects the preview time; `--crop
-x0 y0 x1 y1` bypasses the GUI for known coordinates. Profiles store source dimensions
-and half-open bounds; a mismatched resolution is refused. The supplied Falcons–FURIA
-profile is `configs/falcons-furia-video.json`, producing a native 492×498 crop.
+x0 y0 x1 y1` bypasses the GUI for known coordinates and still requires even dimensions.
+Profiles store source dimensions
+and half-open bounds; a mismatched resolution is refused. No recording-specific
+profile is bundled. The first selection creates the local profile automatically.
 
 `prepare-video --start 115 --duration 10` makes a short pilot with its source offset
-retained. Choose a new destination each time. Outputs include three H.264 MP4s,
+retained. Both values always use **raw-video seconds**. Add `--playback-speed 2`
+to turn those ten recorded seconds into twenty seconds at normal game speed.
+Choose a new destination each time. Outputs include three H.264 MP4s,
 `manifest.json`, encoding/decode logs and, after comparison, `comparison/report.html`,
 JSON, labelled videos and PNG stills. Comparison windows use **source-video seconds**.
 File sizes and decoding timings do not measure detection accuracy.
 
 For future recordings, follow [manual OBS and radar setup](docs/recording-setup.md).
-Record a full-screen **1920×1080 output at 30 fps** using NVENC H.264, MKV and High
-Quality/Medium File Size. CS2 can stay at 1440p with OBS downscaling to 1080p; use a
-crop calibrated on the saved output. 1440p masters remain supported. Detection
-accuracy at 1080p still needs evaluation. No WebSocket setup or password is required.
+The current captures use **2560×1440 output, 60 fps, constant 2× demo playback**.
+Use NVENC H.264, MKV and High Quality/Medium File Size. Keep the resolution and radar
+layout fixed across new recordings.
+Capture FPS divided by replay speed must meet the highest output rate. This checks
+the file's nominal rate, not unique rendered frames: if CS2 renders below 60 fps at
+2×, repeated OBS frames reduce the actual observations. No WebSocket setup is needed.
 Check a short recording and its
 crop before capturing a full match; OBS/game settings are not validated by the CLI.
 
@@ -123,7 +148,8 @@ For the full prototype, use a JSON object containing `Config` fields:
 
 ```json
 {
-  "data_dir": "data/raw/falcons-vs-furia",
+  "data_dir": "data/raw/inbox",
+  "video_exts": [".mkv", ".mp4"],
   "map_image": "mirage_radar.png",
   "det_epochs": 25,
   "cls_epochs": 40
@@ -140,6 +166,9 @@ Add `--plots` for interactive figures or `--device cuda` for a suitable GPU Torc
 installation. The full workflow can extract/cache pilot frames and crop metadata;
 read the annotation hazards below before using reviewed data. Video discovery scans
 the configured directory directly, not recursively. One file represents one match.
+The prototype does not consume the preparation manifest or correct 2× raw timing
+automatically; this example selects inputs only. Establish normal-time samples and
+reviewed labels before using the new capture for model training.
 
 ## Notebooks and demo ingest
 
@@ -169,4 +198,5 @@ See [module responsibilities and API examples](docs/architecture.md),
 - The leaking B-prime experiment is retained but disabled by default.
 - Recording and CS2 playback are manual; no OBS control command is included.
 - Lower frame rates do not fix bomb-carrier occlusion; labelled accuracy comes later.
-- Real recordings, pilot data, existing annotations and checkpoints were preserved.
+- Old capture assets were explicitly cleared; reusable models, map assets and
+  regression fixtures remain. New capture validation and labelled evaluation are pending.

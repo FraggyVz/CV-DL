@@ -10,6 +10,8 @@ For capture/preparation, read [recording setup](docs/recording-setup.md) and
 [development direction](docs/development-direction.md). Recording is manual; keep
 processing checks distinct from model-accuracy evidence and never overwrite a master.
 Use `process-recordings` for the inbox workflow; keep encoding in the shared preparation API.
+Current capture is 1440p/60 fps at constant 2× replay; the batch defaults to speed 2.
+Old capture assets were cleared. Select a fresh crop instead of restoring obsolete profiles.
 
 ## Structure and Style
 

@@ -3,7 +3,7 @@
 ## Implemented base
 
 Both notebooks call the modular Python package; see [architecture](architecture.md).
-Existing algorithms/data remain intact. The [baseline review](base-review-2026-10-12.md)
+Reusable algorithms and checkpoints remain intact. The [baseline review](base-review-2026-10-12.md)
 still applies: tracking validity, annotation safety, schema alignment and real-match
 evaluation remain unresolved. Synthetic scores do not establish model quality.
 
@@ -12,9 +12,10 @@ evaluation remain unresolved. Synthetic scores do not establish model quality.
 Use [the recording guide](recording-setup.md) and `process-recordings` for new footage.
 The legacy `ingest --stage radar` interface remains available. Record each match once,
 then derive **5, 10 and 30 fps** variants. Recording is manual in OBS; future masters
-use 1920×1080 output at 30 fps; CS2 can remain at 1440p. This storage/reproducibility
-choice still needs labelled detection evaluation. The existing 1440p/60 fps master
-is preserved, and 1440p processing remains supported.
+use 2560×1440 output at 60 fps with constant 2× demo playback. The batch speed prompt
+defaults to 2. Speed cannot be inferred from the FPS header. On 14 October the user
+requested removal of old recordings, exports, capture profiles and unlabelled caches.
+The replacement recording must be calibrated and validated after OBS stops.
 
 Implemented: crop profiles, single-decode FFmpeg branches, source hashes/match IDs,
 timestamp offsets, overwrite refusal, complete decoding checks, side-by-side previews,
@@ -22,12 +23,18 @@ stills and HTML/JSON storage/timing reports. The OBS controller, command, config
 dependency have been removed at the user's request. Processing starts from a saved
 video and does not require WebSocket access. The inbox command now chains crop
 selection, preparation and automatic comparison windows, with safe skipping of
-completed sources and recovery of comparisons that have not started.
+completed sources and recovery of comparisons that have not started. Speed correction
+now happens before sampling; terminal prompts collect speed and trim boundaries
+in raw-video seconds. Output manifests retain the answers and match/source identity;
+no per-recording settings files are needed. Reports map normal-speed output
+back to the accelerated source. Raw recordings are never overwritten.
 
 Tests cover sampling, duration/colour/crop preservation, invalid inputs, interruption
-and Matroska timestamp quantisation. Full-match exports and comparisons are recorded
+and Matroska timestamp quantisation. Current acceptance is described
 in [processing validation](processing-validation.md). No automated capture test is
 required. A short manual capture/crop check is still needed when the layout changes.
+Inspect game rendering FPS as well as OBS output FPS: a 60 fps file can contain
+repeated rendered frames, so the header alone cannot establish observation rate.
 
 ## Ordered work and completion criteria
 

@@ -14,7 +14,7 @@ import numpy as np
 from stratscout.fps_comparison import compare_fps, parse_window
 from stratscout.media import run_ffmpeg, tool
 from stratscout.video_preparation import prepare_video, sampling_graph
-from stratscout.video_profiles import load_profile, validate_profile
+from stratscout.video_profiles import create_profile, even_selection, load_profile, validate_profile
 
 
 def read_frames(path):
@@ -141,6 +141,60 @@ class VideoPreparationTests(unittest.TestCase):
         frames = read_frames(output / "minimap-30fps.mp4")
         self.assertEqual(number(frames[0]), 12)
 
+    def test_double_speed_preserves_all_30fps_game_observations(self):
+        output = self.root / "double-speed"
+        manifest = prepare_video(self.video, self.profile, output, playback_speed=2)
+        self.assertEqual(manifest["playback_speed"], 2)
+        # NUT reports the final PTS, not the end of that frame's display interval.
+        self.assertEqual(
+            manifest["requested_duration_seconds"], manifest["source_video"]["duration_seconds"]
+        )
+        self.assertEqual(
+            manifest["expected_output_duration_seconds"], manifest["requested_duration_seconds"] * 2
+        )
+        for fps in (5, 10, 30):
+            frames = read_frames(output / f"minimap-{fps}fps.mp4")
+            self.assertEqual(len(frames), fps * 4)
+            self.assertEqual([number(f) for f in frames], list(range(0, 120, 30 // fps)))
+        for variant in manifest["variants"]:
+            self.assertEqual(variant["duration_seconds"], 4)
+
+    def test_double_speed_trim_and_comparison_use_source_seconds(self):
+        output = self.root / "double-trim"
+        manifest = prepare_video(
+            self.video, self.profile, output, start=0.2, duration=1, playback_speed=2
+        )
+        self.assertEqual(manifest["expected_output_duration_seconds"], 2)
+        self.assertEqual(number(read_frames(output / "minimap-30fps.mp4")[0]), 12)
+        report = compare_fps(output, ["0.4:0.5"])
+        self.assertEqual(report["playback_speed"], 2)
+        frames = read_frames(output / "comparison/window-1.mp4")
+        self.assertEqual(len(frames), 30)
+        self.assertEqual(report["windows"][0]["playback_duration_seconds"], 1)
+        for index, frame in enumerate(frames):
+            for column, fps in enumerate((5, 10, 30)):
+                expected = 24 + (index // (30 // fps)) * (30 // fps)
+                self.assertEqual(number(frame[64:, column * 160 : (column + 1) * 160]), expected)
+        still = report["windows"][0]["stills"][-1]
+        self.assertAlmostEqual(still["source_seconds"], 0.4 + 29 / 60)
+        self.assertAlmostEqual(still["game_elapsed_seconds"], 0.4 + 29 / 30)
+        with self.assertRaises(ValueError):
+            compare_fps(output, ["1:0.5"], output=self.root / "outside-double-trim")
+
+    def test_invalid_speed_and_insufficient_effective_rate(self):
+        for speed in (0, -1, float("nan"), float("inf"), True, "2"):
+            with self.subTest(speed=speed), self.assertRaises(ValueError):
+                prepare_video(
+                    self.video, self.profile, self.root / "bad-speed", playback_speed=speed
+                )
+        with self.assertRaisesRegex(ValueError, "game time"):
+            prepare_video(
+                self.output / "minimap-30fps.mp4",
+                self.profile,
+                self.root / "too-slow-at-double",
+                playback_speed=2,
+            )
+
     def test_matroska_timestamp_quantisation_keeps_30fps_observations(self):
         # OBS MKV timestamps may be rounded to milliseconds (0, 33, 67 ms).
         # Always rounding upwards would drop/repeat observations at an unchanged rate.
@@ -241,6 +295,56 @@ class VideoPreparationTests(unittest.TestCase):
 
 
 class ProfileTests(unittest.TestCase):
+    def test_interactive_edges_expand_without_leaving_source(self):
+        cases = [
+            ((2, 4, 5, 7), (20, 20), [2, 4, 8, 12]),
+            ((15, 13, 5, 7), (20, 20), [14, 12, 20, 20]),
+            ((2, 4, 6, 8), (20, 20), [2, 4, 8, 12]),
+            ((0, 0, 19, 17), (19, 17), [0, 0, 18, 16]),
+        ]
+        for roi, size, expected in cases:
+            with self.subTest(roi=roi, size=size):
+                self.assertEqual(even_selection(roi, size), expected)
+        with self.assertRaises(RuntimeError):
+            even_selection((0, 0, 0, 0), (20, 20))
+        with self.assertRaises(ValueError):
+            even_selection((18, 0, 5, 4), (20, 20))
+
+    def test_odd_selection_previews_native_pixels_and_saves_only_after_confirmation(self):
+        frame = np.arange(20 * 20 * 3, dtype=np.uint8).reshape(20, 20, 3)
+        for key in (13, 27):
+            with self.subTest(key=key), tempfile.TemporaryDirectory() as directory:
+                target = Path(directory) / "crop.json"
+                cap = Mock()
+                cap.read.return_value = (True, frame)
+                with (
+                    patch(
+                        "stratscout.video_profiles.probe",
+                        return_value={
+                            "width": 20,
+                            "height": 20,
+                            "duration_seconds": 10,
+                        },
+                    ),
+                    patch("cv2.VideoCapture", return_value=cap),
+                    patch("cv2.namedWindow"),
+                    patch("cv2.selectROI", return_value=(2, 4, 5, 7)),
+                    patch("cv2.destroyWindow"),
+                    patch("cv2.imshow") as preview,
+                    patch("cv2.waitKey", return_value=key),
+                    patch("cv2.destroyAllWindows"),
+                    patch("builtins.print"),
+                ):
+                    if key == 13:
+                        create_profile("unused.mkv", target)
+                        self.assertEqual(load_profile(target)["crop"], [2, 4, 8, 12])
+                    else:
+                        with self.assertRaisesRegex(RuntimeError, "cancelled"):
+                            create_profile("unused.mkv", target)
+                        self.assertFalse(target.exists())
+                    np.testing.assert_array_equal(preview.call_args.args[1], frame[4:12, 2:8])
+                    cap.release.assert_called_once()
+
     def test_invalid_profiles(self):
         good = {"schema_version": 1, "source_resolution": [192, 128], "crop": [0, 0, 160, 112]}
         for crop in (
@@ -258,10 +362,10 @@ class ProfileTests(unittest.TestCase):
             validate_profile(good, (2560, 1440))
         with self.assertRaises(ValueError):
             validate_profile({})
-        actual = load_profile(
-            Path(__file__).resolve().parents[1] / "configs/falcons-furia-video.json"
-        )
-        self.assertEqual(actual["crop"], [16, 12, 508, 510])
+        with tempfile.TemporaryDirectory() as directory:
+            profile = Path(directory) / "crop.json"
+            profile.write_text(json.dumps(good), encoding="utf-8")
+            self.assertEqual(load_profile(profile), good)
 
     def test_window_syntax(self):
         self.assertEqual(parse_window("55:10"), (55, 10))

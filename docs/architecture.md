@@ -34,6 +34,21 @@ their encoding logic. Preparation/comparison depend on `media`. Capture is manua
 dependency. See [recording setup](recording-setup.md) for
 formats, paths and recovery semantics.
 
+Preparation manifests now use schema 2 with `playback_speed` and explicit timeline
+mapping. Trim bounds remain source-video seconds. Normal-time output duration is
+retained source duration multiplied by playback speed. Comparison accepts older
+schema-1 bundles as speed 1. The batch prompts for speed/start/end for new recordings;
+answers are recorded in the output manifest, with no per-video settings sidecars.
+Completed bundles reuse their recorded settings without prompting. An explicit
+non-interactive mode processes whole files with a supplied/default speed and crop.
+The batch default is 2× for current 1440p/60 fps captures. The standalone
+`prepare-video` API remains explicit: pass `--playback-speed 2` for accelerated input.
+No capture-specific profile ships with the repository; first use selects the crop.
+Speed correction precedes canonical sampling; crop profiles remain independent.
+Batch folder names use cleaned source filenames. Manifest source hashes still drive
+reuse, including legacy hash-only folders and renamed sources. Name collisions get
+a hash suffix; display names do not replace match identities used for dataset splits.
+
 ## Explicit state
 
 Functions that previously read notebook globals now accept keyword-only `context`.
@@ -47,12 +62,12 @@ from stratscout.segmentation import find_icons_teams
 from stratscout.video import extract_clip
 
 context = RunContext(Config(), device="cpu")
-frames = extract_clip("recording.mp4", 60, 65, (16, 12, 508, 510), n_frames=32)
+frames = extract_clip("normal-speed.mp4", 60, 65, context.config.crop_box, n_frames=32)
 points = find_icons_teams(frames[0], context=context)  # RGB, normalised x/y/team
 ```
 
-The crop above is an example from one recording, not a universal default. Validate
-the crop for each source. `RunContext.config` replaces `CFG`; `context.device`
+Set `context.config.crop_box` to reviewed bounds for the normal-speed input before
+this example. Validate the crop for each source. `RunContext.config` replaces `CFG`; `context.device`
 replaces `DEVICE`. Intermediate results use `context.state`, retaining familiar
 names such as `VIDEOS`, `CROPS`, `detector`, `DATA`, `RESULTS` and `pipeline`.
 Each run owns its own dictionary and caches. Do not introduce module-level run state.

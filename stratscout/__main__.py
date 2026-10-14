@@ -29,8 +29,9 @@ def main(argv=None):
     prepare.add_argument("--profile", type=Path, required=True)
     prepare.add_argument("--fps", type=int, nargs="+", default=[5, 10, 30])
     prepare.add_argument("--output", type=Path, required=True)
-    prepare.add_argument("--start", type=float, default=0)
-    prepare.add_argument("--duration", type=float)
+    prepare.add_argument("--start", type=float, default=0, help="Trim start in raw-video seconds")
+    prepare.add_argument("--duration", type=float, help="Retained duration in raw-video seconds")
+    prepare.add_argument("--playback-speed", type=float, default=1, help="Demo playback multiplier")
     prepare.add_argument("--match-id")
     compare = sub.add_parser(
         "compare-fps", help="Compare visual quality, timing, size and decode cost"
@@ -45,13 +46,28 @@ def main(argv=None):
     batch.add_argument("--profile", type=Path, default=Path("configs/recording-video.json"))
     batch.add_argument("--output", type=Path, default=Path("data/processed/recordings"))
     batch.add_argument("--at", type=float, default=10, help="First crop preview time in seconds")
+    batch.add_argument(
+        "--playback-speed", type=float, default=2, help="Default speed for new recordings (2x)"
+    )
+    batch.add_argument(
+        "--non-interactive",
+        action="store_true",
+        help="Keep whole videos without prompts; requires a crop profile",
+    )
     args = parser.parse_args(argv)
     if args.command not in ("prototype", "ingest"):
         try:
             if args.command == "process-recordings":
                 from .recording_batch import process_recordings
 
-                process_recordings(args.input, args.profile, args.output, at=args.at)
+                process_recordings(
+                    args.input,
+                    args.profile,
+                    args.output,
+                    at=args.at,
+                    playback_speed=args.playback_speed,
+                    interactive=not args.non_interactive,
+                )
             elif args.command == "video-profile":
                 from .video_profiles import create_profile
 
@@ -68,6 +84,7 @@ def main(argv=None):
                     start=args.start,
                     duration=args.duration,
                     match_id=args.match_id,
+                    playback_speed=args.playback_speed,
                 )
                 print(
                     f"Validated {len(result['variants'])} variants: {args.output / 'manifest.json'}"
@@ -77,10 +94,8 @@ def main(argv=None):
 
                 compare_fps(args.input, args.windows, output=args.output)
                 print(f"Comparison: {(args.output or args.input / 'comparison') / 'report.html'}")
-        except KeyboardInterrupt:
-            parser.exit(
-                130, "StratScout: cancelled; source preserved. Check incomplete run metadata.\n"
-            )
+        except (KeyboardInterrupt, EOFError):
+            parser.exit(130, "StratScout: cancelled or terminal input closed; source preserved.\n")
         except (OSError, ValueError, RuntimeError, TypeError, subprocess.SubprocessError) as exc:
             parser.exit(1, f"StratScout: {exc}\n")
         return

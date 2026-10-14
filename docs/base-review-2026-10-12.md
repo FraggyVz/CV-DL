@@ -1,5 +1,9 @@
 # Shared Base Review — 12 October 2026
 
+> **Capture reset, 14 October:** old recordings, crop profiles and unlabelled pilot
+> caches were removed at the user's request. File inventories below are historical.
+> Use the current recording guide for the new 1440p/60 fps, 2× workflow.
+
 > This review records the pre-refactor state at `00e024f`. The code has since moved
 > into Python modules; see [architecture](architecture.md). Dependencies and regression
 > tests now exist. B-prime is disabled by default and experiment checkpoints refuse

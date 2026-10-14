@@ -34,8 +34,9 @@ def compare_fps(directory, windows, *, output=None):
     if [v["fps"] for v in variants] != [5, 10, 30]:
         raise ValueError("Comparison requires all three rates: 5, 10, 30")
     offset = manifest["source_offset_seconds"]
+    speed = manifest.get("playback_speed", 1)
     windows = [parse_window(w) if isinstance(w, str) else w for w in windows]
-    common_duration = min(v["duration_seconds"] for v in variants)
+    common_duration = min(v["duration_seconds"] for v in variants) / speed
     if not windows or any(
         start < offset or start + length > offset + common_duration + 1e-6
         for start, length in windows
@@ -48,11 +49,12 @@ def compare_fps(directory, windows, *, output=None):
         "match_id": manifest["match_id"],
         "source": manifest["source"],
         "source_offset_seconds": offset,
+        "playback_speed": speed,
         "conversion_seconds": manifest["conversion_seconds"],
         "preparation_total_seconds": manifest["total_seconds"],
         "variants": variants,
         "claims": "Visual, timing, storage and decoding cost only. No accuracy or winning rate.",
-        "sampling": "30 fps playback; hold floor((source_time - offset) * rate) until next observation",
+        "sampling": "30 fps normal-time playback; hold floor((source_time-offset)*speed*rate)",
         "windows": [],
     }
     json_write(output / "report.json", report)
@@ -60,11 +62,12 @@ def compare_fps(directory, windows, *, output=None):
         for number, (start, duration) in enumerate(windows):
             caps, current, frames = [], [-1] * 3, [None] * 3
             temporary = output / f"window-{number + 1}.partial.mp4"
-            count = math.ceil(duration * 30 - 1e-8)
+            count = math.ceil(duration * speed * 30 - 1e-8)
             still_indices = sorted({0, count // 2, count - 1})
             window = {
                 "start_seconds": start,
                 "duration_seconds": duration,
+                "playback_duration_seconds": duration * speed,
                 "stills": [],
                 "video": f"window-{number + 1}.mp4",
             }
@@ -115,11 +118,12 @@ def compare_fps(directory, windows, *, output=None):
                         stderr=log,
                     )
                     for index in range(count):
-                        timestamp = start + index / 30
+                        timestamp = start + index / (30 * speed)
+                        game_elapsed = (timestamp - offset) * speed
                         canvas = np.zeros((height + 64, width * 3, 3), np.uint8)
                         observations = []
                         for column, (variant, cap) in enumerate(zip(variants, caps)):
-                            target = int(math.floor((timestamp - offset) * variant["fps"] + 1e-7))
+                            target = int(math.floor(game_elapsed * variant["fps"] + 1e-7))
                             if current[column] == -1:
                                 cap.set(cv2.CAP_PROP_POS_FRAMES, target)
                                 current[column] = target - 1
@@ -131,17 +135,18 @@ def compare_fps(directory, windows, *, output=None):
                                 frames[column] = frame
                             x = column * width
                             canvas[64:, x : x + width] = frames[column]
-                            observation = offset + target / variant["fps"]
+                            observation = offset + target / (variant["fps"] * speed)
                             observations.append(
                                 {
                                     "fps": variant["fps"],
                                     "frame_index": target,
                                     "source_grid_seconds": observation,
+                                    "game_elapsed_seconds": target / variant["fps"],
                                 }
                             )
                             cv2.putText(
                                 canvas,
-                                f"{variant['fps']:g} fps | source {timestamp:.3f}s",
+                                f"{variant['fps']:g} fps | game +{game_elapsed:.3f}s",
                                 (x + 8, 23),
                                 cv2.FONT_HERSHEY_SIMPLEX,
                                 0.5,
@@ -150,7 +155,7 @@ def compare_fps(directory, windows, *, output=None):
                             )
                             cv2.putText(
                                 canvas,
-                                f"Held observation: {observation:.3f}s",
+                                f"Source {timestamp:.3f}s | held {observation:.3f}s",
                                 (x + 8, 48),
                                 cv2.FONT_HERSHEY_SIMPLEX,
                                 0.5,
@@ -166,6 +171,7 @@ def compare_fps(directory, windows, *, output=None):
                                 {
                                     "file": filename,
                                     "source_seconds": timestamp,
+                                    "game_elapsed_seconds": game_elapsed,
                                     "observations": observations,
                                 }
                             )
@@ -214,6 +220,9 @@ def compare_fps(directory, windows, *, output=None):
             "video,img{width:100%;height:auto}td,th{padding:8px;border:1px solid #ccc}"
             "table{border-collapse:collapse}figure{margin:20px 0}</style>"
             f"<h1>Frame-rate comparison: {html.escape(str(manifest['match_id']))}</h1>"
+            f"<p>Capture playback speed: {speed:g}x. Previews play at normal game speed. "
+            "Window start/duration and source labels use raw-video seconds; game + time "
+            "is elapsed from the retained clip start, not the absolute demo clock.</p>"
             f"<p>{report['claims']}</p><p>Shared conversion: {manifest['conversion_seconds']:.2f}s. "
             "Decode times are complete-file wall times from validation, affected by caching and load; "
             "they exclude the detector. File sizes use decimal MB. Native crop resolution retained.</p>"

@@ -1,8 +1,0 @@
-{
-  "schema_version": 1,
-  "source_resolution": [2560, 1440],
-  "crop": [16, 12, 508, 510],
-  "match_id": "falcons-vs-furia-major-final",
-  "source_sha256": "55df9095664c1e3b1b2cc052f5719e221912cc73cee9b770a70a5cf7b97a647b",
-  "notes": "Previously reviewed native 492x498 crop. Recheck any new recording."
-}

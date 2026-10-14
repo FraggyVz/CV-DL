@@ -18,6 +18,10 @@ __pycache__/
 data/raw/
 # Per-machine crop selected by the inbox workflow
 /configs/recording-video.json
+# Generated prototype crop/frame caches; never commit recording-specific samples.
+/crops.json
+/pilot_frames.npy
+/pilot_frames_sources.json
 data_radar/
 runs/
 debug.log
