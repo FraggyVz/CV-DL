@@ -10,7 +10,7 @@ import or duplicated notebook implementation. Normal Python imports connect modu
 |---|---|
 | `config`, `context`, `contracts` | Configuration, per-run state, `Round` and shape contracts |
 | `video`, `pilot` | Video discovery, crop detection, extraction and pilot caches |
-| `segmentation`, `preprocessing`, `detector` | Colour baseline, RGB tensors and CNN heatmaps |
+| `segmentation`, `preprocessing`, `detector` | Colour baseline with badge shape exclusion, RGB tensors and CNN heatmaps |
 | `synthetic` | Mirage geometry, backgrounds and synthetic rounds |
 | `datasets`, `models`, `training`, `evaluation` | Samples, four classifiers, optimisation and metrics |
 | `tracking`, `features`, `pipeline` | Fixed slots, trajectory features and two-head inference |
@@ -21,6 +21,7 @@ import or duplicated notebook implementation. Normal Python imports connect modu
 | `media`, `video_profiles`, `video_preparation` | FFmpeg/probe helpers, half-open crops, aligned native-resolution exports |
 | `fps_comparison` | Independent visual/timing/storage reports from prepared videos |
 | `recording_batch` | Inbox scan, shared crop, safe reruns and automatic preparation/comparison |
+| `bomb` | Shape-based C4 badge detection and unreviewed dropped-bomb candidates ([bomb detection](bomb-detection.md)) |
 
 The [migration inventory](module-inventory.json) maps all 125 original functions and
 classes to their current modules and original zero-based notebook cell indices.

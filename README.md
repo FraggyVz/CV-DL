@@ -170,6 +170,18 @@ The prototype does not consume the preparation manifest or correct 2× raw timin
 automatically; this example selects inputs only. Establish normal-time samples and
 reviewed labels before using the new capture for model training.
 
+## Bomb badge scan
+
+The C4 badge is found by shape (a filled rectangle among round player icons); the colour
+baseline now skips it. Carried and dropped badges look identical, so a still badge with
+no T nearby for 2 s is listed as a dropped candidate for review:
+
+```powershell
+python -m stratscout bomb-scan --video data/processed/recordings/<match>/minimap-5fps.mp4 --output runs/bomb-scan/<match>
+```
+
+Candidates are unreviewed, not labels. See [bomb detection](docs/bomb-detection.md).
+
 ## Notebooks and demo ingest
 
 - `stratscout_prototype.ipynb`: inspect each vision/training/report step.

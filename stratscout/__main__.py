@@ -54,10 +54,39 @@ def main(argv=None):
         action="store_true",
         help="Keep whole videos without prompts; requires a crop profile",
     )
+    bomb = sub.add_parser("bomb-scan", help="Find the C4 badge by shape; list dropped candidates")
+    bomb.add_argument("--video", type=Path, required=True, help="Prepared minimap video")
+    bomb.add_argument("--output", type=Path, required=True, help="New folder; must not exist")
+    bomb.add_argument("--near", type=int, default=40, help="T-proximity radius in pixels")
+    bomb.add_argument("--min-seconds", type=float, default=2.0, help="Shortest still run")
+    bomb.add_argument("--t-hue", type=float, default=27.0, help="T icon hue (OpenCV 0-180)")
+    bomb.add_argument(
+        "--hue-band",
+        type=float,
+        nargs=2,
+        help="Also require badge hue in LOW HIGH (shape only if omitted)",
+    )
     args = parser.parse_args(argv)
     if args.command not in ("prototype", "ingest"):
         try:
-            if args.command == "process-recordings":
+            if args.command == "bomb-scan":
+                from .bomb import write_bomb_scan
+                from .context import RunContext
+
+                summary = write_bomb_scan(
+                    args.video,
+                    args.output,
+                    near_px=args.near,
+                    min_seconds=args.min_seconds,
+                    t_hue=args.t_hue,
+                    hue_band=tuple(args.hue_band) if args.hue_band else None,
+                    context=RunContext(),
+                )
+                print(
+                    f"Badge found in {summary['frames_with_badge']}/{summary['frames']} frames; "
+                    f"{summary['dropped_candidates']} dropped candidates: {args.output}"
+                )
+            elif args.command == "process-recordings":
                 from .recording_batch import process_recordings
 
                 process_recordings(

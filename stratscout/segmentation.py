@@ -18,6 +18,33 @@ def _hue_dist(a: float, b: float) -> float:
     return min(d, 180 - d)
 
 
+def blob_shape(blob: np.ndarray) -> Dict[str, float]:
+    """Shape of one binary blob cropped to its bounding box. Holes (digits, the C4 text) are
+    filled first. A rectangle fills its bounding-box corners; a circle leaves them empty."""
+    h, w = blob.shape
+    contours, _ = cv2.findContours(blob.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    filled = np.zeros((h, w), np.uint8)
+    cv2.drawContours(filled, contours, -1, 1, -1)
+    k = max(2, min(w, h) // 5)
+    corners = [filled[:k, :k], filled[:k, -k:], filled[-k:, :k], filled[-k:, -k:]]
+    return {
+        "aspect": w / max(h, 1),
+        "extent": float(filled.mean()),
+        "corner_fill": float(np.mean([c.mean() for c in corners])),
+    }
+
+
+def looks_like_bomb(area: int, shape: Dict[str, float], *, context) -> bool:
+    """The C4 badge is a wide, filled rectangle; player icons are round."""
+    c = context.config
+    return (
+        c.bomb_area[0] <= area <= c.bomb_area[1]
+        and shape["aspect"] >= c.bomb_min_aspect
+        and shape["extent"] >= c.bomb_min_extent
+        and shape["corner_fill"] >= c.bomb_min_corner_fill
+    )
+
+
 def learn_background(frames: np.ndarray, sample: int = 150) -> np.ndarray:
     """Median frame: the map, with the players removed."""
     idx = np.linspace(0, len(frames) - 1, min(sample, len(frames))).astype(int)
@@ -90,6 +117,11 @@ def find_icons_teams(
         bw, bh = (stats[i, cv2.CC_STAT_WIDTH], stats[i, cv2.CC_STAT_HEIGHT])
         if max(bw, bh) > 3 * max(min(bw, bh), 1):
             continue
+        if a >= context.config.bomb_area[0]:
+            x0, y0 = stats[i, cv2.CC_STAT_LEFT], stats[i, cv2.CC_STAT_TOP]
+            blob = lab[y0 : y0 + bh, x0 : x0 + bw] == i
+            if looks_like_bomb(a, blob_shape(blob), context=context):
+                continue  # its hue is close to T yellow, so colour alone counts it as a player
         ys, xs = np.nonzero(lab == i)
         sat = hsv[ys, xs, 1].astype(np.float32)
         wt = sat**2

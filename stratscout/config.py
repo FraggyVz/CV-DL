@@ -34,6 +34,11 @@ class Config:
     icon_area: Tuple[int, int] = (6, 250)
     hue_tol: float = 22.0
     bg_thresh: int = 40
+    # C4 badge shape rule, measured on 494x500 spectator-radar crops (docs/bomb-detection.md).
+    bomb_area: Tuple[int, int] = (120, 450)
+    bomb_min_aspect: float = 1.15
+    bomb_min_extent: float = 0.80
+    bomb_min_corner_fill: float = 0.30
     det_stride: int = 1
     det_sigma: float = 1.0
     det_epochs: int = 25
