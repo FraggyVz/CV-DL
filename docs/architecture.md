@@ -22,6 +22,7 @@ import or duplicated notebook implementation. Normal Python imports connect modu
 | `fps_comparison` | Independent visual/timing/storage reports from prepared videos |
 | `recording_batch` | Inbox scan, shared crop, safe reruns and automatic preparation/comparison |
 | `bomb`, `rounds`, `live_preview` | Colour-then-shape C4 badge detection, unreviewed dropped-bomb candidates, video-only round estimates and an interactive detection preview ([bomb detection](bomb-detection.md)) |
+| `icon_split`, `count_eval` | Per-team masks with overlapping-icon splitting and the all-alive team-count evaluation ([overlapping icons](icon-split.md)) |
 
 The [migration inventory](module-inventory.json) maps all 125 original functions and
 classes to their current modules and original zero-based notebook cell indices.

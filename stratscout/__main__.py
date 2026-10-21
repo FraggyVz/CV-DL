@@ -75,6 +75,13 @@ def main(argv=None):
     live.add_argument("--min-seconds", type=float, default=2.0, help="Still time before dropped")
     live.add_argument("--t-hue", type=float, default=27.0, help="T icon hue (OpenCV 0-180)")
     live.add_argument("--scale", type=int, default=2, help="Display magnification")
+    counts = sub.add_parser(
+        "icon-count-eval", help="Fit icon splitting on some matches; score team counts on others"
+    )
+    counts.add_argument("--train", nargs="+", required=True, help="Match name fragments to fit on")
+    counts.add_argument("--test", nargs="+", required=True, help="Held-out match name fragments")
+    counts.add_argument("--output", type=Path, required=True, help="New folder; must not exist")
+    counts.add_argument("--fps", type=int, default=5, help="Prepared variant to evaluate")
     args = parser.parse_args(argv)
     if args.command not in ("prototype", "ingest"):
         try:
@@ -95,6 +102,23 @@ def main(argv=None):
                     f"Badge found in {summary['frames_with_badge']}/{summary['frames']} frames; "
                     f"{summary['dropped_candidates']} dropped candidates: {args.output}"
                 )
+            elif args.command == "icon-count-eval":
+                from .count_eval import run_count_eval
+                from .live_preview import choose_match, list_matches, match_video
+
+                matches = list_matches()
+                pick = lambda names: [
+                    match_video(choose_match(matches, n), args.fps) for n in names
+                ]  # noqa: E731
+                report = run_count_eval(pick(args.train), pick(args.test), args.output)
+                print(f"Fitted parameters: {report['params']}")
+                for video, r in report["results"].items():
+                    b, s = r["baseline"]["mean_exact5"], r["split_icons"]["mean_exact5"]
+                    print(
+                        f"{r['split']:5} {Path(video).parent.name}: frames with 5 T and 5 CT "
+                        f"cells {b:.1%} -> {s:.1%}"
+                    )
+                print(f"Report: {args.output / 'report.json'}")
             elif args.command == "bomb-preview":
                 from .live_preview import choose_match, list_matches, live_preview, match_video
 

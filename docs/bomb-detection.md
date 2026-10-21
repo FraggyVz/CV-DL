@@ -112,7 +112,8 @@ python -m stratscout bomb-preview --video data/processed/recordings/<match>/mini
 Plays a prepared video (10 fps by default) with live T/CT colour-baseline detections and
 the bomb state. When the bomb is carried, the hidden carrier is drawn as an inferred T at the
 badge centre ("+ 1 carrier under badge") unless the colour baseline already found a T there.
-Overlapping icons of the same team still merge and are missed. The bomb state comes from
+Players come from the split detector, so overlapping icons of one team are counted
+separately ([overlapping icons](icon-split.md)). The bomb state comes from
 `BombStateTracker`, the frame-by-frame form of the candidate rule.
 Space plays/pauses at normal speed; → fast-forwards and ← rewinds (press again for 2×, 4×, 8×,
 16×); K/L jump 5 s back/forward; N/B step one frame; `[`/`]` jump to the previous/next

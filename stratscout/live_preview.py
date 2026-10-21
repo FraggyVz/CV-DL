@@ -25,9 +25,9 @@ from .bomb import (
 )
 from .config import Config
 from .context import RunContext
+from .icon_split import find_icons_split
 from .rounds import cached_rounds, round_at
 from .rounds import video_background as bgr_background
-from .segmentation import find_icons_teams
 
 WINDOW = "StratScout live detection"
 # cv2.waitKeyEx codes for the arrow keys on Windows.
@@ -66,7 +66,7 @@ def detect(
     hues = {"T": t_hue, "CT": SPECTATOR_CT_HUE}
     players = [
         (x * w, y * h, "T" if team == 0 else "CT")
-        for x, y, team in find_icons_teams(rgb, hues, background, context=context)
+        for x, y, team in find_icons_split(rgb, hues, background, context=context)
     ]
     bomb = find_bomb(rgb, context=context)
     rim = {"yellow": 0, "white": 0}
