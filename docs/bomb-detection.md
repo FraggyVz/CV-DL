@@ -68,6 +68,12 @@ At least 4 of either means the carrier is underneath (`carrier_visible`). On Fur
 99% of frames where the badge was moving (certainly carried) passed; 93% of frames in the
 earlier proximity-rule candidates had no rim pixels at all.
 
+Two look-alikes are excluded: rim yellow that matches the empty-map median background (the
+A/B site letters a planted bomb often sits on) and white arrows attached to a cyan CT icon
+(a CT beside or defusing the bomb). With both exclusions, 99.7% of moving badges on
+Furia–Falcons were still judged carried. A yellow ✕ death marker beside the badge still
+reads as a carrier for the ~2 s it is visible, so a drop by death is reported ~2 s late.
+
 This replaced a first rule that counted T yellow within 40 px. That rule misread a still
 carrier hidden under the badge as dropped and a teammate beside a dropped bomb as carried.
 
@@ -84,10 +90,16 @@ The output folder must be new. It contains `track.csv` (per-frame badge position
 pixel counts and the carried flag), `candidates.csv`, an enlarged crop per candidate and `summary.json`.
 Times are normal-game seconds from the trim start, as in the preparation manifest.
 
-With the rim rule, 5 fps scans gave 23 candidates (Furia–Falcons) and 22 (Spirit–Falcons).
+With the rim rule but before the look-alike exclusions, 5 fps scans gave 23 candidates
+(Furia–Falcons) and 22 (Spirit–Falcons).
 Visual inspection found all 45 to be lone badges with no carrier showing, including drops
 with a T teammate standing nearby. The earlier proximity rule's hidden-carrier errors were
-gone. Some lone badges show a white T-shaped mark above them; its meaning is unconfirmed.
+gone. With the exclusions there are 47 and 27. Almost all of the added candidates are
+badges on a bombsite, many with a blinking red outline (apparently planted) or a CT on top
+(apparently defusing); they were previously misread as carried because of the site letter.
+Planted bombs are therefore listed as dropped until a planted state exists, often split
+into several short runs. Some lone badges show a white T-shaped mark above them; its
+meaning is unconfirmed.
 
 ## Live preview
 

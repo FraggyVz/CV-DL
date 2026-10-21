@@ -15,7 +15,14 @@ from typing import Dict, List, Optional, Tuple
 import cv2
 import numpy as np
 
-from .bomb import SPECTATOR_T_HUE, BombStateTracker, carrier_rim, carrier_visible, find_bomb
+from .bomb import (
+    SPECTATOR_CT_HUE,
+    SPECTATOR_T_HUE,
+    BombStateTracker,
+    carrier_rim,
+    carrier_visible,
+    find_bomb,
+)
 from .config import Config
 from .context import RunContext
 from .rounds import cached_rounds, round_at
@@ -25,7 +32,6 @@ from .segmentation import find_icons_teams
 WINDOW = "StratScout live detection"
 # cv2.waitKeyEx codes for the arrow keys on Windows.
 LEFT_ARROW, RIGHT_ARROW = 2424832, 2555904
-SPECTATOR_CT_HUE = 94.0
 # BGR display colours.
 # Contrasting marker colours so detections stand out from the yellow/cyan icons.
 T_COLOUR, CT_COLOUR = (0, 120, 255), (255, 0, 255)
@@ -66,7 +72,7 @@ def detect(
     rim = {"yellow": 0, "white": 0}
     carrier = None
     if bomb is not None:
-        rim = carrier_rim(rgb, bomb, band, t_hue, context=context)
+        rim = carrier_rim(rgb, bomb, band, t_hue, background=background, context=context)
         near = [
             p for p in players if p[2] == "T" and np.hypot(p[0] - bomb["x"], p[1] - bomb["y"]) < 10
         ]

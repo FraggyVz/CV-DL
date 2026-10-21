@@ -18,11 +18,13 @@ from typing import Dict, List, Optional, Tuple
 import cv2
 import numpy as np
 
+from .rounds import video_background
 from .segmentation import blob_shape, looks_like_bomb
 from .storage import write_new_text
 
-# Spectator-radar T yellow measured on both 14 October matches (badge orange is ~16).
+# Spectator-radar icon hues measured on both 14 October matches (badge orange is ~16).
 SPECTATOR_T_HUE = 27.0
+SPECTATOR_CT_HUE = 94.0
 
 
 def find_bomb(
@@ -85,6 +87,8 @@ def carrier_rim(
     band: int = 4,
     t_hue: float = SPECTATOR_T_HUE,
     hue_tol: float = 4.0,
+    background: Optional[np.ndarray] = None,
+    ct_hue: float = SPECTATOR_CT_HUE,
     *,
     context,
 ) -> Dict[str, int]:
@@ -93,23 +97,41 @@ def carrier_rim(
     A carried badge is drawn over its carrier, whose icon edge (yellow) and direction arrow
     (white) show just outside the badge. A dropped badge sits on bare map. Measured on one
     match: 99% of moving (carried) badge frames had >= 4 such pixels; most still, lone
-    badges had none. Teammates further away fall outside the band."""
+    badges had none. Teammates further away fall outside the band.
+
+    Two look-alikes are excluded: yellow that matches the empty-map background (the A/B site
+    letters a bomb often sits on), and white arrows attached to a cyan CT icon."""
     cfg = context.config
     h, w = frame.shape[:2]
     x0, y0, bw, bh = bomb["box"]
-    ox0, oy0 = max(x0 - band, 0), max(y0 - band, 0)
-    ox1, oy1 = min(x0 + bw + band, w), min(y0 + bh + band, h)
-    hsv = cv2.cvtColor(np.ascontiguousarray(frame[oy0:oy1, ox0:ox1]), cv2.COLOR_RGB2HSV)
-    ring = np.ones(hsv.shape[:2], bool)
-    ring[y0 - oy0 : y0 - oy0 + bh, x0 - ox0 : x0 - ox0 + bw] = False
+    m = band + 10  # wider window so a whole arrow and the icon it belongs to are visible
+    wx0, wy0 = max(x0 - m, 0), max(y0 - m, 0)
+    wx1, wy1 = min(x0 + bw + m, w), min(y0 + bh + m, h)
+    win = np.ascontiguousarray(frame[wy0:wy1, wx0:wx1])
+    hsv = cv2.cvtColor(win, cv2.COLOR_RGB2HSV)
+    ring = np.zeros(hsv.shape[:2], bool)
+    ring[
+        max(y0 - band - wy0, 0) : y0 + bh + band - wy0,
+        max(x0 - band - wx0, 0) : x0 + bw + band - wx0,
+    ] = True
+    ring[y0 - wy0 : y0 - wy0 + bh, x0 - wx0 : x0 - wx0 + bw] = False
     hue = hsv[:, :, 0].astype(np.float32)
-    d = np.minimum(np.abs(hue - t_hue), 180 - np.abs(hue - t_hue))
+
+    def near(target: float, tol: float) -> np.ndarray:
+        d = np.abs(hue - target)
+        return np.minimum(d, 180 - d) <= tol
+
     vivid = (hsv[:, :, 1] >= cfg.sat_min) & (hsv[:, :, 2] >= cfg.val_min)
-    white = (hsv[:, :, 1] < 50) & (hsv[:, :, 2] > 200)
-    return {
-        "yellow": int((ring & vivid & (d <= hue_tol)).sum()),
-        "white": int((ring & white).sum()),
-    }
+    yellow = ring & vivid & near(t_hue, hue_tol)
+    if background is not None:
+        bg = background[wy0:wy1, wx0:wx1].astype(np.int16)
+        yellow &= np.abs(win.astype(np.int16) - bg).sum(-1) > cfg.bg_thresh
+    white = ((hsv[:, :, 1] < 50) & (hsv[:, :, 2] > 200)).astype(np.uint8)
+    ct = cv2.dilate((vivid & near(ct_hue, 6)).astype(np.uint8), np.ones((5, 5), np.uint8))
+    n, lab = cv2.connectedComponents(white, connectivity=8)
+    ct_arrows = np.unique(lab[(ct > 0) & (lab > 0)])
+    white_ok = (lab > 0) & ~np.isin(lab, ct_arrows)
+    return {"yellow": int(yellow.sum()), "white": int((ring & white_ok).sum())}
 
 
 def carrier_visible(rim: Dict[str, int], min_pixels: int = 4) -> bool:
@@ -130,6 +152,9 @@ def scan_video(
     if not cap.isOpened():
         raise ValueError(f"cannot open video: {path}")
     fps = float(cap.get(cv2.CAP_PROP_FPS)) or 1.0
+    total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    background = cv2.cvtColor(video_background(cap, total), cv2.COLOR_BGR2RGB)
+    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
     rows: List[Dict] = []
     i = 0
     try:
@@ -142,7 +167,7 @@ def scan_video(
             row = {"frame": i, "seconds": round(i / fps, 3), "x": None, "y": None}
             row.update(rim_yellow=0, rim_white=0, carried=0)
             if b is not None:
-                rim = carrier_rim(rgb, b, band, t_hue, context=context)
+                rim = carrier_rim(rgb, b, band, t_hue, background=background, context=context)
                 row.update(x=round(b["x"], 1), y=round(b["y"], 1))
                 row.update(rim_yellow=rim["yellow"], rim_white=rim["white"])
                 row["carried"] = int(carrier_visible(rim))

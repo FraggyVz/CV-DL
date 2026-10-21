@@ -99,6 +99,32 @@ class BombShapeTests(unittest.TestCase):
         # A teammate 30 px away is outside the rim band, unlike the old 40 px proximity rule.
         self.assertFalse(carrier_visible(self.rim(radar(t_icons=((150, 130),)))))
 
+    def test_yellow_map_art_under_the_rim_is_ignored_with_a_background(self):
+        frame = radar(t_icons=((40, 40),))
+        cv2.rectangle(frame, (135, 85), (166, 116), T_YELLOW, -1)  # a yellow site letter
+        frame = radar_badge_on(frame)
+        background = frame.copy()  # the letter is part of the empty map
+        b = find_bomb(frame, context=self.ctx)
+        self.assertTrue(carrier_visible(carrier_rim(frame, b, context=self.ctx)))
+        rim = carrier_rim(frame, b, background=background, context=self.ctx)
+        self.assertFalse(carrier_visible(rim))
+
+    def test_a_ct_arrow_touching_the_badge_is_not_a_carrier(self):
+        frame = radar(t_icons=((40, 40),), ct_icons=((122, 100),))
+        arrow = np.array([[131, 96], [131, 104], [139, 100]], np.int32)  # CT arrow tip at badge
+        cv2.fillPoly(frame, [arrow], (255, 255, 255))
+        rim = self.rim(frame)
+        self.assertEqual(rim["white"], 0)
+        self.assertFalse(carrier_visible(rim))
+
+
+def radar_badge_on(frame, badge=(150, 100)):
+    """Draw the badge over an existing frame (used to put it on top of map art)."""
+    x, y = badge
+    cv2.rectangle(frame, (x - 11, y - 7), (x + 10, y + 7), BADGE_ORANGE, -1)
+    cv2.rectangle(frame, (x + 1, y - 4), (x + 7, y), (150, 80, 20), -1)
+    return frame
+
 
 class DroppedCandidateTests(unittest.TestCase):
     @staticmethod
