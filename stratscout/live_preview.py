@@ -173,7 +173,9 @@ def live_preview(
     if current is None:
         raise ValueError(f"no frame at {start}s in {video}")
     playing = True
-    cv2.namedWindow(WINDOW, cv2.WINDOW_AUTOSIZE)
+    # Resizable: the frame is scaled to the window, keeping its aspect ratio.
+    cv2.namedWindow(WINDOW, cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)
+    sized = False
     try:
         while True:
             t0 = time.perf_counter()
@@ -184,7 +186,11 @@ def live_preview(
                 f"{int(secs) // 60:02d}:{secs % 60:05.2f} ({secs:.2f}s)",
                 "Space: play/pause | N/B: next/previous frame | A/D: -/+5 seconds | Q/Esc: quit",
             ]
-            cv2.imshow(WINDOW, draw(bgr, found, state, tracker, status, near_px, scale))
+            img = draw(bgr, found, state, tracker, status, near_px, scale)
+            if not sized:
+                cv2.resizeWindow(WINDOW, img.shape[1], img.shape[0])
+                sized = True
+            cv2.imshow(WINDOW, img)
             wait = max(int(1000 / fps - (time.perf_counter() - t0) * 1000), 1) if playing else 0
             key = cv2.waitKey(wait) & 0xFF
             if key in (ord("q"), 27) or cv2.getWindowProperty(WINDOW, cv2.WND_PROP_VISIBLE) < 1:
