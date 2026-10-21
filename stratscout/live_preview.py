@@ -23,6 +23,8 @@ from .rounds import video_background as bgr_background
 from .segmentation import find_icons_teams
 
 WINDOW = "StratScout live detection"
+# cv2.waitKeyEx codes for the arrow keys on Windows.
+LEFT_ARROW, RIGHT_ARROW = 2424832, 2555904
 SPECTATOR_CT_HUE = 94.0
 # BGR display colours.
 # Contrasting marker colours so detections stand out from the yellow/cyan icons.
@@ -178,7 +180,8 @@ def live_preview(
     context: Optional[RunContext] = None,
 ) -> None:
     """Open an interactive window. Space play/pause, N/B next/previous frame,
-    A/D back/forward 5 s, [ and ] previous/next round, Q or Esc to quit.
+    A/D back/forward 5 s, J/L or Left/Right arrows back/forward 10 s, [ and ] previous/next
+    round, Q or Esc to quit.
     Rounds are estimated on rounds_video (a faster variant of the same match) if given."""
     context = context or spectator_context()
     print("Estimating rounds from spawn occupancy (cached after the first run)...")
@@ -244,7 +247,7 @@ def live_preview(
                 f"{'PLAYING' if playing else 'PAUSED'} | {round_label(rnd, len(rounds))} | "
                 f"round time {int(into) // 60}:{int(into) % 60:02d} | "
                 f"match {int(secs) // 60:02d}:{secs % 60:05.2f} | frame {index}",
-                "Space: play/pause | N/B: next/previous frame | A/D: -/+5 seconds",
+                "Space: play/pause | N/B: next/previous frame | A/D: -/+5 s | J/L or arrows: -/+10 s",
                 "[ / ]: previous/next round | Q/Esc: quit",
             ]
             img = draw(bgr, found, state, tracker, status, scale)
@@ -253,7 +256,8 @@ def live_preview(
                 sized = True
             cv2.imshow(WINDOW, img)
             wait = max(int(1000 / fps - (time.perf_counter() - t0) * 1000), 1) if playing else 0
-            key = cv2.waitKey(wait) & 0xFF
+            raw = cv2.waitKeyEx(wait)
+            key = -1 if raw == -1 else raw & 0xFF
             if key in (ord("q"), 27) or cv2.getWindowProperty(WINDOW, cv2.WND_PROP_VISIBLE) < 1:
                 break
             target = None
@@ -263,6 +267,10 @@ def live_preview(
                 playing, target = False, "next"
             elif key == ord("b"):
                 playing, target = False, index - 1
+            elif key == ord("j") or raw == LEFT_ARROW:
+                target = index - int(10 * fps)
+            elif key == ord("l") or raw == RIGHT_ARROW:
+                target = index + int(10 * fps)
             elif key == ord("a"):
                 target = index - int(5 * fps)
             elif key == ord("d"):
