@@ -1,17 +1,18 @@
 """Icon split: count and place overlapping player icons of the same team.
 
-Every player icon is a disc of the same size, so a same-team blob much larger than one
-icon holds several. The number of icons is estimated from blob area, and their centres
-from k-means on the blob's pixel coordinates. Each team gets its own colour mask, so a T
-touching a CT stays two blobs. Video-only; the original colour baseline in segmentation.py
-is unchanged and remains the comparison point.
+Every player icon is a disc of the same size with a white direction arrow attached. Each
+team gets its own colour mask, so a T touching a CT stays two blobs. A blob with no white
+arrow attached is a death marker (✕), not a player. The number of icons in a blob is chosen
+by fitting k equal discs (k-means centres) and keeping the k whose union best matches the
+blob (IoU); the older area rule is kept for comparison. Each team is capped at five.
+Video-only; the original colour baseline in segmentation.py is unchanged.
 All processing is explicit; importing this module does not run a workflow.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Sequence
 
 import cv2
 import numpy as np
@@ -23,17 +24,57 @@ TEAMS = ("T", "CT")
 
 @dataclass
 class SplitParams:
-    """single_area: one icon's blob area (px). A blob of at least split_ratio x that holds
-    several icons; each icon after the first adds about extra_area x single_area, because
-    overlapping discs share pixels."""
+    """method "discs" counts icons by disc fitting; "area" uses blob area: a blob of at
+    least split_ratio x single_area holds several icons, each extra one adding about
+    extra_area x single_area. single_area also sets the disc radius. Blobs touching fewer
+    than min_arrow_px white pixels are death markers (0 disables). max_per_team caps a
+    team's icons (5v5); None disables."""
 
-    # Fitted by icon-count-eval on Furia-Falcons and Spirit-Falcons (494x500 spectator radar);
-    # held-out NaVi-Falcons all-alive frames showing 5 per team rose from 9% to 63%.
+    # single_area is the median early-play blob area on Furia-Falcons and Spirit-Falcons.
     single_area: float = 246.0
     split_ratio: float = 1.15
     extra_area: float = 0.6
     hue_tol: float = 6.0
     min_area: int = 80
+    max_per_team: Optional[int] = 5
+    method: str = "discs"
+    min_arrow_px: int = 8
+    max_icons_per_blob: int = 5
+
+
+def attached_white(frame: np.ndarray, xs: np.ndarray, ys: np.ndarray, band: int = 4) -> int:
+    """White pixels within band px outside a blob: a player's direction arrow."""
+    h, w = frame.shape[:2]
+    x0, y0 = max(int(xs.min()) - band, 0), max(int(ys.min()) - band, 0)
+    x1, y1 = min(int(xs.max()) + band + 1, w), min(int(ys.max()) + band + 1, h)
+    m = np.zeros((y1 - y0, x1 - x0), np.uint8)
+    m[ys - y0, xs - x0] = 1
+    ring = cv2.dilate(m, np.ones((2 * band + 1, 2 * band + 1), np.uint8)) & (1 - m)
+    hsv = cv2.cvtColor(np.ascontiguousarray(frame[y0:y1, x0:x1]), cv2.COLOR_RGB2HSV)
+    return int(((hsv[:, :, 1] < 60) & (hsv[:, :, 2] > 190) & (ring > 0)).sum())
+
+
+def disc_fits(xs: np.ndarray, ys: np.ndarray, radius: float, k_max: int) -> List[float]:
+    """IoU between the hole-filled blob and the union of k discs at k-means centres, for
+    k = 1..k_max."""
+    x0, y0 = int(xs.min()) - int(radius) - 2, int(ys.min()) - int(radius) - 2
+    w = int(xs.max()) - x0 + int(radius) + 3
+    h = int(ys.max()) - y0 + int(radius) + 3
+    m = np.zeros((h, w), np.uint8)
+    m[ys - y0, xs - x0] = 1
+    contours, _ = cv2.findContours(m, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    filled = np.zeros_like(m)
+    cv2.drawContours(filled, contours, -1, 1, -1)
+    fits = []
+    for k in range(1, k_max + 1):
+        if len(xs) < k:
+            break
+        discs = np.zeros_like(m)
+        for cx, cy in split_centres(xs, ys, k):
+            centre = (int(round(cx - x0)), int(round(cy - y0)))
+            cv2.circle(discs, centre, int(round(radius)), 1, -1)
+        fits.append(float((discs & filled).sum() / max((discs | filled).sum(), 1)))
+    return fits
 
 
 def team_blobs(
@@ -44,8 +85,9 @@ def team_blobs(
     *,
     context,
 ) -> List[Dict]:
-    """RGB frame -> same-team blobs {team, area, xs, ys}. Static map colour (with a
-    background) and the bomb badge are excluded."""
+    """RGB frame -> same-team blobs {team, area, xs, ys, white, fits}. Static map colour
+    (with a background) and the bomb badge are excluded; death markers are kept here (see
+    is_marker) so evaluations can count them."""
     cfg = context.config
     hsv = cv2.cvtColor(frame, cv2.COLOR_RGB2HSV)
     hue = hsv[:, :, 0].astype(np.int16)
@@ -54,6 +96,7 @@ def team_blobs(
         moving = np.abs(frame.astype(np.int16) - background.astype(np.int16)).sum(-1)
         vivid &= moving > cfg.bg_thresh
     kernel = np.ones((3, 3), np.uint8)
+    radius = float(np.sqrt(params.single_area / np.pi))
     blobs = []
     for ti, team in enumerate(TEAMS):
         d = np.abs(hue - team_hues[team])
@@ -69,16 +112,74 @@ def team_blobs(
             ):
                 continue
             ys, xs = np.nonzero(lab[y0 : y0 + bh, x0 : x0 + bw] == i)
-            blobs.append({"team": ti, "area": a, "xs": xs + x0, "ys": ys + y0})
+            xs, ys = xs + x0, ys + y0
+            k_max = min(
+                params.max_icons_per_blob, max(2, int(np.ceil(a / (0.4 * params.single_area))))
+            )
+            blobs.append(
+                {
+                    "team": ti,
+                    "area": a,
+                    "xs": xs,
+                    "ys": ys,
+                    "white": attached_white(frame, xs, ys),
+                    "fits": disc_fits(xs, ys, radius, k_max) if params.method == "discs" else [],
+                }
+            )
     return blobs
 
 
+def is_marker(blob: Dict, params: SplitParams) -> bool:
+    """A team-coloured blob with no attached arrow is a death marker (✕)."""
+    return blob["white"] < params.min_arrow_px
+
+
 def icons_in_blob(area: float, params: SplitParams) -> int:
-    """Estimated number of icons in a same-team blob of this area."""
+    """Area rule: estimated number of icons in a same-team blob of this area."""
     if area < params.split_ratio * params.single_area:
         return 1
     extra = (area - params.single_area) / (params.extra_area * params.single_area)
     return max(2, int(round(extra)) + 1)
+
+
+def blob_icons(blob: Dict, params: SplitParams) -> int:
+    """Icons in one blob before the team cap: 0 for a death marker, else by method."""
+    if is_marker(blob, params):
+        return 0
+    if params.method == "discs" and blob["fits"]:
+        return int(np.argmax(blob["fits"])) + 1
+    return icons_in_blob(blob["area"], params)
+
+
+def allocate(blobs: Sequence[Dict], params: SplitParams, cap: Optional[int] = None) -> List[int]:
+    """Icons per blob for one team, at most cap in total (params.max_per_team if None).
+
+    While the team exceeds the cap, the blob losing least by giving up an icon gives one:
+    the smallest drop in disc-fit IoU ("discs") or the least spare area ("area"). When every
+    blob holds one icon, the worst-fitting (or smallest) blob is dropped."""
+    cap = params.max_per_team if cap is None else cap
+    ks = [blob_icons(b, params) for b in blobs]
+    if cap is None:
+        return ks
+    discs = params.method == "discs"
+
+    def loss(i: int) -> float:
+        b, k = blobs[i], ks[i]
+        if discs and len(b["fits"]) >= k:
+            return b["fits"][k - 1] - b["fits"][k - 2]
+        return b["area"] - params.single_area * (1 + params.extra_area * (k - 1))
+
+    def single_quality(i: int) -> float:
+        b = blobs[i]
+        return b["fits"][0] if discs and b["fits"] else b["area"]
+
+    while sum(ks) > max(cap, 0):
+        multi = [i for i, k in enumerate(ks) if k > 1]
+        if multi:
+            ks[min(multi, key=loss)] -= 1
+        else:
+            ks[min((i for i, k in enumerate(ks) if k), key=single_quality)] = 0
+    return ks
 
 
 def split_centres(xs: np.ndarray, ys: np.ndarray, k: int) -> List[tuple]:
@@ -97,15 +198,23 @@ def find_icons_split(
     team_hues: Dict[str, float],
     background: Optional[np.ndarray] = None,
     params: SplitParams = SplitParams(),
+    t_reserved: int = 0,
     *,
     context,
 ) -> List[List[float]]:
     """-> [[x, y, team], ...] like find_icons_teams (x, y normalised; team 0 = T, 1 = CT),
-    with overlapping same-team icons split into separate detections."""
+    with death markers removed, overlapping same-team icons split and each team capped.
+    t_reserved lowers the T cap, e.g. by one for a carrier hidden under the bomb badge."""
     h, w = frame.shape[:2]
+    blobs = team_blobs(frame, team_hues, background, params, context=context)
     out = []
-    for b in team_blobs(frame, team_hues, background, params, context=context):
-        k = icons_in_blob(b["area"], params)
-        for cx, cy in split_centres(b["xs"], b["ys"], k):
-            out.append([cx / w, cy / h, float(b["team"])])
+    for ti in (0, 1):
+        team = [b for b in blobs if b["team"] == ti]
+        cap = params.max_per_team
+        if cap is not None and ti == 0:
+            cap -= t_reserved
+        for b, k in zip(team, allocate(team, params, cap)):
+            if k:
+                for cx, cy in split_centres(b["xs"], b["ys"], k):
+                    out.append([cx / w, cy / h, float(ti)])
     return out

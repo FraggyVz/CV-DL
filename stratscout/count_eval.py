@@ -1,10 +1,11 @@
-"""Count evaluation: how often each team shows all five players when all five are alive.
+"""Count evaluation: label-free checks of how many players each detector version finds.
 
-No labels are needed: during freeze time and the first seconds after it nobody has died,
-so a correct detector shows 5 T and 5 CT. A hidden bomb carrier counts for the T side when
-the badge shows a carrier at its rim. Split parameters are fitted on training matches and
-scored on held-out matches. This is a proxy for recall in crowded early-round frames, not
-labelled precision/recall, and later-round deaths are not covered.
+During freeze time and the first seconds after it nobody has died, so a correct detector
+shows 5 T and 5 CT. Across a whole match, a team count above five is always wrong. A
+hidden bomb carrier counts for the T side when the badge shows a carrier at its rim.
+Parameters are fitted on training matches and scored on held-out matches. These are
+proxies, not labelled precision/recall: right totals can hide a miss plus a false
+detection, and late-round over-counting below five is not measured.
 All processing is explicit; importing this module does not run a workflow.
 """
 
@@ -13,7 +14,7 @@ from __future__ import annotations
 import itertools
 import json
 from pathlib import Path
-from typing import Dict, List, Sequence
+from typing import Dict, List, Optional, Sequence
 
 import cv2
 import numpy as np
@@ -21,8 +22,8 @@ import numpy as np
 from .bomb import SPECTATOR_CT_HUE, SPECTATOR_T_HUE, carrier_rim, carrier_visible, find_bomb
 from .config import Config
 from .context import RunContext
-from .icon_split import SplitParams, icons_in_blob, team_blobs
-from .rounds import cached_rounds, video_background
+from .icon_split import SplitParams, allocate, team_blobs
+from .rounds import cached_rounds, round_at, video_background
 from .segmentation import find_icons_teams
 from .storage import write_new_text
 
@@ -42,19 +43,44 @@ def all_alive_windows(rounds: List[Dict], early_seconds: float = 8.0) -> List[tu
     return out
 
 
+def _contexts():
+    return RunContext(Config(icon_area=(120, 450), hue_tol=8.0)), RunContext()
+
+
+def _background(cap: cv2.VideoCapture) -> np.ndarray:
+    total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    return cv2.cvtColor(video_background(cap, total), cv2.COLOR_BGR2RGB)
+
+
+def frame_record(rgb: np.ndarray, background: np.ndarray, *, contexts) -> Dict:
+    """Everything needed to count one frame under any version: same-team blobs (area,
+    attached white, disc fits), whether the bomb shows a carrier, and baseline counts."""
+    baseline_ctx, ctx = contexts
+    bomb = find_bomb(rgb, context=ctx)
+    carried = bomb is not None and carrier_visible(
+        carrier_rim(rgb, bomb, background=background, context=ctx)
+    )
+    base = find_icons_teams(rgb, HUES, background, context=baseline_ctx)
+    blobs = [
+        {k: b[k] for k in ("team", "area", "white", "fits")}
+        for b in team_blobs(rgb, HUES, background, context=ctx)
+    ]
+    return {
+        "carried": bool(carried),
+        "blobs": blobs,
+        "baseline": [sum(p[2] == t for p in base) for t in (0, 1)],
+    }
+
+
 def collect(video: Path, early_seconds: float = 8.0) -> List[Dict]:
-    """Per-frame records inside the all-alive windows of one prepared video: same-team blob
-    areas, whether the bomb shows a carrier, and the original baseline's team counts."""
-    baseline_ctx = RunContext(Config(icon_area=(120, 450), hue_tol=8.0))
-    ctx = RunContext()
+    """Frame records inside the all-alive windows of one prepared video."""
+    contexts = _contexts()
     windows = all_alive_windows(cached_rounds(video), early_seconds)
     cap = cv2.VideoCapture(str(video))
     if not cap.isOpened():
         raise ValueError(f"cannot open video: {video}")
     fps = float(cap.get(cv2.CAP_PROP_FPS)) or 1.0
-    background = cv2.cvtColor(
-        video_background(cap, int(cap.get(cv2.CAP_PROP_FRAME_COUNT))), cv2.COLOR_BGR2RGB
-    )
+    background = _background(cap)
     records = []
     try:
         for phase, a, b in windows:
@@ -64,22 +90,8 @@ def collect(video: Path, early_seconds: float = 8.0) -> List[Dict]:
                 if not ok:
                     break
                 rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
-                bomb = find_bomb(rgb, context=ctx)
-                carried = bomb is not None and carrier_visible(
-                    carrier_rim(rgb, bomb, background=background, context=ctx)
-                )
-                base = find_icons_teams(rgb, HUES, background, context=baseline_ctx)
                 records.append(
-                    {
-                        "frame": i,
-                        "phase": phase,
-                        "carried": bool(carried),
-                        "areas": [
-                            (b["team"], b["area"])
-                            for b in team_blobs(rgb, HUES, background, context=ctx)
-                        ],
-                        "baseline": [sum(p[2] == t for p in base) for t in (0, 1)],
-                    }
+                    {"frame": i, "phase": phase, **frame_record(rgb, background, contexts=contexts)}
                 )
     finally:
         cap.release()
@@ -92,8 +104,10 @@ def counts(record: Dict, params: SplitParams = None) -> List[int]:
     if params is None:
         t, ct = record["baseline"]
     else:
-        t = sum(icons_in_blob(a, params) for team, a in record["areas"] if team == 0)
-        ct = sum(icons_in_blob(a, params) for team, a in record["areas"] if team == 1)
+        cap = params.max_per_team
+        t_cap = None if cap is None else cap - int(record["carried"])
+        t = sum(allocate([b for b in record["blobs"] if b["team"] == 0], params, t_cap))
+        ct = sum(allocate([b for b in record["blobs"] if b["team"] == 1], params))
     return [t + int(record["carried"]), ct]
 
 
@@ -119,24 +133,76 @@ def score(records: Sequence[Dict], params: SplitParams = None) -> Dict:
     return out
 
 
-def fit(records: Sequence[Dict]) -> SplitParams:
-    """single_area from early-play blobs (mostly single icons); split_ratio and extra_area
-    by grid search for the highest mean exact-5 rate."""
-    areas = [a for r in records if r["phase"] == "early" for _, a in r["areas"]]
-    single = float(np.median(areas))
+def single_area(records: Sequence[Dict]) -> float:
+    """Median early-play blob area: most of those blobs are single icons."""
+    areas = [b["area"] for r in records if r["phase"] == "early" for b in r["blobs"]]
+    return float(np.median(areas))
+
+
+def fit_area(records: Sequence[Dict], max_per_team: Optional[int]) -> SplitParams:
+    """The area rule: split_ratio and extra_area by grid search for the highest mean
+    exact-5 rate, with or without the cap. Death markers are not removed."""
+    single = single_area(records)
     grid = itertools.product(
         (1.15, 1.2, 1.25, 1.3, 1.35, 1.4, 1.5), (0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1.0)
     )
-    best = max(
-        (SplitParams(single, r, e) for r, e in grid),
-        key=lambda p: score(records, p)["mean_exact5"],
+    candidates = (
+        SplitParams(single, r, e, max_per_team=max_per_team, method="area", min_arrow_px=0)
+        for r, e in grid
     )
-    return best
+    return max(candidates, key=lambda p: score(records, p)["mean_exact5"])
+
+
+def versions(train_records: Sequence[Dict]) -> Dict[str, SplitParams]:
+    """The compared detectors, all with single_area from the training matches. Only the
+    area rules are grid-searched; the disc fit has no tuned threshold."""
+    return {
+        "area_split": fit_area(train_records, None),
+        "area_split_capped": fit_area(train_records, 5),
+        "discs_markers_capped": SplitParams(single_area(train_records)),
+    }
+
+
+def match_counts(video: Path, params: Dict[str, SplitParams], step: int = 2) -> List[Dict]:
+    """[T, CT] per sampled frame of a whole match for the baseline and each version, with
+    the round and the seconds since that round's freeze ended."""
+    rounds = cached_rounds(video)
+    contexts = _contexts()
+    cap = cv2.VideoCapture(str(video))
+    if not cap.isOpened():
+        raise ValueError(f"cannot open video: {video}")
+    fps = float(cap.get(cv2.CAP_PROP_FPS)) or 1.0
+    background = _background(cap)
+    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+    rows, i = [], 0
+    try:
+        while cap.grab():
+            if i % step == 0:
+                ok, bgr = cap.retrieve()
+                if ok:
+                    rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+                    rec = frame_record(rgb, background, contexts=contexts)
+                    r = round_at(rounds, i / fps)
+                    row = {"frame": i, "seconds": round(i / fps, 2), "round": r["round"]}
+                    row["live_seconds"] = round(i / fps - r["start"] - r["freeze"], 2)
+                    row["baseline"] = counts(rec)
+                    row.update({name: counts(rec, p) for name, p in params.items()})
+                    rows.append(row)
+            i += 1
+    finally:
+        cap.release()
+    return rows
+
+
+def impossible_rate(rows: Sequence[Dict], name: str) -> float:
+    """Share of frames where a team count exceeds five (always wrong in 5v5)."""
+    return round(float(np.mean([max(r[name]) > 5 for r in rows])), 4)
 
 
 def run_count_eval(train: List[Path], test: List[Path], output: Path) -> Dict:
-    """Fit on train videos, score baseline and split counts on train and test, and write
-    report.json into a new output folder."""
+    """Fit on train videos; score every version on train and test all-alive frames, count
+    impossible totals over the whole test matches, and write report.json and
+    test-match-counts.json into a new output folder."""
     output = Path(output)
     if output.exists():
         raise ValueError(f"output already exists; choose a new folder: {output}")
@@ -144,12 +210,12 @@ def run_count_eval(train: List[Path], test: List[Path], output: Path) -> Dict:
     for video in [*train, *test]:
         print(f"Collecting all-alive frames: {video}")
         data[str(video)] = collect(video)
-    train_records = [r for v in train for r in data[str(v)]]
-    params = fit(train_records)
+    variants = versions([r for v in train for r in data[str(v)]])
     report = {
-        "claims": "Proxy: share of all-alive frames showing 5 per team. Not labelled accuracy.",
+        "claims": "Proxies: share of all-alive frames showing 5 per team, and share of all "
+        "frames with an impossible (>5) team count. Not labelled accuracy.",
         "fitted_on": [str(v) for v in train],
-        "params": params.__dict__,
+        "params": {name: p.__dict__ for name, p in variants.items()},
         "results": {},
     }
     for split, videos in (("train", train), ("test", test)):
@@ -158,7 +224,16 @@ def run_count_eval(train: List[Path], test: List[Path], output: Path) -> Dict:
             report["results"][str(v)] = {
                 "split": split,
                 "baseline": score(recs),
-                "split_icons": score(recs, params),
+                **{name: score(recs, p) for name, p in variants.items()},
             }
+    full = {}
+    for v in test:
+        print(f"Counting every other frame of the whole match: {v}")
+        rows = match_counts(v, variants)
+        full[str(v)] = rows
+        report["results"][str(v)]["impossible_rate"] = {
+            name: impossible_rate(rows, name) for name in ["baseline", *variants]
+        }
     write_new_text(output / "report.json", json.dumps(report, indent=2))
+    write_new_text(output / "test-match-counts.json", json.dumps(full))
     return report

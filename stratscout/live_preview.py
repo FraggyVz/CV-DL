@@ -64,19 +64,24 @@ def detect(
     added at the badge centre as an inferred T unless the colour baseline already found it."""
     h, w = rgb.shape[:2]
     hues = {"T": t_hue, "CT": SPECTATOR_CT_HUE}
-    players = [
-        (x * w, y * h, "T" if team == 0 else "CT")
-        for x, y, team in find_icons_split(rgb, hues, background, context=context)
-    ]
     bomb = find_bomb(rgb, context=context)
     rim = {"yellow": 0, "white": 0}
-    carrier = None
     if bomb is not None:
         rim = carrier_rim(rgb, bomb, band, t_hue, background=background, context=context)
+    carried = bomb is not None and carrier_visible(rim)
+    # A hidden carrier takes one of the five T slots before the visible icons are counted.
+    players = [
+        (x * w, y * h, "T" if team == 0 else "CT")
+        for x, y, team in find_icons_split(
+            rgb, hues, background, t_reserved=int(carried), context=context
+        )
+    ]
+    carrier = None
+    if carried:
         near = [
             p for p in players if p[2] == "T" and np.hypot(p[0] - bomb["x"], p[1] - bomb["y"]) < 10
         ]
-        if carrier_visible(rim) and not near:
+        if not near:
             carrier = (bomb["x"], bomb["y"])
     return {"players": players, "bomb": bomb, "rim": rim, "carrier": carrier}
 

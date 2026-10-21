@@ -113,7 +113,7 @@ def main(argv=None):
                 report = run_count_eval(pick(args.train), pick(args.test), args.output)
                 print(f"Fitted parameters: {report['params']}")
                 for video, r in report["results"].items():
-                    b, s = r["baseline"]["mean_exact5"], r["split_icons"]["mean_exact5"]
+                    b, s = r["baseline"]["mean_exact5"], r["discs_markers_capped"]["mean_exact5"]
                     print(
                         f"{r['split']:5} {Path(video).parent.name}: frames with 5 T and 5 CT "
                         f"cells {b:.1%} -> {s:.1%}"
