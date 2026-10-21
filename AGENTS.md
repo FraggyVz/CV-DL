@@ -25,7 +25,7 @@ Do not import implementation from notebooks or duplicate it there.
 ## Checks
 
 Use Python 3.13 and `requirements.txt`; development tools are in
-`requirements-dev.txt`. From the root run:
+`requirements-dev.txt`. A local `.venv` (git-ignored) works. From the root run:
 
 ```powershell
 python -m unittest discover -s tests
@@ -43,6 +43,10 @@ Preserve recordings, reviewed annotations and existing checkpoints. Do not regen
 indexed pilot frames without preserving their labels and provenance. Legacy annotation
 and ingest overwrite hazards remain; never target reviewed labels with proposals.
 Group future dataset splits by match. Keep demo-derived truth out of video-only inference.
+For spectator-radar detection, fit on Furia–Falcons and Spirit–Falcons and report
+held-out results on NaVi–Falcons; do not tune on the test match. Label-free count checks
+(`icon-count-eval`) are proxies: confirm changes by reviewing frames (for example with
+`bomb-preview`) and say which version a result belongs to.
 
 Use short imperative commit messages. Each handoff should describe changed modules,
 checks and remaining limitations. Update documentation with behaviour changes and keep

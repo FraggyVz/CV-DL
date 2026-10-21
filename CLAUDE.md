@@ -45,11 +45,54 @@ development/evaluation, but must not leak into video-only inference.
 - OpenCV decoding returns BGR; vision tensors use RGB. Keep input frames uint8
   where preprocessing performs its own division by 255.
 - Centre heatmaps must contain positive peaks; preserve the integer-peak handling.
-- Retain the colour detector as a baseline. Numbers, objective graphics, death
-  markers and overlapping icons need explicit labelled evaluation.
+- Retain the colour detector (`segmentation.find_icons_teams`) as a baseline. Numbers,
+  objective graphics, death markers and overlapping icons need explicit labelled evaluation.
+- Match split for spectator-radar detection work: **fit on Furia–Falcons and
+  Spirit–Falcons, test on NaVi–Falcons.** Never tune thresholds on the held-out match.
 - Do not invent invisible players when annotating overlaps or bomb occlusion.
 - Keep splits grouped by match, including all FPS variants and demo-derived samples.
 - Round winner is an annotation/reporting field, never a vision-model input.
+
+## Spectator-radar detection (`bomb-state` branch)
+
+Three processed matches (Gin's ZIPs, 494×500 native crops, same crop) are used:
+`furia-falcons-mirage-cologne-major-2026`, `spirit-falcons-mirage-cologne-major` and
+`navi-falcons-mirage-cologne-major` under `data/processed/recordings/` (git-ignored).
+
+What the spectator radar shows (measured, OpenCV hue 0–180):
+
+- T icons are yellow numbered discs (hue ≈ 27), CT icons cyan (≈ 94); every living icon
+  has a **white direction arrow** attached. Icon blobs are ≈ 246 px².
+- The C4 badge is an orange rectangle (≈ 16) drawn **on top of the carrier's icon**; only a
+  thin yellow rim and the carrier's arrow show at its edge. Yellow icons beside it are
+  teammates. Carried and dropped badges look identical.
+- ✕ death markers appear in the team colour for ≈ 2 s and have no arrow. The yellow A/B
+  site letters are static map art (hue 23–24). A planted badge on site appears to gain a
+  blinking red outline (unconfirmed). A white ⊤ mark sometimes sits above a lone badge
+  (meaning unconfirmed).
+
+Implemented (see [bomb detection](docs/bomb-detection.md), [overlapping icons](docs/icon-split.md)):
+
+- `bomb.find_bomb`: badge-orange mask, 3×3 close + open, then the shape rule
+  (`segmentation.blob_shape`/`looks_like_bomb`: aspect, extent, corner fill). Found in
+  94–96% of frames versus 26–32% for shape alone (`bomb-scan --shape-only`).
+- `bomb.carrier_rim`: carried when ≥ 4 T-yellow or white pixels touch the badge, excluding
+  background-matching yellow (site letters) and arrows attached to cyan icons.
+  `BombStateTracker`/`dropped_candidates`: still ≥ 2 s with no carrier = dropped candidate.
+  Planted bombs are currently listed as dropped.
+- `rounds`: round starts from freeze-time spawn occupancy, cached in `runs/round-cache/`.
+  All three matches give 20–21 rounds with halftime before round 13.
+- `icon_split.find_icons_split` (used by the preview): per-team masks, arrowless ✕ removal,
+  disc-fit icon counts per blob, five per team (four with a hidden carrier).
+- `count_eval` / `icon-count-eval`: label-free checks (all-alive frames showing 5; counts
+  above five). These are proxies, not labelled accuracy.
+- `live_preview` / `bomb-preview`: interactive window with match picker, estimated
+  rounds and the hidden carrier drawn as an inferred T. GUI code stays in this module.
+
+Results on held-out NaVi: the old detector shows 5 per team in 8.9% of all-alive frames;
+area splitting + cap 96.6% but over-counts small groups and ✕ markers in live play; the
+disc fit 53.4%, correct on all reviewed live-play frames but under-counts stacks of five
+in spawn as four. Neither proxy measures late-round over-counting; labelled frames do.
 
 ## Unresolved problems
 
@@ -68,6 +111,11 @@ route. World-to-radar mapping and demo/video synchronisation require calibration
 for the new crop; previous fitted offsets must not be assumed valid.
 
 ## Next work and checks
+
+For detection: hand-label a small set of live-play frames (team counts, then centres) to
+get real precision/recall and settle the disc-fit versus area trade-off; recover spawn
+stacks and fully hidden players with tracking; add a planted state (red outline); obtain
+the matches' `.dem` files to confirm bomb events, rounds and positions.
 
 Finish and validate the new recording, then protect labels, establish shared match
 identities and normal-time samples, and measure detector/tracker behaviour before

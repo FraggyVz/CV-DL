@@ -36,6 +36,20 @@ required. A short manual capture/crop check is still needed when the layout chan
 Inspect game rendering FPS as well as OBS output FPS: a 60 fps file can contain
 repeated rendered frames, so the header alone cannot establish observation rate.
 
+## Spectator-radar detection milestone (`bomb-state`)
+
+Implemented on three processed matches: C4 badge detection by colour then shape;
+carried/dropped from the carrier's rim and arrow at the badge edge; dropped-bomb
+candidates; video-only round estimates; per-team icon masks with ✕ removal, disc-fit
+splitting and a five-per-team cap; `icon-count-eval` (fit on Furia/Spirit, test on NaVi);
+and the `bomb-preview` window. Details and results: [bomb detection](bomb-detection.md),
+[overlapping icons](icon-split.md).
+
+Remaining before claiming accuracy: hand-labelled live-play frames for per-team
+precision/recall (including carriers, overlaps and ✕ markers), a planted state, tracking
+for spawn stacks and fully hidden players, and demo files to confirm bomb events.
+This feeds step 4 below.
+
 ## Ordered work and completion criteria
 
 1. **Check new manual captures:** verify the live CS2 preview, record 30 seconds,

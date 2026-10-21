@@ -17,6 +17,12 @@ still uses generated rounds; real icon labels can supply the detector separately
 Existing tracking, label-safety and ingest-schema problems are recorded in the
 [baseline review](docs/base-review-2026-10-12.md).
 
+On the `bomb-state` branch, spectator-radar detection adds C4 badge detection and
+carried/dropped candidates, estimated rounds, overlapping-icon splitting with a five-per-team
+cap, label-free count checks and an interactive preview. Results are proxies and visual
+reviews, not labelled accuracy; see [bomb detection](docs/bomb-detection.md) and
+[overlapping icons](docs/icon-split.md).
+
 Independent recording-preparation commands now export aligned **5, 10 and 30 fps**
 videos with validated manifests and visual comparison reports. Recording is manual
 in OBS; the Python tools process saved videos. See the
@@ -170,19 +176,33 @@ The prototype does not consume the preparation manifest or correct 2× raw timin
 automatically; this example selects inputs only. Establish normal-time samples and
 reviewed labels before using the new capture for model training.
 
-## Bomb badge scan
+## Bomb badge scan and live preview
 
 The C4 badge is found by colour then shape (badge-orange pixels forming a filled
-rectangle), which keeps it separate from the yellow carrier beside it; the colour
-baseline skips badge-shaped blobs. Carried and dropped badges look identical, so a still badge with
-no T nearby for 2 s is listed as a dropped candidate for review:
+rectangle). It is drawn over its carrier, so a badge is carried when the carrier's yellow
+rim or white arrow shows at its edge. Carried and dropped badges look identical, so a still
+badge with no carrier showing for 2 s is listed as a dropped candidate for review:
 
 ```powershell
 python -m stratscout bomb-scan --video data/processed/recordings/<match>/minimap-5fps.mp4 --output runs/bomb-scan/<match>
 ```
 
-`bomb-preview` (pick a match; or `--match spirit --round 7`) plays a video with live
-player and bomb detections and estimated rounds. Candidates are unreviewed, not labels. See [bomb detection](docs/bomb-detection.md).
+`bomb-preview` (pick a match, or `--match navi --round 7`) plays a video with live player
+and bomb detections and estimated rounds: Space play/pause, Right/Left arrows
+fast-forward/rewind, K/L ∓5 s, N/B one frame, `[`/`]` previous/next round, Q quits.
+Candidates are unreviewed, not labels. See [bomb detection](docs/bomb-detection.md).
+
+## Overlapping players
+
+Overlapping icons of one team are split by disc fitting, ✕ death markers (no white arrow)
+are ignored and each team is capped at five. Compare versions without labels, fitting on
+two matches and testing on the third:
+
+```powershell
+python -m stratscout icon-count-eval --train furia spirit --test navi --output runs/icon-count-eval
+```
+
+See [overlapping icons](docs/icon-split.md) for the method, results and trade-offs.
 
 ## Notebooks and demo ingest
 
@@ -208,7 +228,8 @@ See [module responsibilities and API examples](docs/architecture.md),
 - Tracker placeholders/coasting and feature handling of missing players are unchanged.
 - Legacy annotation proposal/save behaviour still needs repair. Back up reviewed
   labels; never direct `auto_label_icons` at a reviewed annotation file.
-- Real icon splitting still needs match-separated manifests.
+- Icon splitting is evaluated only with label-free proxies and visual review; it
+  under-counts spawn stacks of five. Labelled live-play frames are still needed.
 - The leaking B-prime experiment is retained but disabled by default.
 - Recording and CS2 playback are manual; no OBS control command is included.
 - Lower frame rates do not fix bomb-carrier occlusion; labelled accuracy comes later.
