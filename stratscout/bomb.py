@@ -224,9 +224,10 @@ class BombStateTracker:
         self.still_frames = 0
         self.gap = 0
 
-    def update(self, x: Optional[float], y: Optional[float], carried: bool) -> str:
+    def update(self, x: Optional[float], y: Optional[float], carried: bool, frames: int = 1) -> str:
+        """Advance by frames (more than 1 when playback skips frames) and return the state."""
         if x is None:
-            self.gap += 1
+            self.gap += frames
             if self.gap > self.max_gap_frames:
                 self.reset()
             return "missing"
@@ -237,9 +238,9 @@ class BombStateTracker:
         if self.anchor is not None and max(abs(x - self.anchor[0]), abs(y - self.anchor[1])) <= (
             self.still_px
         ):
-            self.still_frames += 1
+            self.still_frames += frames
         else:
-            self.anchor, self.still_frames = (x, y), 1
+            self.anchor, self.still_frames = (x, y), frames
         return "dropped" if self.still_frames >= self.min_frames else "alone"
 
     def still_seconds(self) -> float:

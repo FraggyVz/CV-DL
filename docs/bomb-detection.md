@@ -102,7 +102,10 @@ the bomb state. When the bomb is carried, the hidden carrier is drawn as an infe
 badge centre ("+ 1 carrier under badge") unless the colour baseline already found a T there.
 Overlapping icons of the same team still merge and are missed. The bomb state comes from
 `BombStateTracker`, the frame-by-frame form of the candidate rule.
-Space pauses, N/B step, A/D jump 5 s, J/L or ←/→ jump 10 s, `[`/`]` jump to the previous/next round, Q/Esc quits.
+Space plays/pauses at normal speed; → fast-forwards and ← rewinds (press again for 2×, 4×, 8×,
+16×); K/L jump 5 s back/forward; N/B step one frame; `[`/`]` jump to the previous/next
+round; Q/Esc quits. Fast-forward runs detection on shown frames only but counts skipped
+frames for the still timer; rewinding pauses the bomb state, which is rebuilt on resume.
 The window is resizable. A median-frame background removes static map art such as the
 yellow A/B site letters, which otherwise read as T players.
 

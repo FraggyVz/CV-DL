@@ -146,6 +146,14 @@ class BombStateTrackerTests(unittest.TestCase):
             self.assertEqual(tr.update(None, None, False), "missing")
         self.assertEqual(tr.update(120, 50, False), "alone")
 
+    def test_skipped_frames_still_count_as_real_time(self):
+        tr = BombStateTracker(fps=10, min_seconds=2)
+        self.assertEqual(tr.update(110, 50, False, frames=4), "alone")
+        for _ in range(4):
+            state = tr.update(110, 50, False, frames=4)
+        self.assertEqual(state, "dropped")  # 20 frames = 2 s at 10 fps
+        self.assertAlmostEqual(tr.still_seconds(), 2.0)
+
 
 class BombScanOutputTests(unittest.TestCase):
     def test_scan_writes_new_folder_and_refuses_existing(self):

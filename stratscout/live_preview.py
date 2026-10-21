@@ -34,7 +34,9 @@ STATE_STYLE = {
     "alone": ((0, 200, 255), "ALONE - no carrier at the badge, waiting to see if it stays still"),
     "dropped": ((60, 60, 255), "DROPPED (candidate) - still and alone"),
     "missing": ((160, 160, 160), "Badge not detected - state unconfirmed"),
+    "rewinding": ((160, 160, 160), "Rewinding - bomb state resumes when playback does"),
 }
+SPEEDS = (2, 4, 8, 16)
 
 
 def spectator_context() -> RunContext:
@@ -179,9 +181,9 @@ def live_preview(
     rounds_video: Optional[Path] = None,
     context: Optional[RunContext] = None,
 ) -> None:
-    """Open an interactive window. Space play/pause, N/B next/previous frame,
-    A/D back/forward 5 s, J/L or Left/Right arrows back/forward 10 s, [ and ] previous/next
-    round, Q or Esc to quit.
+    """Open an interactive window. Space play/pause (back to normal speed), Right/Left arrows
+    fast-forward/rewind (press again for 2x, 4x, 8x, 16x), K/L back/forward 5 s, N/B
+    next/previous frame, [ and ] previous/next round, Q or Esc to quit.
     Rounds are estimated on rounds_video (a faster variant of the same match) if given."""
     context = context or spectator_context()
     print("Estimating rounds from spawn occupancy (cached after the first run)...")
@@ -199,7 +201,7 @@ def live_preview(
     tracker = BombStateTracker(fps, min_seconds)
     background = cv2.cvtColor(bgr_background(cap, total), cv2.COLOR_BGR2RGB)
 
-    def step(bgr: np.ndarray) -> Tuple[Dict, str]:
+    def step(bgr: np.ndarray, frames: int = 1) -> Tuple[Dict, str]:
         rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
         found = detect(rgb, band, t_hue, background, context=context)
         b = found["bomb"]
@@ -207,14 +209,30 @@ def live_preview(
             None if b is None else b["x"],
             None if b is None else b["y"],
             b is not None and carrier_visible(found["rim"]),
+            frames=frames,
         )
         return found, state
 
-    def advance(index: int):
+    def advance(index: int, frames: int = 1):
+        """Move forward by frames, running detection only on the frame shown; the tracker
+        counts the skipped frames so still times stay in real seconds."""
+        for _ in range(frames - 1):
+            if not cap.grab():
+                return None
         ok, bgr = cap.read()
         if not ok:
             return None
-        return (index, bgr, *step(bgr))
+        return (index, bgr, *step(bgr, frames))
+
+    def rewind_to(frame: int):
+        """Show an earlier frame quickly; the history-dependent bomb state is not rebuilt."""
+        frame = int(np.clip(frame, 0, max(total - 1, 0)))
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frame)
+        ok, bgr = cap.read()
+        if not ok:
+            return None
+        rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+        return (frame, bgr, detect(rgb, band, t_hue, background, context=context), "rewinding")
 
     def seek(frame: int):
         """Show frame, warming the tracker on the preceding few seconds of history."""
@@ -232,7 +250,7 @@ def live_preview(
     current = seek(int(start * fps))
     if current is None:
         raise ValueError(f"no frame at {start}s in {video}")
-    playing = True
+    speed = 1  # 0 paused, 1 normal, >1 fast-forward, <0 rewind
     # Resizable: the frame is scaled to the window, keeping its aspect ratio.
     cv2.namedWindow(WINDOW, cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)
     sized = False
@@ -243,37 +261,42 @@ def live_preview(
             secs = index / fps
             rnd = round_at(rounds, secs)
             into = secs - rnd["start"]
+            mode = {0: "PAUSED", 1: "PLAYING"}.get(
+                speed, f"FAST-FORWARD {speed}x" if speed > 1 else f"REWIND {-speed}x"
+            )
             status = [
-                f"{'PLAYING' if playing else 'PAUSED'} | {round_label(rnd, len(rounds))} | "
+                f"{mode} | {round_label(rnd, len(rounds))} | "
                 f"round time {int(into) // 60}:{int(into) % 60:02d} | "
                 f"match {int(secs) // 60:02d}:{secs % 60:05.2f} | frame {index}",
-                "Space: play/pause | N/B: next/previous frame | A/D: -/+5 s | J/L or arrows: -/+10 s",
-                "[ / ]: previous/next round | Q/Esc: quit",
+                "Space: play/pause | Right/Left arrows: fast-forward/rewind (repeat for faster)",
+                "K/L: -/+5 s | N/B: next/previous frame | [ / ]: previous/next round | Q/Esc: quit",
             ]
             img = draw(bgr, found, state, tracker, status, scale)
             if not sized:
                 cv2.resizeWindow(WINDOW, img.shape[1], img.shape[0])
                 sized = True
             cv2.imshow(WINDOW, img)
-            wait = max(int(1000 / fps - (time.perf_counter() - t0) * 1000), 1) if playing else 0
+            wait = max(int(1000 / fps - (time.perf_counter() - t0) * 1000), 1) if speed else 0
             raw = cv2.waitKeyEx(wait)
             key = -1 if raw == -1 else raw & 0xFF
             if key in (ord("q"), 27) or cv2.getWindowProperty(WINDOW, cv2.WND_PROP_VISIBLE) < 1:
                 break
+            was_rewinding = speed < 0
             target = None
-            if key == ord(" "):
-                playing = not playing
+            if raw == RIGHT_ARROW:
+                speed = next((v for v in SPEEDS if v > speed), SPEEDS[-1]) if speed > 1 else 2
+            elif raw == LEFT_ARROW:
+                faster = next((v for v in SPEEDS if v > -speed), SPEEDS[-1])
+                speed = -faster if speed < -1 else -2
+            elif key == ord(" "):
+                speed = 0 if speed == 1 else 1
             elif key == ord("n"):
-                playing, target = False, "next"
+                speed, target = 0, "next"
             elif key == ord("b"):
-                playing, target = False, index - 1
-            elif key == ord("j") or raw == LEFT_ARROW:
-                target = index - int(10 * fps)
-            elif key == ord("l") or raw == RIGHT_ARROW:
-                target = index + int(10 * fps)
-            elif key == ord("a"):
+                speed, target = 0, index - 1
+            elif key == ord("k"):
                 target = index - int(5 * fps)
-            elif key == ord("d"):
+            elif key == ord("l"):
                 target = index + int(5 * fps)
             elif key == ord("]"):
                 later = [r for r in rounds if r["start"] > secs + 0.5]
@@ -282,12 +305,21 @@ def live_preview(
                 # Back to this round's start, or to the previous round if already there.
                 k = rnd["round"] - 1 - (1 if into < 3 and rnd["round"] > 1 else 0)
                 target = int(rounds[k]["start"] * fps)
-            elif playing:
+            if target is None and speed < 0:
+                if index == 0:
+                    speed = 0
+                else:
+                    current = rewind_to(index + speed) or current
+                continue
+            if target is None and was_rewinding:
+                target = index  # leaving rewind: rebuild the bomb state at this frame
+            if target is None and speed > 0:
                 target = "next"
             if target == "next":
-                nxt = advance(index + 1)
+                step_frames = max(speed, 1)
+                nxt = advance(index + step_frames, step_frames)
                 if nxt is None:
-                    playing = False  # end of video: stay on the last frame
+                    speed = 0  # end of video: stay on the last frame
                 else:
                     current = nxt
             elif target is not None:
