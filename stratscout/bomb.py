@@ -1,4 +1,4 @@
-"""Bomb: shape-based C4 badge detection and dropped-bomb candidates from minimap videos.
+"""Bomb: colour-then-shape C4 badge detection and dropped-bomb candidates from minimap videos.
 
 Measured on the 494x500 spectator radar, where the C4 badge is an orange rectangle beside
 the carrier and players are numbered circles. Carried and dropped badges look identical,
@@ -26,15 +26,29 @@ SPECTATOR_T_HUE = 27.0
 
 def find_bomb(
     frame: np.ndarray,
-    hue_band: Optional[Tuple[float, float]] = None,
+    shape_only: bool = False,
     *,
     context,
 ) -> Optional[Dict[str, float]]:
     """RGB frame -> the most badge-like blob {x, y, area, aspect, extent, corner_fill, hue}
-    in pixels, or None. Shape alone decides unless hue_band (OpenCV hue, 0-180) is given."""
+    in pixels, or None.
+
+    By default the frame is first split by colour: only badge-orange pixels (Config.bomb_hue)
+    form blobs, so a badge touching its yellow carrier stays a separate rectangle. With
+    shape_only, every saturated pixel forms blobs and the badge often merges with the
+    carrier (about 26% of on-screen frames found, against about 87% with the colour split)."""
     cfg = context.config
     hsv = cv2.cvtColor(frame, cv2.COLOR_RGB2HSV)
-    mask = (hsv[:, :, 1] >= cfg.sat_min) & (hsv[:, :, 2] >= cfg.val_min)
+    if shape_only:
+        mask = (hsv[:, :, 1] >= cfg.sat_min) & (hsv[:, :, 2] >= cfg.val_min)
+    else:
+        hue = hsv[:, :, 0]
+        mask = (
+            (hue >= cfg.bomb_hue[0])
+            & (hue <= cfg.bomb_hue[1])
+            & (hsv[:, :, 1] >= cfg.bomb_sv_min)
+            & (hsv[:, :, 2] >= cfg.bomb_sv_min)
+        )
     mask = cv2.morphologyEx(mask.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))
     n, lab, stats, cents = cv2.connectedComponentsWithStats(mask, connectivity=8)
     best = None
@@ -46,8 +60,6 @@ def find_bomb(
         if not looks_like_bomb(a, shape, context=context):
             continue
         hue = float(np.median(hsv[:, :, 0][lab == i]))
-        if hue_band is not None and not hue_band[0] <= hue <= hue_band[1]:
-            continue
         found = {"x": float(cents[i][0]), "y": float(cents[i][1]), "area": a, "hue": hue, **shape}
         if best is None or shape["corner_fill"] > best["corner_fill"]:
             best = found
@@ -83,7 +95,7 @@ def scan_video(
     path: Path,
     near_px: int = 40,
     t_hue: float = SPECTATOR_T_HUE,
-    hue_band: Optional[Tuple[float, float]] = None,
+    shape_only: bool = False,
     *,
     context,
 ) -> Tuple[List[Dict], float]:
@@ -101,7 +113,7 @@ def scan_video(
             if not ok:
                 break
             rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
-            b = find_bomb(rgb, hue_band, context=context)
+            b = find_bomb(rgb, shape_only, context=context)
             row = {"frame": i, "seconds": round(i / fps, 3), "x": None, "y": None, "t_pixels": 0}
             if b is not None:
                 row.update(x=round(b["x"], 1), y=round(b["y"], 1))
@@ -162,6 +174,54 @@ def dropped_candidates(
     return out
 
 
+class BombStateTracker:
+    """Frame-by-frame version of the dropped_candidates rule for live display.
+
+    States: "carried" (T colour beside the badge), "alone" (no T, not yet still for long
+    enough), "dropped" (still and alone for min_seconds) and "missing" (no badge found)."""
+
+    def __init__(
+        self,
+        fps: float,
+        min_seconds: float = 2.0,
+        still_px: float = 3.0,
+        max_t_pixels: int = 15,
+        max_gap_frames: int = 2,
+    ):
+        self.fps = fps
+        self.min_frames = int(round(min_seconds * fps))
+        self.still_px = still_px
+        self.max_t_pixels = max_t_pixels
+        self.max_gap_frames = max_gap_frames
+        self.reset()
+
+    def reset(self) -> None:
+        self.anchor = None
+        self.still_frames = 0
+        self.gap = 0
+
+    def update(self, x: Optional[float], y: Optional[float], t_pixels: int) -> str:
+        if x is None:
+            self.gap += 1
+            if self.gap > self.max_gap_frames:
+                self.reset()
+            return "missing"
+        self.gap = 0
+        if t_pixels > self.max_t_pixels:
+            self.anchor, self.still_frames = None, 0
+            return "carried"
+        if self.anchor is not None and max(abs(x - self.anchor[0]), abs(y - self.anchor[1])) <= (
+            self.still_px
+        ):
+            self.still_frames += 1
+        else:
+            self.anchor, self.still_frames = (x, y), 1
+        return "dropped" if self.still_frames >= self.min_frames else "alone"
+
+    def still_seconds(self) -> float:
+        return self.still_frames / self.fps
+
+
 def _csv(rows: List[Dict], fields: List[str]) -> str:
     buf = io.StringIO()
     writer = csv.DictWriter(buf, fieldnames=fields, lineterminator="\n")
@@ -176,7 +236,7 @@ def write_bomb_scan(
     near_px: int = 40,
     min_seconds: float = 2.0,
     t_hue: float = SPECTATOR_T_HUE,
-    hue_band: Optional[Tuple[float, float]] = None,
+    shape_only: bool = False,
     *,
     context,
 ) -> Dict:
@@ -185,7 +245,7 @@ def write_bomb_scan(
     output = Path(output)
     if output.exists():
         raise ValueError(f"output already exists; choose a new folder: {output}")
-    rows, fps = scan_video(video, near_px, t_hue, hue_band, context=context)
+    rows, fps = scan_video(video, near_px, t_hue, shape_only, context=context)
     runs = dropped_candidates(rows, fps, min_seconds)
     write_new_text(output / "track.csv", _csv(rows, ["frame", "seconds", "x", "y", "t_pixels"]))
     fields = ["start_frame", "end_frame", "start_seconds", "end_seconds", "x", "y", "crop"]
@@ -219,7 +279,8 @@ def write_bomb_scan(
             "near_px": near_px,
             "min_seconds": min_seconds,
             "t_hue": t_hue,
-            "hue_band": hue_band,
+            "shape_only": shape_only,
+            "bomb_hue": None if shape_only else list(context.config.bomb_hue),
             "bomb_area": list(context.config.bomb_area),
             "bomb_min_aspect": context.config.bomb_min_aspect,
             "bomb_min_extent": context.config.bomb_min_extent,

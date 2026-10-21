@@ -9,7 +9,13 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from stratscout.bomb import dropped_candidates, find_bomb, t_pixels_near, write_bomb_scan
+from stratscout.bomb import (
+    BombStateTracker,
+    dropped_candidates,
+    find_bomb,
+    t_pixels_near,
+    write_bomb_scan,
+)
 from stratscout.config import Config
 from stratscout.context import RunContext
 from stratscout.segmentation import blob_shape, find_icons_teams
@@ -55,9 +61,15 @@ class BombShapeTests(unittest.TestCase):
         self.assertAlmostEqual(b["y"], 100, delta=2)
         self.assertIsNone(find_bomb(radar(badge=None), context=self.ctx))
 
-    def test_hue_band_is_optional_extra_check(self):
-        self.assertIsNotNone(find_bomb(radar(), (10, 21), context=self.ctx))
-        self.assertIsNone(find_bomb(radar(), (85, 100), context=self.ctx))
+    def test_colour_split_finds_badge_touching_its_carrier(self):
+        touching = radar(t_icons=((132, 100),))  # T circle overlaps the badge's left edge
+        b = find_bomb(touching, context=self.ctx)
+        self.assertIsNotNone(b)
+        self.assertAlmostEqual(b["x"], 150, delta=3)
+        self.assertIsNone(find_bomb(touching, shape_only=True, context=self.ctx))
+
+    def test_shape_only_still_finds_an_isolated_badge(self):
+        self.assertIsNotNone(find_bomb(radar(), shape_only=True, context=self.ctx))
 
     def test_colour_baseline_no_longer_counts_badge_as_t(self):
         ctx = RunContext(Config(icon_area=(6, 450)))
@@ -97,6 +109,27 @@ class DroppedCandidateTests(unittest.TestCase):
     def test_brief_detection_gaps_are_bridged(self):
         spec = [(110, 50, 0)] * 6 + [(None, None, 0)] * 2 + [(110, 50, 0)] * 6
         self.assertEqual(len(dropped_candidates(self.rows(spec), fps=5)), 1)
+
+
+class BombStateTrackerTests(unittest.TestCase):
+    def test_states_follow_the_dropped_rule(self):
+        tr = BombStateTracker(fps=5, min_seconds=2)
+        self.assertEqual(tr.update(110, 50, 200), "carried")
+        states = [tr.update(110, 50, 0) for _ in range(10)]
+        self.assertEqual(states[:9], ["alone"] * 9)
+        self.assertEqual(states[9], "dropped")
+        self.assertEqual(tr.update(110, 50, 200), "carried")
+
+    def test_moving_or_long_missing_badge_restarts_the_still_timer(self):
+        tr = BombStateTracker(fps=5, min_seconds=2)
+        for _ in range(9):
+            tr.update(110, 50, 0)
+        self.assertEqual(tr.update(120, 50, 0), "alone")
+        for _ in range(9):
+            tr.update(120, 50, 0)
+        for _ in range(3):
+            self.assertEqual(tr.update(None, None, 0), "missing")
+        self.assertEqual(tr.update(120, 50, 0), "alone")
 
 
 class BombScanOutputTests(unittest.TestCase):

@@ -29,8 +29,32 @@ Measured on 300 frames from each match, using hue only to name blobs for measure
 | Circularity | 0.70–0.77 | 0.60–0.82 | overlapping ranges |
 
 The combined default (aspect ≥ 1.15, extent ≥ 0.80, corner fill ≥ 0.30) found ~72% of
-badge blobs with ~0.5% of icon blobs misclassified. Most misses are badges merged with an
-adjacent player icon. These are blob statistics, not reviewed detection accuracy.
+those blobs with ~0.5% of icon blobs misclassified. **That figure was biased:** it only
+counted blobs whose median hue was already orange, which excluded badges merged with
+their carrier.
+
+## Colour split before shape
+
+Over a whole match the badge is on screen in ~99% of frames, but shape alone found it in
+only 26% (Furia–Falcons). Diagnosing every miss: 58% of frames failed because the badge
+blob had merged with an adjacent icon (usually the carrier), 16% on a single shape
+threshold, and ~1% had no badge on screen.
+
+`find_bomb` therefore first keeps only badge-orange pixels (`Config.bomb_hue` 10–21,
+saturation and value ≥ `bomb_sv_min` 120). T yellow (~27) falls outside the band, so a
+badge touching its carrier remains a separate rectangle; the shape rule then confirms it.
+`bomb-scan --shape-only` keeps the old rule for comparison.
+
+| 5 fps scan | Shape only | Colour then shape |
+|---|---|---|
+| Furia–Falcons frames with badge | 3,455 / 13,516 (26%) | 11,584 / 13,516 (86%) |
+| Spirit–Falcons frames with badge | 4,597 / 14,304 (32%) | 12,666 / 14,304 (89%) |
+
+A visual check of 24 random colour-split detections found all 24 on the badge. Neither
+figure is labelled recall or precision; both need reviewed frames.
+
+The colour baseline's own badge exclusion (`find_icons_teams`) still uses shape on the
+saturation mask, so a badge merged with its carrier can still distort T detections there.
 
 ## Dropped candidates
 
@@ -45,11 +69,23 @@ The output folder must be new. It contains `track.csv` (per-frame badge position
 nearby T pixels), `candidates.csv`, an enlarged crop per candidate and `summary.json`.
 Times are normal-game seconds from the trim start, as in the preparation manifest.
 
-First 5 fps scans: Furia–Falcons 3,455/13,516 frames with a badge and 10 candidates;
-Spirit–Falcons 4,597/14,304 and 21. Visual inspection found most candidates were lone,
-still badges, including several in T spawn. Known false candidates are a still carrier
-hidden under the badge with only a sliver of yellow showing. Some lone badges show a
-white T-shaped mark above them; its meaning is unconfirmed.
+Colour-split 5 fps scans gave 17 candidates (Furia–Falcons) and 20 (Spirit–Falcons).
+Visual inspection judged about 15 and 17 of them as lone, still badges, several in T spawn.
+The rest were a still carrier hidden under the badge with a sliver of yellow showing.
+Some lone badges show a white T-shaped mark above them; its meaning is unconfirmed.
+
+## Live preview
+
+```powershell
+python -m stratscout bomb-preview --video data/processed/recordings/<match>/minimap-10fps.mp4 --start 330
+```
+
+Plays a prepared video with live T/CT colour-baseline detections and the bomb state
+(`BombStateTracker`, the frame-by-frame form of the candidate rule). Space pauses, N/B
+step, A/D jump 5 s, Q/Esc quits. A median-frame background removes static map art such
+as the yellow A/B site letters, which otherwise read as T players. Nothing is saved.
+
+Yellow ✕ death markers last about 2 s and can merge with nearby T icons, hiding them.
 
 ## Limitations and next steps
 
@@ -58,3 +94,4 @@ white T-shaped mark above them; its meaning is unconfirmed.
 - Planted bombs are not yet separated from dropped ones.
 - Thresholds were measured on two matches with one radar layout; re-measure for others.
 - A CNN detector class for the badge should be compared against this rule.
+- Bomb-carrier player recall is the main open problem; measure it separately.

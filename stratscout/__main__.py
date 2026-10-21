@@ -61,11 +61,17 @@ def main(argv=None):
     bomb.add_argument("--min-seconds", type=float, default=2.0, help="Shortest still run")
     bomb.add_argument("--t-hue", type=float, default=27.0, help="T icon hue (OpenCV 0-180)")
     bomb.add_argument(
-        "--hue-band",
-        type=float,
-        nargs=2,
-        help="Also require badge hue in LOW HIGH (shape only if omitted)",
+        "--shape-only",
+        action="store_true",
+        help="Skip the orange colour split (old rule, for comparison)",
     )
+    live = sub.add_parser("bomb-preview", help="Play a minimap video with live detections")
+    live.add_argument("--video", type=Path, required=True, help="Prepared minimap video")
+    live.add_argument("--start", type=float, default=0, help="Start time in seconds")
+    live.add_argument("--near", type=int, default=40, help="T-proximity radius in pixels")
+    live.add_argument("--min-seconds", type=float, default=2.0, help="Still time before dropped")
+    live.add_argument("--t-hue", type=float, default=27.0, help="T icon hue (OpenCV 0-180)")
+    live.add_argument("--scale", type=int, default=2, help="Display magnification")
     args = parser.parse_args(argv)
     if args.command not in ("prototype", "ingest"):
         try:
@@ -79,12 +85,23 @@ def main(argv=None):
                     near_px=args.near,
                     min_seconds=args.min_seconds,
                     t_hue=args.t_hue,
-                    hue_band=tuple(args.hue_band) if args.hue_band else None,
+                    shape_only=args.shape_only,
                     context=RunContext(),
                 )
                 print(
                     f"Badge found in {summary['frames_with_badge']}/{summary['frames']} frames; "
                     f"{summary['dropped_candidates']} dropped candidates: {args.output}"
+                )
+            elif args.command == "bomb-preview":
+                from .live_preview import live_preview
+
+                live_preview(
+                    args.video,
+                    start=args.start,
+                    near_px=args.near,
+                    min_seconds=args.min_seconds,
+                    t_hue=args.t_hue,
+                    scale=args.scale,
                 )
             elif args.command == "process-recordings":
                 from .recording_batch import process_recordings

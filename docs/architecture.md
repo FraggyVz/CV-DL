@@ -21,7 +21,7 @@ import or duplicated notebook implementation. Normal Python imports connect modu
 | `media`, `video_profiles`, `video_preparation` | FFmpeg/probe helpers, half-open crops, aligned native-resolution exports |
 | `fps_comparison` | Independent visual/timing/storage reports from prepared videos |
 | `recording_batch` | Inbox scan, shared crop, safe reruns and automatic preparation/comparison |
-| `bomb` | Shape-based C4 badge detection and unreviewed dropped-bomb candidates ([bomb detection](bomb-detection.md)) |
+| `bomb`, `live_preview` | Colour-then-shape C4 badge detection, unreviewed dropped-bomb candidates and an interactive detection preview ([bomb detection](bomb-detection.md)) |
 
 The [migration inventory](module-inventory.json) maps all 125 original functions and
 classes to their current modules and original zero-based notebook cell indices.

@@ -172,15 +172,17 @@ reviewed labels before using the new capture for model training.
 
 ## Bomb badge scan
 
-The C4 badge is found by shape (a filled rectangle among round player icons); the colour
-baseline now skips it. Carried and dropped badges look identical, so a still badge with
+The C4 badge is found by colour then shape (badge-orange pixels forming a filled
+rectangle), which keeps it separate from the yellow carrier beside it; the colour
+baseline skips badge-shaped blobs. Carried and dropped badges look identical, so a still badge with
 no T nearby for 2 s is listed as a dropped candidate for review:
 
 ```powershell
 python -m stratscout bomb-scan --video data/processed/recordings/<match>/minimap-5fps.mp4 --output runs/bomb-scan/<match>
 ```
 
-Candidates are unreviewed, not labels. See [bomb detection](docs/bomb-detection.md).
+`bomb-preview --video <video> --start <seconds>` plays a video with live player and bomb
+detections. Candidates are unreviewed, not labels. See [bomb detection](docs/bomb-detection.md).
 
 ## Notebooks and demo ingest
 
