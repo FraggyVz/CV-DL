@@ -11,9 +11,10 @@ import numpy as np
 
 from stratscout.bomb import (
     BombStateTracker,
+    carrier_rim,
+    carrier_visible,
     dropped_candidates,
     find_bomb,
-    t_pixels_near,
     write_bomb_scan,
 )
 from stratscout.config import Config
@@ -25,9 +26,15 @@ CT_CYAN = (40, 200, 240)
 BADGE_ORANGE = (240, 140, 30)  # hue ~15
 
 
-def radar(badge=(150, 100), t_icons=((60, 60), (200, 160)), ct_icons=((90, 180),)):
-    """Grey map with round numbered icons and one rectangular C4 badge (RGB)."""
+def radar(badge=(150, 100), t_icons=((60, 60), (200, 160)), ct_icons=((90, 180),), carrier=False):
+    """Grey map with round numbered icons and one rectangular C4 badge (RGB). With carrier,
+    a T icon and its white arrow are drawn under the badge, as the spectator radar does."""
     f = np.full((240, 260, 3), 70, np.uint8)
+    if carrier and badge is not None:
+        x, y = badge
+        cv2.circle(f, (x, y), 9, T_YELLOW, -1)
+        arrow = np.array([[x - 18, y], [x - 9, y - 5], [x - 9, y + 5]], np.int32)
+        cv2.fillPoly(f, [arrow], (255, 255, 255))
     for x, y in t_icons:
         cv2.circle(f, (x, y), 9, T_YELLOW, -1)
         cv2.putText(f, "7", (x - 4, y + 4), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (20, 20, 20), 1)
@@ -78,58 +85,66 @@ class BombShapeTests(unittest.TestCase):
         self.assertEqual(sum(p[2] == 0 for p in pts), 2)
         self.assertEqual(sum(p[2] == 1 for p in pts), 1)
 
-    def test_t_proximity_ignores_the_badge_itself(self):
-        lone = radar(t_icons=((40, 40),))
-        carried = radar(t_icons=((125, 100),))
-        self.assertEqual(t_pixels_near(lone, 150, 100, 40, context=self.ctx), 0)
-        self.assertGreater(t_pixels_near(carried, 150, 100, 40, context=self.ctx), 100)
+    def rim(self, frame):
+        return carrier_rim(frame, find_bomb(frame, context=self.ctx), context=self.ctx)
+
+    def test_carrier_under_badge_shows_at_its_rim(self):
+        rim = self.rim(radar(carrier=True))
+        self.assertTrue(carrier_visible(rim))
+        self.assertGreater(rim["yellow"], 0)
+        self.assertGreater(rim["white"], 0)
+
+    def test_lone_badge_and_nearby_teammate_show_no_carrier(self):
+        self.assertFalse(carrier_visible(self.rim(radar(t_icons=((40, 40),)))))
+        # A teammate 30 px away is outside the rim band, unlike the old 40 px proximity rule.
+        self.assertFalse(carrier_visible(self.rim(radar(t_icons=((150, 130),)))))
 
 
 class DroppedCandidateTests(unittest.TestCase):
     @staticmethod
     def rows(spec):
         return [
-            {"frame": i, "seconds": i / 5, "x": x, "y": y, "t_pixels": t}
-            for i, (x, y, t) in enumerate(spec)
+            {"frame": i, "seconds": i / 5, "x": x, "y": y, "carried": int(c)}
+            for i, (x, y, c) in enumerate(spec)
         ]
 
     def test_still_lone_badge_becomes_one_candidate(self):
-        spec = [(100 + i, 50, 200) for i in range(10)] + [(110, 50, 0)] * 15
+        spec = [(100 + i, 50, True) for i in range(10)] + [(110, 50, False)] * 15
         runs = dropped_candidates(self.rows(spec), fps=5)
         self.assertEqual(len(runs), 1)
         self.assertEqual((runs[0]["start_frame"], runs[0]["end_frame"]), (10, 24))
 
     def test_still_carrier_and_short_or_moving_runs_are_ignored(self):
-        carried = [(110, 50, 200)] * 20
-        short = [(110, 50, 0)] * 6
-        moving = [(100 + 5 * i, 50, 0) for i in range(20)]
+        carried = [(110, 50, True)] * 20
+        short = [(110, 50, False)] * 6
+        moving = [(100 + 5 * i, 50, False) for i in range(20)]
         for spec in (carried, short, moving):
             self.assertEqual(dropped_candidates(self.rows(spec), fps=5), [])
 
     def test_brief_detection_gaps_are_bridged(self):
-        spec = [(110, 50, 0)] * 6 + [(None, None, 0)] * 2 + [(110, 50, 0)] * 6
+        spec = [(110, 50, False)] * 6 + [(None, None, False)] * 2 + [(110, 50, False)] * 6
         self.assertEqual(len(dropped_candidates(self.rows(spec), fps=5)), 1)
 
 
 class BombStateTrackerTests(unittest.TestCase):
     def test_states_follow_the_dropped_rule(self):
         tr = BombStateTracker(fps=5, min_seconds=2)
-        self.assertEqual(tr.update(110, 50, 200), "carried")
-        states = [tr.update(110, 50, 0) for _ in range(10)]
+        self.assertEqual(tr.update(110, 50, True), "carried")
+        states = [tr.update(110, 50, False) for _ in range(10)]
         self.assertEqual(states[:9], ["alone"] * 9)
         self.assertEqual(states[9], "dropped")
-        self.assertEqual(tr.update(110, 50, 200), "carried")
+        self.assertEqual(tr.update(110, 50, True), "carried")
 
     def test_moving_or_long_missing_badge_restarts_the_still_timer(self):
         tr = BombStateTracker(fps=5, min_seconds=2)
         for _ in range(9):
-            tr.update(110, 50, 0)
-        self.assertEqual(tr.update(120, 50, 0), "alone")
+            tr.update(110, 50, False)
+        self.assertEqual(tr.update(120, 50, False), "alone")
         for _ in range(9):
-            tr.update(120, 50, 0)
+            tr.update(120, 50, False)
         for _ in range(3):
-            self.assertEqual(tr.update(None, None, 0), "missing")
-        self.assertEqual(tr.update(120, 50, 0), "alone")
+            self.assertEqual(tr.update(None, None, False), "missing")
+        self.assertEqual(tr.update(120, 50, False), "alone")
 
 
 class BombScanOutputTests(unittest.TestCase):

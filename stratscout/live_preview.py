@@ -15,7 +15,7 @@ from typing import Dict, List, Optional, Tuple
 import cv2
 import numpy as np
 
-from .bomb import SPECTATOR_T_HUE, BombStateTracker, find_bomb, t_pixels_near
+from .bomb import SPECTATOR_T_HUE, BombStateTracker, carrier_rim, carrier_visible, find_bomb
 from .config import Config
 from .context import RunContext
 from .rounds import cached_rounds, round_at
@@ -28,8 +28,8 @@ SPECTATOR_CT_HUE = 94.0
 # Contrasting marker colours so detections stand out from the yellow/cyan icons.
 T_COLOUR, CT_COLOUR = (0, 120, 255), (255, 0, 255)
 STATE_STYLE = {
-    "carried": ((80, 220, 80), "CARRIED - T colour beside the badge"),
-    "alone": ((0, 200, 255), "ALONE - no T nearby, waiting to see if it stays still"),
+    "carried": ((80, 220, 80), "CARRIED - carrier's rim/arrow visible at the badge edge"),
+    "alone": ((0, 200, 255), "ALONE - no carrier at the badge, waiting to see if it stays still"),
     "dropped": ((60, 60, 255), "DROPPED (candidate) - still and alone"),
     "missing": ((160, 160, 160), "Badge not detected - state unconfirmed"),
 }
@@ -43,13 +43,15 @@ def spectator_context() -> RunContext:
 
 def detect(
     rgb: np.ndarray,
-    near_px: int,
+    band: int,
     t_hue: float,
     background: Optional[np.ndarray] = None,
     *,
     context,
 ) -> Dict:
-    """One RGB frame -> player detections (pixels) and the bomb badge, if found."""
+    """One RGB frame -> player detections (pixels), the bomb badge and whether its carrier
+    shows at the badge edge. A carried badge is drawn over its carrier, so the carrier is
+    added at the badge centre as an inferred T unless the colour baseline already found it."""
     h, w = rgb.shape[:2]
     hues = {"T": t_hue, "CT": SPECTATOR_CT_HUE}
     players = [
@@ -57,12 +59,16 @@ def detect(
         for x, y, team in find_icons_teams(rgb, hues, background, context=context)
     ]
     bomb = find_bomb(rgb, context=context)
-    t_pix = (
-        0
-        if bomb is None
-        else t_pixels_near(rgb, bomb["x"], bomb["y"], near_px, t_hue, context=context)
-    )
-    return {"players": players, "bomb": bomb, "t_pixels": t_pix}
+    rim = {"yellow": 0, "white": 0}
+    carrier = None
+    if bomb is not None:
+        rim = carrier_rim(rgb, bomb, band, t_hue, context=context)
+        near = [
+            p for p in players if p[2] == "T" and np.hypot(p[0] - bomb["x"], p[1] - bomb["y"]) < 10
+        ]
+        if carrier_visible(rim) and not near:
+            carrier = (bomb["x"], bomb["y"])
+    return {"players": players, "bomb": bomb, "rim": rim, "carrier": carrier}
 
 
 def list_matches(root: Path = Path("data/processed/recordings")) -> List[Path]:
@@ -113,7 +119,6 @@ def draw(
     state: str,
     tracker: BombStateTracker,
     status: List[str],
-    near_px: int,
     scale: int,
 ) -> np.ndarray:
     img = cv2.resize(bgr, None, fx=scale, fy=scale, interpolation=cv2.INTER_NEAREST)
@@ -125,19 +130,26 @@ def draw(
         cv2.putText(img, team, (c[0] - r, c[1] - r - 4), 0, 0.5, colour, 2)
     colour, text = STATE_STYLE[state]
     bomb = found["bomb"]
+    if found["carrier"] is not None:
+        c = (int(found["carrier"][0] * scale), int(found["carrier"][1] * scale))
+        r = 15 * scale
+        cv2.rectangle(img, (c[0] - r, c[1] - r), (c[0] + r, c[1] + r), T_COLOUR, 2)
+        cv2.putText(img, "T carrier (under badge)", (c[0] - r, c[1] - r - 4), 0, 0.5, T_COLOUR, 2)
     if bomb is not None:
         bx, by = int(bomb["x"] * scale), int(bomb["y"] * scale)
-        cv2.circle(img, (bx, by), near_px * scale, colour, 1)
         cv2.rectangle(
             img, (bx - 13 * scale, by - 9 * scale), (bx + 13 * scale, by + 9 * scale), colour, 2
         )
     n_t = sum(p[2] == "T" for p in found["players"])
     n_ct = len(found["players"]) - n_t
+    carrier = " + 1 carrier under badge" if found["carrier"] is not None else ""
+    rim = found["rim"]
     lines = [
         (status[0], (230, 230, 230)),
         (text, colour),
         (
-            f"Players detected: {n_t} T, {n_ct} CT   |   T pixels near badge: {found['t_pixels']}"
+            f"Players: {n_t} T{carrier}, {n_ct} CT   |   badge rim: {rim['yellow']} yellow, "
+            f"{rim['white']} white px"
             + (
                 f"   |   still {tracker.still_seconds():.1f}s"
                 if state in ("alone", "dropped")
@@ -157,7 +169,7 @@ def draw(
 def live_preview(
     video: Path,
     start: float = 0.0,
-    near_px: int = 40,
+    band: int = 4,
     min_seconds: float = 2.0,
     t_hue: float = SPECTATOR_T_HUE,
     scale: int = 2,
@@ -186,10 +198,12 @@ def live_preview(
 
     def step(bgr: np.ndarray) -> Tuple[Dict, str]:
         rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
-        found = detect(rgb, near_px, t_hue, background, context=context)
+        found = detect(rgb, band, t_hue, background, context=context)
         b = found["bomb"]
         state = tracker.update(
-            None if b is None else b["x"], None if b is None else b["y"], found["t_pixels"]
+            None if b is None else b["x"],
+            None if b is None else b["y"],
+            b is not None and carrier_visible(found["rim"]),
         )
         return found, state
 
@@ -233,7 +247,7 @@ def live_preview(
                 "Space: play/pause | N/B: next/previous frame | A/D: -/+5 seconds",
                 "[ / ]: previous/next round | Q/Esc: quit",
             ]
-            img = draw(bgr, found, state, tracker, status, near_px, scale)
+            img = draw(bgr, found, state, tracker, status, scale)
             if not sized:
                 cv2.resizeWindow(WINDOW, img.shape[1], img.shape[0])
                 sized = True

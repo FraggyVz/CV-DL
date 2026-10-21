@@ -1,8 +1,9 @@
 """Bomb: colour-then-shape C4 badge detection and dropped-bomb candidates from minimap videos.
 
-Measured on the 494x500 spectator radar, where the C4 badge is an orange rectangle beside
-the carrier and players are numbered circles. Carried and dropped badges look identical,
-so state comes from motion and T proximity. Video-only: no demo truth is used here.
+Measured on the 494x500 spectator radar, where the C4 badge is an orange rectangle drawn
+on top of the carrier's icon and players are numbered circles. Carried and dropped badges
+look identical, so state comes from the carrier's rim and direction arrow showing at the
+badge edge, and from motion. Video-only: no demo truth is used here.
 All processing is explicit; importing this module does not run a workflow.
 """
 
@@ -65,40 +66,59 @@ def find_bomb(
         if not looks_like_bomb(a, shape, context=context):
             continue
         hue = float(np.median(hsv[:, :, 0][lab == i]))
-        found = {"x": float(cents[i][0]), "y": float(cents[i][1]), "area": a, "hue": hue, **shape}
+        found = {
+            "x": float(cents[i][0]),
+            "y": float(cents[i][1]),
+            "box": (x0, y0, bw, bh),
+            "area": a,
+            "hue": hue,
+            **shape,
+        }
         if best is None or shape["corner_fill"] > best["corner_fill"]:
             best = found
     return best
 
 
-def t_pixels_near(
+def carrier_rim(
     frame: np.ndarray,
-    x: float,
-    y: float,
-    radius: int,
+    bomb: Dict,
+    band: int = 4,
     t_hue: float = SPECTATOR_T_HUE,
     hue_tol: float = 4.0,
     *,
     context,
-) -> int:
-    """Saturated T-coloured pixels within radius of (x, y). The tight tolerance keeps the
-    orange badge itself out; a carrier half-hidden under the badge still contributes."""
+) -> Dict[str, int]:
+    """T-yellow and white pixels in a thin band around the badge rectangle.
+
+    A carried badge is drawn over its carrier, whose icon edge (yellow) and direction arrow
+    (white) show just outside the badge. A dropped badge sits on bare map. Measured on one
+    match: 99% of moving (carried) badge frames had >= 4 such pixels; most still, lone
+    badges had none. Teammates further away fall outside the band."""
     cfg = context.config
     h, w = frame.shape[:2]
-    x0, x1 = max(int(x) - radius, 0), min(int(x) + radius + 1, w)
-    y0, y1 = max(int(y) - radius, 0), min(int(y) + radius + 1, h)
-    hsv = cv2.cvtColor(np.ascontiguousarray(frame[y0:y1, x0:x1]), cv2.COLOR_RGB2HSV)
+    x0, y0, bw, bh = bomb["box"]
+    ox0, oy0 = max(x0 - band, 0), max(y0 - band, 0)
+    ox1, oy1 = min(x0 + bw + band, w), min(y0 + bh + band, h)
+    hsv = cv2.cvtColor(np.ascontiguousarray(frame[oy0:oy1, ox0:ox1]), cv2.COLOR_RGB2HSV)
+    ring = np.ones(hsv.shape[:2], bool)
+    ring[y0 - oy0 : y0 - oy0 + bh, x0 - ox0 : x0 - ox0 + bw] = False
     hue = hsv[:, :, 0].astype(np.float32)
     d = np.minimum(np.abs(hue - t_hue), 180 - np.abs(hue - t_hue))
-    ok = (d <= hue_tol) & (hsv[:, :, 1] >= cfg.sat_min) & (hsv[:, :, 2] >= cfg.val_min)
-    yy, xx = np.mgrid[y0:y1, x0:x1]
-    ok &= (xx - x) ** 2 + (yy - y) ** 2 <= radius**2
-    return int(ok.sum())
+    vivid = (hsv[:, :, 1] >= cfg.sat_min) & (hsv[:, :, 2] >= cfg.val_min)
+    white = (hsv[:, :, 1] < 50) & (hsv[:, :, 2] > 200)
+    return {
+        "yellow": int((ring & vivid & (d <= hue_tol)).sum()),
+        "white": int((ring & white).sum()),
+    }
+
+
+def carrier_visible(rim: Dict[str, int], min_pixels: int = 4) -> bool:
+    return rim["yellow"] >= min_pixels or rim["white"] >= min_pixels
 
 
 def scan_video(
     path: Path,
-    near_px: int = 40,
+    band: int = 4,
     t_hue: float = SPECTATOR_T_HUE,
     shape_only: bool = False,
     *,
@@ -119,12 +139,13 @@ def scan_video(
                 break
             rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
             b = find_bomb(rgb, shape_only, context=context)
-            row = {"frame": i, "seconds": round(i / fps, 3), "x": None, "y": None, "t_pixels": 0}
+            row = {"frame": i, "seconds": round(i / fps, 3), "x": None, "y": None}
+            row.update(rim_yellow=0, rim_white=0, carried=0)
             if b is not None:
+                rim = carrier_rim(rgb, b, band, t_hue, context=context)
                 row.update(x=round(b["x"], 1), y=round(b["y"], 1))
-                row["t_pixels"] = t_pixels_near(
-                    rgb, b["x"], b["y"], near_px, t_hue, context=context
-                )
+                row.update(rim_yellow=rim["yellow"], rim_white=rim["white"])
+                row["carried"] = int(carrier_visible(rim))
             rows.append(row)
             i += 1
     finally:
@@ -137,18 +158,17 @@ def dropped_candidates(
     fps: float,
     min_seconds: float = 2.0,
     still_px: float = 3.0,
-    max_t_pixels: int = 15,
     max_gap_frames: int = 2,
 ) -> List[Dict]:
-    """Runs where the badge stays within still_px of where the run began and almost no T
-    colour is nearby, lasting at least min_seconds. Short detection gaps are bridged.
+    """Runs where the badge stays within still_px of where the run began with no carrier
+    showing at its edge, lasting at least min_seconds. Short detection gaps are bridged.
 
-    These are review candidates, not labels: a planted bomb, a carrier hidden under the
-    badge or a frozen spectator view can match the same rule."""
+    These are review candidates, not labels: a planted bomb or a frozen spectator view can
+    match the same rule."""
     runs: List[Dict] = []
     cur = None
     for r in rows:
-        lone = r["x"] is not None and r["t_pixels"] <= max_t_pixels
+        lone = r["x"] is not None and not r["carried"]
         if lone and cur and r["frame"] - cur["end"] <= max_gap_frames + 1:
             if abs(r["x"] - cur["x"]) <= still_px and abs(r["y"] - cur["y"]) <= still_px:
                 cur["end"] = r["frame"]
@@ -182,21 +202,20 @@ def dropped_candidates(
 class BombStateTracker:
     """Frame-by-frame version of the dropped_candidates rule for live display.
 
-    States: "carried" (T colour beside the badge), "alone" (no T, not yet still for long
-    enough), "dropped" (still and alone for min_seconds) and "missing" (no badge found)."""
+    States: "carried" (carrier's rim or arrow at the badge edge), "alone" (no carrier, not
+    yet still for long enough), "dropped" (still and alone for min_seconds) and "missing"
+    (no badge found)."""
 
     def __init__(
         self,
         fps: float,
         min_seconds: float = 2.0,
         still_px: float = 3.0,
-        max_t_pixels: int = 15,
         max_gap_frames: int = 2,
     ):
         self.fps = fps
         self.min_frames = int(round(min_seconds * fps))
         self.still_px = still_px
-        self.max_t_pixels = max_t_pixels
         self.max_gap_frames = max_gap_frames
         self.reset()
 
@@ -205,14 +224,14 @@ class BombStateTracker:
         self.still_frames = 0
         self.gap = 0
 
-    def update(self, x: Optional[float], y: Optional[float], t_pixels: int) -> str:
+    def update(self, x: Optional[float], y: Optional[float], carried: bool) -> str:
         if x is None:
             self.gap += 1
             if self.gap > self.max_gap_frames:
                 self.reset()
             return "missing"
         self.gap = 0
-        if t_pixels > self.max_t_pixels:
+        if carried:
             self.anchor, self.still_frames = None, 0
             return "carried"
         if self.anchor is not None and max(abs(x - self.anchor[0]), abs(y - self.anchor[1])) <= (
@@ -238,7 +257,7 @@ def _csv(rows: List[Dict], fields: List[str]) -> str:
 def write_bomb_scan(
     video: Path,
     output: Path,
-    near_px: int = 40,
+    band: int = 4,
     min_seconds: float = 2.0,
     t_hue: float = SPECTATOR_T_HUE,
     shape_only: bool = False,
@@ -250,9 +269,12 @@ def write_bomb_scan(
     output = Path(output)
     if output.exists():
         raise ValueError(f"output already exists; choose a new folder: {output}")
-    rows, fps = scan_video(video, near_px, t_hue, shape_only, context=context)
+    rows, fps = scan_video(video, band, t_hue, shape_only, context=context)
     runs = dropped_candidates(rows, fps, min_seconds)
-    write_new_text(output / "track.csv", _csv(rows, ["frame", "seconds", "x", "y", "t_pixels"]))
+    write_new_text(
+        output / "track.csv",
+        _csv(rows, ["frame", "seconds", "x", "y", "rim_yellow", "rim_white", "carried"]),
+    )
     fields = ["start_frame", "end_frame", "start_seconds", "end_seconds", "x", "y", "crop"]
     cap = cv2.VideoCapture(str(video))
     try:
@@ -281,7 +303,7 @@ def write_bomb_scan(
         "frames_with_badge": found,
         "dropped_candidates": len(runs),
         "parameters": {
-            "near_px": near_px,
+            "rim_band_px": band,
             "min_seconds": min_seconds,
             "t_hue": t_hue,
             "shape_only": shape_only,

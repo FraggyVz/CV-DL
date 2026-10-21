@@ -57,7 +57,7 @@ def main(argv=None):
     bomb = sub.add_parser("bomb-scan", help="Find the C4 badge by shape; list dropped candidates")
     bomb.add_argument("--video", type=Path, required=True, help="Prepared minimap video")
     bomb.add_argument("--output", type=Path, required=True, help="New folder; must not exist")
-    bomb.add_argument("--near", type=int, default=40, help="T-proximity radius in pixels")
+    bomb.add_argument("--rim", type=int, default=4, help="Carrier rim band around the badge (px)")
     bomb.add_argument("--min-seconds", type=float, default=2.0, help="Shortest still run")
     bomb.add_argument("--t-hue", type=float, default=27.0, help="T icon hue (OpenCV 0-180)")
     bomb.add_argument(
@@ -71,7 +71,7 @@ def main(argv=None):
     live.add_argument("--fps", type=int, default=10, help="Variant to play when picking a match")
     live.add_argument("--round", type=int, help="Start at this estimated round")
     live.add_argument("--start", type=float, default=0, help="Start time in seconds")
-    live.add_argument("--near", type=int, default=40, help="T-proximity radius in pixels")
+    live.add_argument("--rim", type=int, default=4, help="Carrier rim band around the badge (px)")
     live.add_argument("--min-seconds", type=float, default=2.0, help="Still time before dropped")
     live.add_argument("--t-hue", type=float, default=27.0, help="T icon hue (OpenCV 0-180)")
     live.add_argument("--scale", type=int, default=2, help="Display magnification")
@@ -85,7 +85,7 @@ def main(argv=None):
                 summary = write_bomb_scan(
                     args.video,
                     args.output,
-                    near_px=args.near,
+                    band=args.rim,
                     min_seconds=args.min_seconds,
                     t_hue=args.t_hue,
                     shape_only=args.shape_only,
@@ -108,7 +108,7 @@ def main(argv=None):
                     start=args.start,
                     round_number=args.round,
                     rounds_video=rounds_video,
-                    near_px=args.near,
+                    band=args.rim,
                     min_seconds=args.min_seconds,
                     t_hue=args.t_hue,
                     scale=args.scale,
