@@ -41,16 +41,19 @@ blob had merged with an adjacent icon (usually the carrier), 16% on a single sha
 threshold, and ~1% had no badge on screen.
 
 `find_bomb` therefore first keeps only badge-orange pixels (`Config.bomb_hue` 10–21,
-saturation and value ≥ `bomb_sv_min` 120). T yellow (~27) falls outside the band, so a
-badge touching its carrier remains a separate rectangle; the shape rule then confirms it.
+saturation and value ≥ `bomb_sv_min` 120), then applies a 3×3 morphological opening to
+strip thin anti-aliased fringes such as a fading yellow ✕ death marker. T yellow (~27)
+falls outside the band, so a badge touching its carrier remains a separate rectangle; the
+shape rule then confirms it.
 `bomb-scan --shape-only` keeps the old rule for comparison.
 
-| 5 fps scan | Shape only | Colour then shape |
-|---|---|---|
-| Furia–Falcons frames with badge | 3,455 / 13,516 (26%) | 11,584 / 13,516 (86%) |
-| Spirit–Falcons frames with badge | 4,597 / 14,304 (32%) | 12,666 / 14,304 (89%) |
+| 5 fps scan | Shape only | Colour then shape | + opening |
+|---|---|---|---|
+| Furia–Falcons frames with badge | 3,455 / 13,516 (26%) | 11,584 (86%) | 12,769 (94%) |
+| Spirit–Falcons frames with badge | 4,597 / 14,304 (32%) | 12,666 (89%) | 13,700 (96%) |
 
-A visual check of 24 random colour-split detections found all 24 on the badge. Neither
+Visual checks of 24 random colour-split detections, and of 24 detections found only after
+adding the opening, found all 48 on the badge. Neither
 figure is labelled recall or precision; both need reviewed frames.
 
 The colour baseline's own badge exclusion (`find_icons_teams`) still uses shape on the
@@ -69,8 +72,9 @@ The output folder must be new. It contains `track.csv` (per-frame badge position
 nearby T pixels), `candidates.csv`, an enlarged crop per candidate and `summary.json`.
 Times are normal-game seconds from the trim start, as in the preparation manifest.
 
-Colour-split 5 fps scans gave 17 candidates (Furia–Falcons) and 20 (Spirit–Falcons).
-Visual inspection judged about 15 and 17 of them as lone, still badges, several in T spawn.
+Colour-split 5 fps scans (before the opening) gave 17 candidates (Furia–Falcons) and 20
+(Spirit–Falcons); with the opening, 17 and 19. Visual inspection of the former judged about
+15 and 17 as lone, still badges, several in T spawn.
 The rest were a still carrier hidden under the badge with a sliver of yellow showing.
 Some lone badges show a white T-shaped mark above them; its meaning is unconfirmed.
 
@@ -91,7 +95,8 @@ Yellow ✕ death markers last about 2 s and can merge with nearby T icons, hidin
 
 - Candidates are unreviewed. Confirm states against demo `bomb_dropped`,
   `bomb_pickup` and `bomb_planted` events before treating them as labels.
-- Planted bombs are not yet separated from dropped ones.
+- Planted bombs are not yet separated from dropped ones. Badges on a bombsite with a red
+  glowing outline and red rings look like the planted state; confirm with demo events.
 - Thresholds were measured on two matches with one radar layout; re-measure for others.
 - A CNN detector class for the badge should be compared against this rule.
 - Bomb-carrier player recall is the main open problem; measure it separately.

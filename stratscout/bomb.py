@@ -36,7 +36,7 @@ def find_bomb(
     By default the frame is first split by colour: only badge-orange pixels (Config.bomb_hue)
     form blobs, so a badge touching its yellow carrier stays a separate rectangle. With
     shape_only, every saturated pixel forms blobs and the badge often merges with the
-    carrier (about 26% of on-screen frames found, against about 87% with the colour split)."""
+    carrier (26-32% of frames found on two matches, against 94-96% with the colour split)."""
     cfg = context.config
     hsv = cv2.cvtColor(frame, cv2.COLOR_RGB2HSV)
     if shape_only:
@@ -49,7 +49,12 @@ def find_bomb(
             & (hsv[:, :, 1] >= cfg.bomb_sv_min)
             & (hsv[:, :, 2] >= cfg.bomb_sv_min)
         )
-    mask = cv2.morphologyEx(mask.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))
+    kernel = np.ones((3, 3), np.uint8)
+    mask = cv2.morphologyEx(mask.astype(np.uint8), cv2.MORPH_CLOSE, kernel)
+    if not shape_only:
+        # Opening strips thin anti-aliased fringes (e.g. a fading yellow death marker) that
+        # fall inside the orange band and would otherwise widen the badge's outline.
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
     n, lab, stats, cents = cv2.connectedComponentsWithStats(mask, connectivity=8)
     best = None
     for i in range(1, n):
