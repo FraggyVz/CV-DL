@@ -181,8 +181,8 @@ no T nearby for 2 s is listed as a dropped candidate for review:
 python -m stratscout bomb-scan --video data/processed/recordings/<match>/minimap-5fps.mp4 --output runs/bomb-scan/<match>
 ```
 
-`bomb-preview --video <video> --start <seconds>` plays a video with live player and bomb
-detections. Candidates are unreviewed, not labels. See [bomb detection](docs/bomb-detection.md).
+`bomb-preview` (pick a match; or `--match spirit --round 7`) plays a video with live
+player and bomb detections and estimated rounds. Candidates are unreviewed, not labels. See [bomb detection](docs/bomb-detection.md).
 
 ## Notebooks and demo ingest
 

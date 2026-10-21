@@ -66,7 +66,10 @@ def main(argv=None):
         help="Skip the orange colour split (old rule, for comparison)",
     )
     live = sub.add_parser("bomb-preview", help="Play a minimap video with live detections")
-    live.add_argument("--video", type=Path, required=True, help="Prepared minimap video")
+    live.add_argument("--video", type=Path, help="Prepared minimap video (else pick a match)")
+    live.add_argument("--match", help="Match folder name fragment, e.g. spirit")
+    live.add_argument("--fps", type=int, default=10, help="Variant to play when picking a match")
+    live.add_argument("--round", type=int, help="Start at this estimated round")
     live.add_argument("--start", type=float, default=0, help="Start time in seconds")
     live.add_argument("--near", type=int, default=40, help="T-proximity radius in pixels")
     live.add_argument("--min-seconds", type=float, default=2.0, help="Still time before dropped")
@@ -93,11 +96,18 @@ def main(argv=None):
                     f"{summary['dropped_candidates']} dropped candidates: {args.output}"
                 )
             elif args.command == "bomb-preview":
-                from .live_preview import live_preview
+                from .live_preview import choose_match, list_matches, live_preview, match_video
 
+                video, rounds_video = args.video, None
+                if video is None:
+                    folder = choose_match(list_matches(), args.match)
+                    video, rounds_video = match_video(folder, args.fps), match_video(folder, 5)
+                print(f"Opening {video}")
                 live_preview(
-                    args.video,
+                    video,
                     start=args.start,
+                    round_number=args.round,
+                    rounds_video=rounds_video,
                     near_px=args.near,
                     min_seconds=args.min_seconds,
                     t_hue=args.t_hue,

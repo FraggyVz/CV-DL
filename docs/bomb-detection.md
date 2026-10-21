@@ -81,13 +81,27 @@ Some lone badges show a white T-shaped mark above them; its meaning is unconfirm
 ## Live preview
 
 ```powershell
+python -m stratscout bomb-preview                       # pick a match from a list
+python -m stratscout bomb-preview --match spirit --round 7
 python -m stratscout bomb-preview --video data/processed/recordings/<match>/minimap-10fps.mp4 --start 330
 ```
 
-Plays a prepared video with live T/CT colour-baseline detections and the bomb state
-(`BombStateTracker`, the frame-by-frame form of the candidate rule). Space pauses, N/B
-step, A/D jump 5 s, Q/Esc quits. A median-frame background removes static map art such
-as the yellow A/B site letters, which otherwise read as T players. Nothing is saved.
+Plays a prepared video (10 fps by default) with live T/CT colour-baseline detections and
+the bomb state (`BombStateTracker`, the frame-by-frame form of the candidate rule).
+Space pauses, N/B step, A/D jump 5 s, `[`/`]` jump to the previous/next round, Q/Esc quits.
+The window is resizable. A median-frame background removes static map art such as the
+yellow A/B site letters, which otherwise read as T players.
+
+## Round estimates
+
+`rounds.py` estimates round starts from the video alone: during freeze time (~20 s) nearly
+all T colour sits in the T spawn box and all CT colour in the CT spawn box. Freeze runs
+of at least 3 s start a round; runs within 40 s merge (timeouts). Footage before the first
+freeze is a partial round 1. Results are cached in `runs/round-cache/`.
+
+Both matches gave 21 rounds, with the ~270 s halftime pause at the start of round 13 —
+where MR12 halftime belongs — and timeouts of 50–95 s. Both recordings start during
+round 1. These are estimates; demo round events are the reference.
 
 Yellow ✕ death markers last about 2 s and can merge with nearby T icons, hiding them.
 

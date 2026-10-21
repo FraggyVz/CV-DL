@@ -2,6 +2,7 @@
 
 Detection runs on each displayed frame; nothing is written to disk. Seeking replays a few
 seconds silently so the bomb state (which depends on history) is rebuilt correctly.
+Rounds are estimated from spawn occupancy (see rounds.py) and cached under runs/.
 Opening the window is explicit; importing this module does not start a GUI.
 """
 
@@ -17,7 +18,9 @@ import numpy as np
 from .bomb import SPECTATOR_T_HUE, BombStateTracker, find_bomb, t_pixels_near
 from .config import Config
 from .context import RunContext
-from .segmentation import find_icons_teams, learn_background
+from .rounds import cached_rounds, round_at
+from .rounds import video_background as bgr_background
+from .segmentation import find_icons_teams
 
 WINDOW = "StratScout live detection"
 SPECTATOR_CT_HUE = 94.0
@@ -62,16 +65,46 @@ def detect(
     return {"players": players, "bomb": bomb, "t_pixels": t_pix}
 
 
-def video_background(cap: cv2.VideoCapture, total: int, samples: int = 60) -> np.ndarray:
-    """Median of frames spread across the match: the map without players. Subtracting it
-    stops static yellow map art (the A/B site letters) being detected as T players."""
-    frames = []
-    for i in np.linspace(0, max(total - 1, 0), samples).astype(int):
-        cap.set(cv2.CAP_PROP_POS_FRAMES, int(i))
-        ok, bgr = cap.read()
-        if ok:
-            frames.append(cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB))
-    return learn_background(np.stack(frames), sample=len(frames))
+def list_matches(root: Path = Path("data/processed/recordings")) -> List[Path]:
+    """Prepared match folders (those containing minimap-*fps.mp4 variants)."""
+    root = Path(root)
+    if not root.is_dir():
+        return []
+    return sorted(d for d in root.iterdir() if d.is_dir() and any(d.glob("minimap-*fps.mp4")))
+
+
+def match_video(folder: Path, fps: int) -> Path:
+    """The folder's variant at fps, or its highest-rate variant if that one is missing."""
+    want = Path(folder) / f"minimap-{fps}fps.mp4"
+    if want.exists():
+        return want
+    variants = sorted(Path(folder).glob("minimap-*fps.mp4"), key=lambda v: int(v.stem[8:-3]))
+    if not variants:
+        raise ValueError(f"no minimap-*fps.mp4 in {folder}")
+    return variants[-1]
+
+
+def choose_match(matches: List[Path], name: Optional[str] = None) -> Path:
+    """Pick a match by name fragment, or ask in the terminal when name is None."""
+    if not matches:
+        raise ValueError("no prepared matches found under data/processed/recordings")
+    if name is not None:
+        hits = [m for m in matches if name.lower() in m.name.lower()]
+        if len(hits) != 1:
+            raise ValueError(f"--match {name!r} matched {len(hits)} folders; be more specific")
+        return hits[0]
+    for k, m in enumerate(matches, 1):
+        print(f"  {k}. {m.name}")
+    while True:
+        answer = input(f"Choose a match [1-{len(matches)}]: ").strip()
+        if answer.isdigit() and 1 <= int(answer) <= len(matches):
+            return matches[int(answer) - 1]
+        print("  Enter one of the listed numbers.")
+
+
+def round_label(r: Dict, n_rounds: int) -> str:
+    extra = ", started before recording" if r["partial"] else ""
+    return f"Round {r['round']}/{n_rounds} (estimated{extra})"
 
 
 def draw(
@@ -128,18 +161,28 @@ def live_preview(
     min_seconds: float = 2.0,
     t_hue: float = SPECTATOR_T_HUE,
     scale: int = 2,
+    round_number: Optional[int] = None,
+    rounds_video: Optional[Path] = None,
     context: Optional[RunContext] = None,
 ) -> None:
     """Open an interactive window. Space play/pause, N/B next/previous frame,
-    A/D back/forward 5 s, Q or Esc to quit."""
+    A/D back/forward 5 s, [ and ] previous/next round, Q or Esc to quit.
+    Rounds are estimated on rounds_video (a faster variant of the same match) if given."""
     context = context or spectator_context()
+    print("Estimating rounds from spawn occupancy (cached after the first run)...")
+    rounds = cached_rounds(rounds_video or video)
+    print(f"{len(rounds)} rounds estimated.")
+    if round_number is not None:
+        if not 1 <= round_number <= len(rounds):
+            raise ValueError(f"--round must be 1-{len(rounds)} for this match")
+        start = rounds[round_number - 1]["start"]
     cap = cv2.VideoCapture(str(video))
     if not cap.isOpened():
         raise ValueError(f"cannot open video: {video}")
     fps = float(cap.get(cv2.CAP_PROP_FPS)) or 1.0
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     tracker = BombStateTracker(fps, min_seconds)
-    background = video_background(cap, total)
+    background = cv2.cvtColor(bgr_background(cap, total), cv2.COLOR_BGR2RGB)
 
     def step(bgr: np.ndarray) -> Tuple[Dict, str]:
         rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
@@ -181,10 +224,14 @@ def live_preview(
             t0 = time.perf_counter()
             index, bgr, found, state = current
             secs = index / fps
+            rnd = round_at(rounds, secs)
+            into = secs - rnd["start"]
             status = [
-                f"{'PLAYING' if playing else 'PAUSED'} | frame {index} | "
-                f"{int(secs) // 60:02d}:{secs % 60:05.2f} ({secs:.2f}s)",
-                "Space: play/pause | N/B: next/previous frame | A/D: -/+5 seconds | Q/Esc: quit",
+                f"{'PLAYING' if playing else 'PAUSED'} | {round_label(rnd, len(rounds))} | "
+                f"round time {int(into) // 60}:{int(into) % 60:02d} | "
+                f"match {int(secs) // 60:02d}:{secs % 60:05.2f} | frame {index}",
+                "Space: play/pause | N/B: next/previous frame | A/D: -/+5 seconds",
+                "[ / ]: previous/next round | Q/Esc: quit",
             ]
             img = draw(bgr, found, state, tracker, status, near_px, scale)
             if not sized:
@@ -206,6 +253,13 @@ def live_preview(
                 target = index - int(5 * fps)
             elif key == ord("d"):
                 target = index + int(5 * fps)
+            elif key == ord("]"):
+                later = [r for r in rounds if r["start"] > secs + 0.5]
+                target = int(later[0]["start"] * fps) if later else None
+            elif key == ord("["):
+                # Back to this round's start, or to the previous round if already there.
+                k = rnd["round"] - 1 - (1 if into < 3 and rnd["round"] > 1 else 0)
+                target = int(rounds[k]["start"] * fps)
             elif playing:
                 target = "next"
             if target == "next":
