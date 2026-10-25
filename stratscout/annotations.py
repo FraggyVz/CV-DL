@@ -148,6 +148,15 @@ def rounds_json_for(video, *, context) -> Path:
     return Path(context.config.labels_dir) / f"{match_id_of(video)}.rounds.json"
 
 
+def match_rounds_json(match_folder, labels_dir="labels") -> Path:
+    """labels/<match folder>.rounds.json - one file per prepared match, shared by its FPS variants.
+
+    Prepared variants are all named minimap-<n>fps.mp4, so rounds_json_for would give every
+    match the same file. Round times are in seconds, so any variant of one match can be used.
+    """
+    return Path(labels_dir) / f"{Path(match_folder).name}.rounds.json"
+
+
 class RoundLabeller:
     """Keys: left/right scrub (shift = 10x) | [ ] round start / end | 1-5 attacker tactic |
     a / b bomb planted now at A / B | 6 7 8 defender response RETAKE TRICKLE SAVE | x clear plant |
@@ -178,6 +187,8 @@ class RoundLabeller:
         if self.out.exists():
             self.rounds = json.loads(self.out.read_text())["rounds"]
             print(f"resuming - {len(self.rounds)} rounds already marked")
+            if self.rounds:
+                self.t = float(self.rounds[-1]["end_s"])
         print(f"video {self.dur:.0f}s @ {self.fps:.0f}fps")
 
     def _reset(self):
@@ -340,6 +351,55 @@ def build_rounds_dataset(videos: Sequence[Path] = None, out_npz: str = None, *, 
         print(f"{v.name:<40} {len(rs)} rounds, {sum((r['post'] is not None for r in rs))} planted")
         rows += rs
         match_ids += [match_id_of(v)] * len(rs)
+    _write_rounds_npz(rows, match_ids, out_npz, context=context)
+
+
+def prepared_match_id(match_folder) -> str:
+    """The source hash recorded in a prepared match's manifest, else the folder name."""
+    manifest = Path(match_folder) / "manifest.json"
+    if manifest.exists():
+        match_id = json.loads(manifest.read_text(encoding="utf-8")).get("match_id")
+        if match_id:
+            return str(match_id)
+    return Path(match_folder).name
+
+
+def build_prepared_rounds_dataset(
+    match_folders: Sequence[Path], out_npz: str = None, fps: int = 10, *, context
+) -> None:
+    """Labelled prepared matches -> one npz, tagged with each match's source hash.
+
+    build_rounds_dataset keys labels and match IDs by video filename, which is
+    minimap-<n>fps.mp4 for every prepared match. Prepared videos are already cropped,
+    so clips use the whole frame.
+    """
+    rows, match_ids = ([], [])
+    for folder in match_folders:
+        labels = match_rounds_json(folder, context.config.labels_dir)
+        if not labels.exists():
+            print(f"{Path(folder).name:<40} no labels yet ({labels}) - skipped")
+            continue
+        video = Path(folder) / f"minimap-{fps}fps.mp4"
+        if not video.exists():
+            raise FileNotFoundError(video)
+        cap = cv2.VideoCapture(str(video))
+        box = (
+            0,
+            0,
+            int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+            int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+        )
+        cap.release()
+        rs = rounds_to_clips(video, box, str(labels), context=context)
+        print(
+            f"{Path(folder).name:<40} {len(rs)} rounds, {sum((r['post'] is not None for r in rs))} planted"
+        )
+        rows += rs
+        match_ids += [prepared_match_id(folder)] * len(rs)
+    _write_rounds_npz(rows, match_ids, out_npz, context=context)
+
+
+def _write_rounds_npz(rows: List[Dict], match_ids: List[str], out_npz: str = None, *, context):
     if not rows:
         print("no labelled rounds found - run RoundLabeller first")
         return

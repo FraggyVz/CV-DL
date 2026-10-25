@@ -204,6 +204,27 @@ python -m stratscout icon-count-eval --train furia spirit --test navi --output r
 
 See [overlapping icons](docs/icon-split.md) for the method, results and trade-offs.
 
+## Labelling rounds
+
+`label-rounds` opens `RoundLabeller` on a prepared match and prints the estimated round
+starts as a guide. Labels are saved to `labels/<match folder>.rounds.json`, shared by all
+FPS variants of that match, and the tool resumes after the last committed round:
+
+```powershell
+python -m stratscout label-rounds --match furia
+```
+
+Keys: Left/Right 2 s (Shift ×10), `[`/`]` start/end, `1`–`5` attacker tactic, `a`/`b`
+plant now at A/B, `6`–`8` defender response, `x` clear plant, `t`/`c` winner, Enter
+commit, `u` undo, `s` save, `q` save and quit. Agree tactic definitions before labelling;
+see [tactic definitions](docs/tactic-definitions.md) (draft).
+
+Build the round dataset from prepared matches with
+`annotations.build_prepared_rounds_dataset(folders, context=context)`. Each round is tagged
+with its match's source hash from `manifest.json`, so all FPS variants of a match share one
+identity. The older `build_rounds_dataset` keys matches by video filename, which is
+`minimap-<n>fps.mp4` for every prepared match; use it only for one-file-per-match `data/`.
+
 ## Notebooks and demo ingest
 
 - `stratscout_prototype.ipynb`: inspect each vision/training/report step.

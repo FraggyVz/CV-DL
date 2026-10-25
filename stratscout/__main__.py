@@ -75,6 +75,11 @@ def main(argv=None):
     live.add_argument("--min-seconds", type=float, default=2.0, help="Still time before dropped")
     live.add_argument("--t-hue", type=float, default=27.0, help="T icon hue (OpenCV 0-180)")
     live.add_argument("--scale", type=int, default=2, help="Display magnification")
+    label = sub.add_parser("label-rounds", help="Mark round tactics, plants and winners")
+    label.add_argument("--match", help="Match folder name fragment, e.g. furia")
+    label.add_argument("--fps", type=int, default=10, help="Variant to scrub")
+    label.add_argument("--output", type=Path, help="Defaults to labels/<match folder>.rounds.json")
+    label.add_argument("--step", type=float, default=2.0, help="Seconds per arrow key")
     counts = sub.add_parser(
         "icon-count-eval", help="Fit icon splitting on some matches; score team counts on others"
     )
@@ -137,6 +142,33 @@ def main(argv=None):
                     t_hue=args.t_hue,
                     scale=args.scale,
                 )
+            elif args.command == "label-rounds":
+                import cv2
+
+                from .annotations import RoundLabeller, match_rounds_json
+                from .context import RunContext
+                from .live_preview import choose_match, list_matches, match_video
+                from .rounds import cached_rounds
+
+                folder = choose_match(list_matches(), args.match)
+                video = match_video(folder, args.fps)
+                cap = cv2.VideoCapture(str(video))
+                w, h = (
+                    int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+                    int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+                )
+                cap.release()
+                print(f"Opening {video}")
+                print("Estimated round starts (unreviewed guides, not labels):")
+                for r in cached_rounds(match_video(folder, 5)):
+                    print(f"  round {r['round']:2d}  {r['start']:7.1f}s - {r['end']:7.1f}s")
+                RoundLabeller(
+                    str(video),
+                    (0, 0, w, h),
+                    str(args.output or match_rounds_json(folder)),
+                    step_s=args.step,
+                    context=RunContext(),
+                ).run()
             elif args.command == "process-recordings":
                 from .recording_batch import process_recordings
 
