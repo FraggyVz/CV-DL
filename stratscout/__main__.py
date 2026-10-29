@@ -159,14 +159,21 @@ def main(argv=None):
                 )
                 cap.release()
                 print(f"Opening {video}")
-                print("Estimated round starts (unreviewed guides, not labels):")
-                for r in cached_rounds(match_video(folder, 5)):
-                    print(f"  round {r['round']:2d}  {r['start']:7.1f}s - {r['end']:7.1f}s")
+                print("Estimating rounds (the first run for a match scans the video)...")
+                guides = cached_rounds(match_video(folder, 5))
+                print("Estimated rounds (unreviewed guides, not labels):")
+                for r in guides:
+                    note = "  started before recording" if r["partial"] else ""
+                    print(
+                        f"  round {r['round']:2d}  play from {r['start'] + r['freeze']:7.1f}s"
+                        f"  next freeze {r['end']:7.1f}s{note}"
+                    )
                 RoundLabeller(
                     str(video),
                     (0, 0, w, h),
                     str(args.output or match_rounds_json(folder)),
                     step_s=args.step,
+                    round_guides=guides,
                     context=RunContext(),
                 ).run()
             elif args.command == "process-recordings":

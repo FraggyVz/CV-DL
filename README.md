@@ -206,9 +206,13 @@ See [overlapping icons](docs/icon-split.md) for the method, results and trade-of
 
 ## Labelling rounds
 
-`label-rounds` opens `RoundLabeller` on a prepared match and prints the estimated round
-starts as a guide. Labels are saved to `labels/<match folder>.rounds.json`, shared by all
-FPS variants of that match, and the tool resumes after the last committed round:
+`label-rounds` opens `RoundLabeller` on a prepared match and prints estimated rounds as a
+guide: when play starts after freeze time and when the next freeze begins. The first run
+for a match scans the video; later runs use `runs/round-cache/`. Labels are saved to
+`labels/<match folder>.rounds.json`, shared by all FPS variants of that match, and the
+tool resumes after the last saved round. `round_idx` counts labels; `estimated_round` is
+the estimated game round containing the label's start, so skipping a partial first round
+keeps game numbering. Check it against the scoreboard or HLTV, as it is an estimate:
 
 ```powershell
 python -m stratscout label-rounds --match furia

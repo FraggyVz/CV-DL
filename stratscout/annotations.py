@@ -160,7 +160,11 @@ def match_rounds_json(match_folder, labels_dir="labels") -> Path:
 class RoundLabeller:
     """Keys: left/right scrub (shift = 10x) | [ ] round start / end | 1-5 attacker tactic |
     a / b bomb planted now at A / B | 6 7 8 defender response RETAKE TRICKLE SAVE | x clear plant |
-    t / c winner | enter commit | u undo | s save | q save and quit."""
+    t / c winner | enter commit | u undo | s save | q save and quit.
+
+    round_idx counts committed labels, not game rounds. Pass round_guides (rounds.cached_rounds
+    output) to also store estimated_round, the estimated game round containing the start.
+    """
 
     def __init__(
         self,
@@ -168,10 +172,12 @@ class RoundLabeller:
         crop_box,
         out_json: str = None,
         step_s: float = 2.0,
+        round_guides: List[Dict] = None,
         *,
         context,
     ):
         self.context = context
+        self.guides = sorted(round_guides or [], key=lambda r: r["start"])
         assert cv2 is not None, "pip install opencv-python"
         self.cap = cv2.VideoCapture(video)
         if not self.cap.isOpened():
@@ -195,6 +201,11 @@ class RoundLabeller:
         self.start = self.end = self.label = self.winner = None
         self.plant = self.site = self.ct_label = None
 
+    def estimated_round(self, seconds: float):
+        """Estimated game round containing seconds, or None without guides."""
+        hits = [r["round"] for r in self.guides if r["start"] <= seconds]
+        return hits[-1] if hits else (self.guides[0]["round"] if self.guides else None)
+
     def _frame(self):
         self.cap.set(cv2.CAP_PROP_POS_FRAMES, int(self.t * self.fps))
         ok, bgr = self.cap.read()
@@ -208,8 +219,10 @@ class RoundLabeller:
         self.ax.imshow(self._frame())
         f = lambda v: "-" if v is None else f"{v:.0f}s"
         plant = "-" if self.plant is None else f"{self.site} at {self.plant:.0f}s"
+        game = self.estimated_round(self.t)
+        game = "" if game is None else f"   est. game round {game}"
         self.ax.set_title(
-            f"t={self.t:.0f}s / {self.dur:.0f}s   round {len(self.rounds) + 1}\nstart {f(self.start)}  end {f(self.end)}  attackers {self.label or '-'}\nplant {plant}  defenders {self.ct_label or '-'}  winner {self.winner or '-'}",
+            f"t={self.t:.0f}s / {self.dur:.0f}s   label #{len(self.rounds) + 1}{game}\nstart {f(self.start)}  end {f(self.end)}  attackers {self.label or '-'}\nplant {plant}  defenders {self.ct_label or '-'}  winner {self.winner or '-'}",
             fontsize=10,
         )
         self.ax.axis("off")
@@ -230,20 +243,23 @@ class RoundLabeller:
             return
         if self.plant is not None and (not self.ct_label):
             print("note: plant marked but no defender response (6-8) - saved without one")
-        self.rounds.append(
-            {
-                "round_idx": len(self.rounds),
-                "start_s": round(self.start, 2),
-                "end_s": round(self.end, 2),
-                "label": self.label,
-                "winner": self.winner,
-                "plant_s": None if self.plant is None else round(self.plant, 2),
-                "plant_site": self.site,
-                "ct_label": self.ct_label,
-            }
-        )
+        entry = {
+            "round_idx": len(self.rounds),
+            "start_s": round(self.start, 2),
+            "end_s": round(self.end, 2),
+            "label": self.label,
+            "winner": self.winner,
+            "plant_s": None if self.plant is None else round(self.plant, 2),
+            "plant_site": self.site,
+            "ct_label": self.ct_label,
+        }
+        game = self.estimated_round(self.start)
+        if game is not None:
+            entry["estimated_round"] = game
+        self.rounds.append(entry)
+        game = "" if game is None else f" (est. game round {game})"
         print(
-            f"round {len(self.rounds)}: {self.label}  plant {self.site or '-'}  defenders {self.ct_label or '-'}  winner {self.winner or '?'}"
+            f"label {len(self.rounds)}{game}: {self.label}  plant {self.site or '-'}  defenders {self.ct_label or '-'}  winner {self.winner or '?'}"
         )
         self._reset()
 

@@ -9,6 +9,7 @@ import cv2
 import numpy as np
 
 from stratscout.annotations import (
+    RoundLabeller,
     build_prepared_rounds_dataset,
     match_rounds_json,
     prepared_match_id,
@@ -72,6 +73,46 @@ class PreparedRoundsDatasetTests(unittest.TestCase):
         self.assertEqual(list(data["match_ids"]), ["hash-f", "hash-s"])
         self.assertEqual(list(data["labels"]), ["A_RUSH", "B_SPLIT"])
         self.assertEqual(data["frames"].shape, (2, 4, 36, 40, 3))
+
+
+class EstimatedRoundTests(unittest.TestCase):
+    GUIDES = [
+        {"round": 1, "start": 0.0, "freeze": 0.0, "partial": True, "end": 46.4},
+        {"round": 2, "start": 46.4, "freeze": 20.8, "partial": False, "end": 131.2},
+        {"round": 3, "start": 131.2, "freeze": 20.4, "partial": False, "end": 264.4},
+    ]
+
+    def labeller(self, guides):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        video = Path(tmp.name) / "minimap-10fps.mp4"
+        writer = cv2.VideoWriter(str(video), cv2.VideoWriter_fourcc(*"mp4v"), 10, (40, 36))
+        self.assertTrue(writer.isOpened())
+        for _ in range(20):
+            writer.write(np.zeros((36, 40, 3), np.uint8))
+        writer.release()
+        out = Path(tmp.name) / "labels" / "match.rounds.json"
+        labeller = RoundLabeller(
+            str(video), (0, 0, 40, 36), str(out), round_guides=guides, context=RunContext()
+        )
+        self.addCleanup(labeller.cap.release)
+        return labeller
+
+    def commit(self, labeller, start, end):
+        labeller.start, labeller.end, labeller.label = start, end, "DEFAULT"
+        labeller._commit()
+        return labeller.rounds[-1]
+
+    def test_skipping_the_partial_round_keeps_game_numbering(self):
+        labeller = self.labeller(self.GUIDES)
+        first = self.commit(labeller, 67.2, 120.0)
+        second = self.commit(labeller, 151.6, 250.0)
+        self.assertEqual([first["round_idx"], second["round_idx"]], [0, 1])
+        self.assertEqual([first["estimated_round"], second["estimated_round"]], [2, 3])
+
+    def test_without_guides_the_label_format_is_unchanged(self):
+        entry = self.commit(self.labeller(None), 67.2, 120.0)
+        self.assertNotIn("estimated_round", entry)
 
 
 if __name__ == "__main__":
