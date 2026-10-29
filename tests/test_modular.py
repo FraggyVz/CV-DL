@@ -27,12 +27,10 @@ from stratscout.config import Config
 from stratscout.context import RunContext
 from stratscout.contracts import Round
 from stratscout.detector import MinimapDetector, gaussian_heatmap
-from stratscout.features import to_features
 from stratscout.ingest.config import DemCfg
 from stratscout.ingest.context import IngestContext
 from stratscout.ingest.coordinates import world_to_radar
 from stratscout.ingest.video import radar_only_clip
-from stratscout.models import MODEL_ZOO
 from stratscout.preprocessing import MinimapPreprocessor
 from stratscout.storage import save_checkpoint, write_new_text
 from stratscout.synthetic import build_background, make_round, render_frames
@@ -66,13 +64,6 @@ class RegressionTests(unittest.TestCase):
         np.testing.assert_array_equal(pos, self.expected["positions"])
         np.testing.assert_array_equal(frames, self.expected["frames"])
 
-    def test_features_match_original(self):
-        np.testing.assert_allclose(
-            to_features(self.expected["positions"], context=synthetic_context()),
-            self.expected["features"],
-            atol=1e-7,
-        )
-
     def test_tracker_matches_original(self):
         # This preserves the old coasting behaviour; it does not endorse it.
         detections = [
@@ -95,19 +86,6 @@ class RegressionTests(unittest.TestCase):
             gaussian_heatmap(self.expected["positions"][0], 32, 1, context=ctx).numpy(),
             self.expected["heatmap"],
         )
-
-    def test_all_classifier_heads_and_checkpoint_shapes(self):
-        ctx = synthetic_context()
-        for name, constructor in MODEL_ZOO.items():
-            for n_classes in (5, 3):
-                with self.subTest(name=name, classes=n_classes):
-                    model = constructor(16, 16, n_classes, context=ctx).eval()
-                    clone = constructor(16, 16, n_classes, context=ctx).eval()
-                    clone.load_state_dict(model.state_dict(), strict=True)
-                    with torch.no_grad():
-                        result = model(torch.zeros(2, 8, 16))
-                    self.assertEqual(tuple(result.shape), (2, n_classes))
-                    self.assertTrue(torch.isfinite(result).all())
 
 
 class ModuleTests(unittest.TestCase):
@@ -278,18 +256,18 @@ class NotebookWorkflowTests(unittest.TestCase):
                             if index == 2 and filename == "stratscout_prototype.ipynb":
                                 cfg = namespace["context"].config
                                 cfg.minimap_px = 32
-                                cfg.det_epochs = cfg.cls_epochs = 1
-                                cfg.cls_hidden = 16
-                                cfg.train_matches = cfg.val_matches = cfg.test_matches = (
-                                    cfg.detector_matches
-                                ) = 1
+                                cfg.det_epochs = 1
+                                cfg.test_matches = cfg.detector_matches = 1
                                 cfg.detector_train_frames = 32
                                 cfg.detector_val_frames = 16
                                 cfg.det_batch = 8
                             plt.close("all")
                 summary = json.loads(Path("runs/modular-experiment/summary.json").read_text())
-                self.assertEqual(set(summary["classifiers"]), {"pre", "post"})
-                self.assertIsNone(summary["experiment_Bprime_vision_trained"])
+                self.assertEqual(
+                    set(summary["detector"]), {"precision", "recall", "f1", "mean_pos_err_norm"}
+                )
+                self.assertNotIn("classifiers", summary)
+                self.assertTrue(Path("runs/modular-experiment/detector.pt").exists())
             finally:
                 os.chdir(original_cwd)
 

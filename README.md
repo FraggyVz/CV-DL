@@ -1,7 +1,8 @@
 # StratScout
 
 StratScout is a CS2 Mirage research prototype: minimap pixels → player detection →
-tracking → attacker tactics before the plant and defender responses afterwards.
+tracking. A time-aware tactic model (attacker tactics before the plant, defender
+responses afterwards) will be built on the tracked positions later.
 Demo files are development evidence; the vision pipeline takes video pixels.
 
 ## Current status
@@ -10,11 +11,13 @@ Ryan's prototype has been moved into the `stratscout/` Python package. Both note
 are thin, optional experiment interfaces importing that implementation. Importing
 modules does not extract data, train models, open windows or save results.
 
-The colour baseline, CNN detector, tracker, four classifier architectures, annotation
-tools, reports and companion demo-ingest utilities are retained. **This is an
-experimental pipeline, not a validated real-match classifier.** Classifier training
-still uses generated rounds; real icon labels can supply the detector separately.
-Existing tracking, label-safety and ingest-schema problems are recorded in the
+The colour baseline, CNN detector, tracker, annotation tools and companion demo-ingest
+utilities are retained. **The old tactic classifiers, trajectory features, inference
+pipeline and occupancy/win-rate reports were removed on the `vision-only` branch**:
+they stretched each round to 32 steps, so timing in seconds was lost. A new
+time-aware model will replace them (old code: commit `1a63107`). **This is an
+experimental vision pipeline, not validated on real matches.** Existing tracking,
+label-safety and ingest-schema problems are recorded in the
 [baseline review](docs/base-review-2026-10-12.md).
 
 On the `bomb-state` branch, spectator-radar detection adds C4 badge detection and
@@ -145,8 +148,8 @@ python -m stratscout prototype --smoke --output runs/smoke-001
 python -m unittest discover -s tests
 ```
 
-The smoke command runs a small synthetic detector/classifier experiment on CPU and
-writes `detector.pt`, `stratscout.pt` and `summary.json`. It does not read your real
+The smoke command runs a small synthetic detector/tracker experiment on CPU and
+writes `detector.pt` and `summary.json`. It does not read your real
 recordings or annotations. **Its scores are wiring checks, not accuracy evidence.**
 Choose a new output directory for every run; existing destinations are refused.
 
@@ -157,8 +160,7 @@ For the full prototype, use a JSON object containing `Config` fields:
   "data_dir": "data/raw/inbox",
   "video_exts": [".mkv", ".mp4"],
   "map_image": "mirage_radar.png",
-  "det_epochs": 25,
-  "cls_epochs": 40
+  "det_epochs": 25
 }
 ```
 
@@ -225,12 +227,12 @@ See [module responsibilities and API examples](docs/architecture.md),
 [the recording direction](docs/development-direction.md) and
 [contributor rules](AGENTS.md).
 
-- Tracker placeholders/coasting and feature handling of missing players are unchanged.
+- Tracker placeholders/coasting are unchanged, and its gate/miss limits are counted
+  per step rather than per second.
 - Legacy annotation proposal/save behaviour still needs repair. Back up reviewed
   labels; never direct `auto_label_icons` at a reviewed annotation file.
 - Icon splitting is evaluated only with label-free proxies and visual review; it
   under-counts spawn stacks of five. Labelled live-play frames are still needed.
-- The leaking B-prime experiment is retained but disabled by default.
 - Recording and CS2 playback are manual; no OBS control command is included.
 - Lower frame rates do not fix bomb-carrier occlusion; labelled accuracy comes later.
 - Old capture assets were explicitly cleared; reusable models, map assets and

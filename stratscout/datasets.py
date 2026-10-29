@@ -13,11 +13,8 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-from .config import PHASES
 from .contracts import Round
 from .detector import gaussian_heatmap
-from .features import to_sequence
-from .tracking import positions_from_video
 
 
 def load_icon_labels(frames: np.ndarray, label_json: str, n_per_team: int = 5):
@@ -63,53 +60,3 @@ def synthetic_icon_dataset(
     fr = np.stack([picks[i][0].frames[picks[i][1]] for i in sel])
     po = np.stack([picks[i][0].positions[picks[i][1]] for i in sel])
     return IconDataset(fr, po, context=context)
-
-
-class SequenceDataset(Dataset):
-    """One question over a set of rounds. phase="pre": attacker tactic, every round.
-    phase="post": defender response, only rounds where the bomb was planted."""
-
-    def __init__(
-        self,
-        rounds: List[Round],
-        mode="features",
-        source="gt",
-        detector=None,
-        normaliser=None,
-        phase: str = "pre",
-        *,
-        context,
-    ):
-        self.context = context
-        self.phase, self.classes = (phase, PHASES[phase])
-        self.n_classes = len(self.classes)
-        X, y = ([], [])
-        for r in rounds:
-            lab = r.label_of(phase)
-            if lab is None:
-                continue
-            pos = (
-                r.positions_of(phase)
-                if source == "gt"
-                else positions_from_video(detector, r.frames_of(phase), context=self.context)
-            )
-            X.append(to_sequence(pos, mode, context=self.context))
-            y.append(self.classes.index(lab))
-        self.X = torch.from_numpy(np.stack(X))
-        self.y = torch.tensor(y, dtype=torch.long)
-        if normaliser is None:
-            self.mu = self.X.mean((0, 1), keepdim=True)
-            self.sd = self.X.std((0, 1), keepdim=True).clamp(min=1e-06)
-        else:
-            self.mu, self.sd = normaliser
-        self.X = (self.X - self.mu) / self.sd
-
-    @property
-    def normaliser(self):
-        return (self.mu, self.sd)
-
-    def __len__(self):
-        return len(self.y)
-
-    def __getitem__(self, i):
-        return (self.X[i], self.y[i])

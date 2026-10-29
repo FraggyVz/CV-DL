@@ -7,6 +7,15 @@ the two notebooks are thin experiment interfaces. Read [AGENTS.md](AGENTS.md),
 [README](README.md), [architecture](docs/architecture.md) and the
 [baseline review](docs/base-review-2026-10-12.md) before changing behaviour.
 
+**Vision-only scope (`vision-only` branch, 29 October 2026).** The old tactic
+classifiers, trajectory features, inference pipeline and occupancy/win-rate reports
+were removed. They stretched each round to 32 steps between start and plant, losing
+timing in seconds, so they could not separate a rush from a default. The package now
+covers capture processing, the radar crop, the colour baseline, icon splitting, bomb
+detection, the CNN icon detector, the tracker, annotation tools, the demo ingest and
+the live preview. A new time-aware tactic model will be built separately; the removed
+code is available at commit `1a63107`.
+
 On 14 October 2026 the user requested a recording-data reset. Old recordings,
 exports, capture diagnostics/scripts, crop profiles and unlabelled pilot caches
 were removed. Do not restore them or reuse their crop coordinates by default.
@@ -39,8 +48,11 @@ passed real-footage acceptance. Nominal FPS does not prove unique rendered frame
 Vision inference takes minimap pixels. Demo-derived positions may support
 development/evaluation, but must not leak into video-only inference.
 
-- Before plant: `A_RUSH`, `B_RUSH`, `A_SPLIT`, `B_SPLIT`, `DEFAULT`.
-- After plant: `RETAKE`, `TRICKLE`, `SAVE`.
+- Round-label classes (used by `RoundLabeller`; no model consumes them yet):
+  before plant `A_RUSH`, `B_RUSH`, `A_SPLIT`, `B_SPLIT`, `DEFAULT`; after plant
+  `RETAKE`, `TRICKLE`, `SAVE`.
+- A future tactic model must sample positions on a fixed clock in seconds (not a fixed
+  step count per round) and express tracker gates per second.
 - The CNN heatmaps use channel 0 for T and channel 1 for CT.
 - OpenCV decoding returns BGR; vision tensors use RGB. Keep input frames uint8
   where preprocessing performs its own division by 255.
@@ -97,13 +109,14 @@ in spawn as four. Neither proxy measures late-round over-counting; labelled fram
 ## Unresolved problems
 
 The baseline review documents annotation overwrite/empty-frame loss, missing-player
-tracking, non-finite motion features, incompatible ingest labels and evaluation
-leakage. The B-prime experiment remains disabled. Real classifier training is not
-connected; synthetic scores are not real-match accuracy.
+tracking, incompatible ingest labels and evaluation leakage (its classifier items
+refer to removed code). Synthetic detector scores are not real-match accuracy.
 
 The retained fixed-slot tracker can invent or retain stale positions. It is not
-a validated solution to occlusion. Repair observed/missing state and feature
-handling together. Avoid blanket masks over playable map areas.
+a validated solution to occlusion. Its `track_gate` (0.09 per step) and
+`track_max_miss` (8 steps) are counted in steps, so they only suit short step
+intervals; repair observed/missing state and express these limits per second.
+Avoid blanket masks over playable map areas.
 
 The companion demo-ingest utilities remain reusable research code, separate from
 the recording processor. Their legacy 8 fps exporter is not the current preparation

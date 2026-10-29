@@ -11,11 +11,11 @@ import or duplicated notebook implementation. Normal Python imports connect modu
 | `config`, `context`, `contracts` | Configuration, per-run state, `Round` and shape contracts |
 | `video`, `pilot` | Video discovery, crop detection, extraction and pilot caches |
 | `segmentation`, `preprocessing`, `detector` | Colour baseline with badge shape exclusion, RGB tensors and CNN heatmaps |
-| `synthetic` | Mirage geometry, backgrounds and synthetic rounds |
-| `datasets`, `models`, `training`, `evaluation` | Samples, four classifiers, optimisation and metrics |
-| `tracking`, `features`, `pipeline` | Fixed slots, trajectory features and two-head inference |
-| `annotations` | Icon review and video round labelling/export |
-| `visualisation`, `reports` | Diagnostic figures, occupancy, trails and win-rate summaries |
+| `synthetic` | Mirage geometry, backgrounds and rendered synthetic rounds for detector/tracker data |
+| `datasets`, `training`, `evaluation` | Icon samples, detector optimisation and detector metrics |
+| `tracking` | Fixed-slot tracking of detections into 10 player positions |
+| `annotations` | Icon review and video round labelling (start/plant/end in video seconds) |
+| `visualisation` | Diagnostic figures for crops, colour masks and detector output |
 | `storage`, `workflow`, `__main__` | Protected experiment outputs, explicit stages and CLI |
 | `ingest/` | Separate configuration, video shrinking, demo parsing, mapping, labels and export |
 | `media`, `video_profiles`, `video_preparation` | FFmpeg/probe helpers, half-open crops, aligned native-resolution exports |
@@ -24,9 +24,16 @@ import or duplicated notebook implementation. Normal Python imports connect modu
 | `bomb`, `rounds`, `live_preview` | Colour-then-shape C4 badge detection, unreviewed dropped-bomb candidates, video-only round estimates and an interactive detection preview ([bomb detection](bomb-detection.md)) |
 | `icon_split`, `count_eval` | Per-team masks, death-marker removal, disc-fit splitting with a 5-per-team cap, and label-free count checks ([overlapping icons](icon-split.md)) |
 
-The [migration inventory](module-inventory.json) maps all 125 original functions and
-classes to their current modules and original zero-based notebook cell indices.
-The original notebooks are available at Git commit `00e024f`.
+The [migration inventory](module-inventory.json) maps the original functions and
+classes still present to their current modules and original zero-based notebook cell
+indices. The original notebooks are available at Git commit `00e024f`.
+
+**Tactic classification is not in this package.** The `vision-only` branch removed the
+old classifiers (`models`, `features`, `pipeline`, `reports`, `SequenceDataset`,
+`train_classifier`, `evaluate`, the round-to-clip dataset builders and their workflow
+stages). They stretched every round to 32 steps between start and plant, so trajectory
+timing in seconds was lost. A new time-aware tactic model will be built separately on
+top of the tracker's positions. The removed code is available at commit `1a63107`.
 
 Preparation commands bypass the prototype workflow. They use JSON profiles/manifests
 and explicit arguments, not `RunContext`, the 32-frame sampler or tracker.
@@ -71,23 +78,21 @@ points = find_icons_teams(frames[0], context=context)  # RGB, normalised x/y/tea
 Set `context.config.crop_box` to reviewed bounds for the normal-speed input before
 this example. Validate the crop for each source. `RunContext.config` replaces `CFG`; `context.device`
 replaces `DEVICE`. Intermediate results use `context.state`, retaining familiar
-names such as `VIDEOS`, `CROPS`, `detector`, `DATA`, `RESULTS` and `pipeline`.
+names such as `VIDEOS`, `CROPS`, `detector` and `DET_METRICS`.
 Each run owns its own dictionary and caches. Do not introduce module-level run state.
 
 ## Workflow order
 
-`workflow.run_prototype(context)` handles the complete experiment. Individual steps
-remain callable for notebook exploration:
+`workflow.run_prototype(context)` handles the complete vision experiment. Individual
+steps remain callable for notebook exploration:
 
 1. Discover videos, locate crops, prepare pilot frames and the background.
 2. Prepare map geometry, synthetic rounds, preprocessing, detector data and mask.
-3. Train/evaluate the detector, check tracking/features and train both classifier heads.
-4. Compare oracle/vision inputs, construct the inference pipeline and produce reports.
-5. Save checkpoints and the summary to a fresh directory.
+3. Train/evaluate the detector and check tracking error against true positions.
+4. Save `detector.pt` and `summary.json` to a fresh directory.
 
 For example, after detector preparation/training, the notebook can access
-`context.state["detector"]`; after `prepare_pipeline`, use
-`context.state["pipeline"].predict_window(frames, phase="pre")`.
+`context.state["detector"]` and pass it to `tracking.positions_from_video`.
 
 Interactive tools are explicit too:
 
@@ -106,15 +111,14 @@ relative configuration paths are resolved against the working directory.
 
 This migration preserves the numerical algorithms. Regression fixtures were produced
 by executing selected definitions from the original committed notebook. Tests compare
-trajectories, rendered frames, features, tracking, heatmaps and CNN outputs, check
+trajectories, rendered frames, tracking, heatmaps and CNN outputs, check
 imports and module dependency cycles, test video decoding/export and execute both thin
 notebooks with small synthetic inputs in a temporary directory.
 
 Intentional orchestration changes: CPU is the default device; experiment sizes are
-configurable; checkpoint/summary writes refuse overwrites; the B-prime experiment is
-disabled by default because it uses test rounds for model selection. Summary metadata
-distinguishes real detector data from synthetic classifier data. No model-quality fix
-or real-footage validation is implied by these checks.
+configurable; checkpoint/summary writes refuse overwrites. Summary metadata
+distinguishes real from synthetic detector data. No model-quality fix or real-footage
+validation is implied by these checks.
 
 The [baseline review](base-review-2026-10-12.md) remains the list of algorithm/data
 faults to tackle next. In particular, review-tool saves and ingest exports retain

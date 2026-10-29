@@ -64,11 +64,12 @@ This feeds step 4 below.
 4. **Measure detection and rate trade-offs:** use reviewed centres/visibility,
    held-out rounds/matches, per-team precision/recall and explicit bomb/death/overlap
    cases. Compare 5/10/30 fps; do not select a winner from file size alone.
-5. **Repair tracking and features together:** propagate observed/missing/inferred
-   states, remove invented players, and compute motion using actual elapsed time.
-   The old 32-frame sequence is not a constant-FPS sampling contract.
-6. **Train/evaluate real tactics:** connect reviewed real pre/post-plant rounds, fix
-   leakage, compare colour/CNN baselines, then evaluate the classifier heads.
+5. **Repair tracking:** propagate observed/missing/inferred states, remove invented
+   players, and express the gate and miss limits per second of elapsed time.
+6. **Build the time-aware tactic model:** the old classifiers were removed on the
+   `vision-only` branch because their 32-steps-per-round sampling discarded timing.
+   Sample reviewed real pre/post-plant rounds on a fixed clock in seconds, keep splits
+   by match, and compare against simple baselines (e.g. a time-to-plant rule).
 7. **Application/deployment:** build around measured model behaviour and clear failure
    states. CS2 launch, playback, camera and match-ending automation are separate work,
    justified when manual capture becomes the bottleneck.

@@ -9,7 +9,9 @@ from pathlib import Path
 def main(argv=None):
     parser = argparse.ArgumentParser(description="StratScout modular prototype")
     sub = parser.add_subparsers(dest="command", required=True)
-    prototype = sub.add_parser("prototype", help="Run the existing experimental pipeline")
+    prototype = sub.add_parser(
+        "prototype", help="Run the vision experiment: crop, detector and tracker"
+    )
     prototype.add_argument("--config", type=Path, help="JSON object of Config fields")
     prototype.add_argument("--output", type=Path, required=True, help="New run directory")
     prototype.add_argument("--smoke", action="store_true", help="Small synthetic CPU wiring check")
@@ -197,10 +199,9 @@ def main(argv=None):
 
                 torch.set_num_threads(1)
                 cfg.minimap_px = 32
-                cfg.det_epochs = cfg.cls_epochs = 1
-                cfg.cls_hidden = 16
+                cfg.det_epochs = 1
                 cfg.det_batch = 8
-                cfg.train_matches = cfg.val_matches = cfg.test_matches = cfg.detector_matches = 1
+                cfg.test_matches = cfg.detector_matches = 1
                 cfg.detector_train_frames, cfg.detector_val_frames = 32, 16
                 # A smoke run must not discover or rewrite real inputs.
                 cfg.data_dir = str(args.output / "empty-inputs")
@@ -210,7 +211,6 @@ def main(argv=None):
                     "icon_labels_json",
                     "frames_src_json",
                     "crops_json",
-                    "rounds_npz",
                     "map_image",
                 ):
                     setattr(cfg, name, str(args.output / Path(getattr(cfg, name)).name))

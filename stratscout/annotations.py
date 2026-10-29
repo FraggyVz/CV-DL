@@ -7,16 +7,15 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Dict, List, Sequence
+from typing import Dict, List
 
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 
 from .config import CT_CLASSES, T_CLASSES
-from .contracts import Round
 from .segmentation import DEFAULT_TEAM_HUES, _hue_dist, find_icons_teams
-from .video import extract_clip, match_id_of, stack_resized
+from .video import match_id_of
 from .visualisation import TEAM_EDGE, show_detections
 
 
@@ -290,100 +289,3 @@ class RoundLabeller:
         self.fig.canvas.mpl_connect("key_press_event", self._key)
         self._draw()
         plt.show()
-
-
-def rounds_to_clips(video: str, crop_box, rounds_json: str = None, *, context) -> List[Dict]:
-    """One video's marked rounds -> dicts with the pre-plant clip and, if planted, the post-plant clip."""
-    rounds = json.loads(Path(rounds_json or rounds_json_for(video, context=context)).read_text())[
-        "rounds"
-    ]
-    out = []
-    for r in rounds:
-        try:
-            pre_end = r.get("plant_s") or r["end_s"]
-            pre = extract_clip(str(video), r["start_s"], pre_end, crop_box, context.config.seq_len)
-            post = (
-                extract_clip(
-                    str(video),
-                    r["plant_s"],
-                    r["end_s"],
-                    crop_box,
-                    context.config.seq_len,
-                )
-                if r.get("plant_s")
-                else None
-            )
-            out.append(
-                {
-                    "pre": pre,
-                    "post": post,
-                    "label": r["label"],
-                    "winner": r.get("winner") or "",
-                    "round_idx": r["round_idx"],
-                    "plant_site": r.get("plant_site") or "",
-                    "ct_label": r.get("ct_label") or "",
-                }
-            )
-        except RuntimeError as e:
-            print(f"skipped {match_id_of(video)} round {r['round_idx']}: {e}")
-    return out
-
-
-def build_rounds_dataset(videos: Sequence[Path] = None, out_npz: str = None, *, context) -> None:
-    """Every labelled video in data/ -> one npz, tagged with match_id so splits stay by match."""
-    rows, match_ids = ([], [])
-    for v in context.state["VIDEOS"] if videos is None else videos:
-        if not rounds_json_for(v, context=context).exists():
-            print(f"{v.name:<40} no labels yet ({rounds_json_for(v, context=context)}) - skipped")
-            continue
-        rs = rounds_to_clips(v, context.state["CROPS"][v.name], context=context)
-        print(f"{v.name:<40} {len(rs)} rounds, {sum((r['post'] is not None for r in rs))} planted")
-        rows += rs
-        match_ids += [match_id_of(v)] * len(rs)
-    if not rows:
-        print("no labelled rounds found - run RoundLabeller first")
-        return
-    pre = stack_resized([r["pre"][None] for r in rows])
-    post = np.zeros_like(pre)
-    for k, r in enumerate(rows):
-        if r["post"] is not None:
-            post[k] = stack_resized([pre[k][None], r["post"][None]])[1]
-    np.savez_compressed(
-        out_npz or context.config.rounds_npz,
-        frames=pre,
-        post_frames=post,
-        has_post=np.array([r["post"] is not None for r in rows]),
-        labels=np.array([r["label"] for r in rows]),
-        winners=np.array([r["winner"] for r in rows]),
-        round_idx=np.array([r["round_idx"] for r in rows]),
-        plant_site=np.array([r["plant_site"] for r in rows]),
-        ct_labels=np.array([r["ct_label"] for r in rows]),
-        match_ids=np.array(match_ids),
-    )
-    print(
-        f"{len(rows)} rounds from {len(set(match_ids))} match(es) -> {out_npz or context.config.rounds_npz}"
-    )
-
-
-def load_real_rounds(npz_path: str = None, *, context) -> List[Round]:
-    d = np.load(npz_path or context.config.rounds_npz, allow_pickle=True)
-    n = len(d["labels"])
-    get = lambda k, default: d[k] if k in d else [default] * n
-    out = []
-    for k in range(n):
-        has_post = bool(get("has_post", False)[k])
-        out.append(
-            Round(
-                str(get("match_ids", "match_000")[k]),
-                int(get("round_idx", k)[k]),
-                str(d["labels"][k]),
-                None,
-                d["frames"][k],
-                str(get("winners", "")[k]) or None,
-                str(get("plant_site", "")[k]) or None,
-                str(get("ct_labels", "")[k]) or None,
-                None,
-                d["post_frames"][k] if has_post else None,
-            )
-        )
-    return out
