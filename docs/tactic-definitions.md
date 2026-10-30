@@ -1,5 +1,28 @@
 # Tactical Clip Definitions and Labelling
 
+## Quick start
+
+```powershell
+python -m stratscout label-segments --match furia --reviewer yourname
+```
+
+1. Watch the **yellow** dots: setup first, then press **`I`** when they move again towards a site.
+2. Press **`O`** when the plant finishes, the attack ends, or the last attacker dies.
+3. Press **`1`–`4`** for the class, then **`S`** to save.
+4. Bomb planted? Watch the **blue** dots for the retake: `I`, `O`, **`5`**, then **`A`/`B`**, `S`.
+5. Press **`C`** when the round is done, then **`]`** for the next round.
+
+```
+MOVE    Space play/pause   ←/→ -/+2 s   K/L -/+5 s   , . one frame
+JUMP    [ ] prev/next round   N/P saved segments   M bookmark  J next bookmark
+MARK    I start   O end
+CLASS   1 A_DIRECT  2 B_DIRECT  3 A_SPLIT  4 B_SPLIT  5 RETAKE (+ A/B site)
+        0 undecided   E exclude   U uncertain
+SAVE    S save   X clear   Z undo last   C round checked   V move text   Q quit
+```
+
+Details: [using the labeller](#using-label-segments) and the class and boundary rules below.
+
 ## Scope and implementation status
 
 The agreed target is five classes on Mirage: `A_DIRECT`, `B_DIRECT`, `A_SPLIT`,
@@ -45,23 +68,6 @@ The proposed workflow is:
 
 This is a practical guide to the labelling window. The class and boundary rules are
 in the sections below; if this guide ever seems to disagree with them, the rules win.
-
-#### Quick start
-
-1. Watch the **yellow** dots: setup first, then press **`I`** when they move again towards a site.
-2. Press **`O`** when the plant finishes, the attack ends, or the last attacker dies.
-3. Press **`1`–`4`** for the class, then **`S`** to save.
-4. Bomb planted? Watch the **blue** dots for the retake: `I`, `O`, **`5`**, then **`A`/`B`**, `S`.
-5. Press **`C`** when the round is done, then **`]`** for the next round.
-
-```
-MOVE    Space play/pause   ←/→ -/+2 s   K/L -/+5 s   , . one frame
-JUMP    [ ] prev/next round   N/P saved segments   M bookmark  J next bookmark
-MARK    I start   O end
-CLASS   1 A_DIRECT  2 B_DIRECT  3 A_SPLIT  4 B_SPLIT  5 RETAKE (+ A/B site)
-        0 undecided   E exclude   U uncertain
-SAVE    S save   X clear   Z undo last   C round checked   V move text   Q quit
-```
 
 #### Open the window
 
