@@ -7,16 +7,15 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Dict, List, Sequence
+from typing import Dict, List
 
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 
 from .config import CT_CLASSES, T_CLASSES
-from .contracts import Round
 from .segmentation import DEFAULT_TEAM_HUES, _hue_dist, find_icons_teams
-from .video import extract_clip, match_id_of, stack_resized
+from .video import match_id_of
 from .visualisation import TEAM_EDGE, show_detections
 
 
@@ -148,23 +147,10 @@ def rounds_json_for(video, *, context) -> Path:
     return Path(context.config.labels_dir) / f"{match_id_of(video)}.rounds.json"
 
 
-def match_rounds_json(match_folder, labels_dir="labels") -> Path:
-    """labels/<match folder>.rounds.json - one file per prepared match, shared by its FPS variants.
-
-    Prepared variants are all named minimap-<n>fps.mp4, so rounds_json_for would give every
-    match the same file. Round times are in seconds, so any variant of one match can be used.
-    """
-    return Path(labels_dir) / f"{Path(match_folder).name}.rounds.json"
-
-
 class RoundLabeller:
     """Keys: left/right scrub (shift = 10x) | [ ] round start / end | 1-5 attacker tactic |
     a / b bomb planted now at A / B | 6 7 8 defender response RETAKE TRICKLE SAVE | x clear plant |
-    t / c winner | enter commit | u undo | s save | q save and quit.
-
-    round_idx counts committed labels, not game rounds. Pass round_guides (rounds.cached_rounds
-    output) to also store estimated_round, the estimated game round containing the start.
-    """
+    t / c winner | enter commit | u undo | s save | q save and quit."""
 
     def __init__(
         self,
@@ -172,12 +158,10 @@ class RoundLabeller:
         crop_box,
         out_json: str = None,
         step_s: float = 2.0,
-        round_guides: List[Dict] = None,
         *,
         context,
     ):
         self.context = context
-        self.guides = sorted(round_guides or [], key=lambda r: r["start"])
         assert cv2 is not None, "pip install opencv-python"
         self.cap = cv2.VideoCapture(video)
         if not self.cap.isOpened():
@@ -193,18 +177,11 @@ class RoundLabeller:
         if self.out.exists():
             self.rounds = json.loads(self.out.read_text())["rounds"]
             print(f"resuming - {len(self.rounds)} rounds already marked")
-            if self.rounds:
-                self.t = float(self.rounds[-1]["end_s"])
         print(f"video {self.dur:.0f}s @ {self.fps:.0f}fps")
 
     def _reset(self):
         self.start = self.end = self.label = self.winner = None
         self.plant = self.site = self.ct_label = None
-
-    def estimated_round(self, seconds: float):
-        """Estimated game round containing seconds, or None without guides."""
-        hits = [r["round"] for r in self.guides if r["start"] <= seconds]
-        return hits[-1] if hits else (self.guides[0]["round"] if self.guides else None)
 
     def _frame(self):
         self.cap.set(cv2.CAP_PROP_POS_FRAMES, int(self.t * self.fps))
@@ -219,10 +196,8 @@ class RoundLabeller:
         self.ax.imshow(self._frame())
         f = lambda v: "-" if v is None else f"{v:.0f}s"
         plant = "-" if self.plant is None else f"{self.site} at {self.plant:.0f}s"
-        game = self.estimated_round(self.t)
-        game = "" if game is None else f"   est. game round {game}"
         self.ax.set_title(
-            f"t={self.t:.0f}s / {self.dur:.0f}s   label #{len(self.rounds) + 1}{game}\nstart {f(self.start)}  end {f(self.end)}  attackers {self.label or '-'}\nplant {plant}  defenders {self.ct_label or '-'}  winner {self.winner or '-'}",
+            f"t={self.t:.0f}s / {self.dur:.0f}s   round {len(self.rounds) + 1}\nstart {f(self.start)}  end {f(self.end)}  attackers {self.label or '-'}\nplant {plant}  defenders {self.ct_label or '-'}  winner {self.winner or '-'}",
             fontsize=10,
         )
         self.ax.axis("off")
@@ -243,23 +218,20 @@ class RoundLabeller:
             return
         if self.plant is not None and (not self.ct_label):
             print("note: plant marked but no defender response (6-8) - saved without one")
-        entry = {
-            "round_idx": len(self.rounds),
-            "start_s": round(self.start, 2),
-            "end_s": round(self.end, 2),
-            "label": self.label,
-            "winner": self.winner,
-            "plant_s": None if self.plant is None else round(self.plant, 2),
-            "plant_site": self.site,
-            "ct_label": self.ct_label,
-        }
-        game = self.estimated_round(self.start)
-        if game is not None:
-            entry["estimated_round"] = game
-        self.rounds.append(entry)
-        game = "" if game is None else f" (est. game round {game})"
+        self.rounds.append(
+            {
+                "round_idx": len(self.rounds),
+                "start_s": round(self.start, 2),
+                "end_s": round(self.end, 2),
+                "label": self.label,
+                "winner": self.winner,
+                "plant_s": None if self.plant is None else round(self.plant, 2),
+                "plant_site": self.site,
+                "ct_label": self.ct_label,
+            }
+        )
         print(
-            f"label {len(self.rounds)}{game}: {self.label}  plant {self.site or '-'}  defenders {self.ct_label or '-'}  winner {self.winner or '?'}"
+            f"round {len(self.rounds)}: {self.label}  plant {self.site or '-'}  defenders {self.ct_label or '-'}  winner {self.winner or '?'}"
         )
         self._reset()
 
@@ -317,149 +289,3 @@ class RoundLabeller:
         self.fig.canvas.mpl_connect("key_press_event", self._key)
         self._draw()
         plt.show()
-
-
-def rounds_to_clips(video: str, crop_box, rounds_json: str = None, *, context) -> List[Dict]:
-    """One video's marked rounds -> dicts with the pre-plant clip and, if planted, the post-plant clip."""
-    rounds = json.loads(Path(rounds_json or rounds_json_for(video, context=context)).read_text())[
-        "rounds"
-    ]
-    out = []
-    for r in rounds:
-        try:
-            pre_end = r.get("plant_s") or r["end_s"]
-            pre = extract_clip(str(video), r["start_s"], pre_end, crop_box, context.config.seq_len)
-            post = (
-                extract_clip(
-                    str(video),
-                    r["plant_s"],
-                    r["end_s"],
-                    crop_box,
-                    context.config.seq_len,
-                )
-                if r.get("plant_s")
-                else None
-            )
-            out.append(
-                {
-                    "pre": pre,
-                    "post": post,
-                    "label": r["label"],
-                    "winner": r.get("winner") or "",
-                    "round_idx": r["round_idx"],
-                    "plant_site": r.get("plant_site") or "",
-                    "ct_label": r.get("ct_label") or "",
-                }
-            )
-        except RuntimeError as e:
-            print(f"skipped {match_id_of(video)} round {r['round_idx']}: {e}")
-    return out
-
-
-def build_rounds_dataset(videos: Sequence[Path] = None, out_npz: str = None, *, context) -> None:
-    """Every labelled video in data/ -> one npz, tagged with match_id so splits stay by match."""
-    rows, match_ids = ([], [])
-    for v in context.state["VIDEOS"] if videos is None else videos:
-        if not rounds_json_for(v, context=context).exists():
-            print(f"{v.name:<40} no labels yet ({rounds_json_for(v, context=context)}) - skipped")
-            continue
-        rs = rounds_to_clips(v, context.state["CROPS"][v.name], context=context)
-        print(f"{v.name:<40} {len(rs)} rounds, {sum((r['post'] is not None for r in rs))} planted")
-        rows += rs
-        match_ids += [match_id_of(v)] * len(rs)
-    _write_rounds_npz(rows, match_ids, out_npz, context=context)
-
-
-def prepared_match_id(match_folder) -> str:
-    """The source hash recorded in a prepared match's manifest, else the folder name."""
-    manifest = Path(match_folder) / "manifest.json"
-    if manifest.exists():
-        match_id = json.loads(manifest.read_text(encoding="utf-8")).get("match_id")
-        if match_id:
-            return str(match_id)
-    return Path(match_folder).name
-
-
-def build_prepared_rounds_dataset(
-    match_folders: Sequence[Path], out_npz: str = None, fps: int = 10, *, context
-) -> None:
-    """Labelled prepared matches -> one npz, tagged with each match's source hash.
-
-    build_rounds_dataset keys labels and match IDs by video filename, which is
-    minimap-<n>fps.mp4 for every prepared match. Prepared videos are already cropped,
-    so clips use the whole frame.
-    """
-    rows, match_ids = ([], [])
-    for folder in match_folders:
-        labels = match_rounds_json(folder, context.config.labels_dir)
-        if not labels.exists():
-            print(f"{Path(folder).name:<40} no labels yet ({labels}) - skipped")
-            continue
-        video = Path(folder) / f"minimap-{fps}fps.mp4"
-        if not video.exists():
-            raise FileNotFoundError(video)
-        cap = cv2.VideoCapture(str(video))
-        box = (
-            0,
-            0,
-            int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
-            int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
-        )
-        cap.release()
-        rs = rounds_to_clips(video, box, str(labels), context=context)
-        print(
-            f"{Path(folder).name:<40} {len(rs)} rounds, {sum((r['post'] is not None for r in rs))} planted"
-        )
-        rows += rs
-        match_ids += [prepared_match_id(folder)] * len(rs)
-    _write_rounds_npz(rows, match_ids, out_npz, context=context)
-
-
-def _write_rounds_npz(rows: List[Dict], match_ids: List[str], out_npz: str = None, *, context):
-    if not rows:
-        print("no labelled rounds found - run RoundLabeller first")
-        return
-    pre = stack_resized([r["pre"][None] for r in rows])
-    post = np.zeros_like(pre)
-    for k, r in enumerate(rows):
-        if r["post"] is not None:
-            post[k] = stack_resized([pre[k][None], r["post"][None]])[1]
-    np.savez_compressed(
-        out_npz or context.config.rounds_npz,
-        frames=pre,
-        post_frames=post,
-        has_post=np.array([r["post"] is not None for r in rows]),
-        labels=np.array([r["label"] for r in rows]),
-        winners=np.array([r["winner"] for r in rows]),
-        round_idx=np.array([r["round_idx"] for r in rows]),
-        plant_site=np.array([r["plant_site"] for r in rows]),
-        ct_labels=np.array([r["ct_label"] for r in rows]),
-        match_ids=np.array(match_ids),
-    )
-    print(
-        f"{len(rows)} rounds from {len(set(match_ids))} match(es) -> {out_npz or context.config.rounds_npz}"
-    )
-
-
-def load_real_rounds(npz_path: str = None, *, context) -> List[Round]:
-    d = np.load(npz_path or context.config.rounds_npz, allow_pickle=True)
-    n = len(d["labels"])
-    get = lambda k, default: d[k] if k in d else [default] * n
-    out = []
-    for k in range(n):
-        has_post = bool(get("has_post", False)[k])
-        out.append(
-            Round(
-                str(get("match_ids", "match_000")[k]),
-                int(get("round_idx", k)[k]),
-                str(d["labels"][k]),
-                None,
-                d["frames"][k],
-                str(get("winners", "")[k]) or None,
-                str(get("plant_site", "")[k]) or None,
-                str(get("ct_labels", "")[k]) or None,
-                None,
-                d["post_frames"][k] if has_post else None,
-            )
-        )
-    return out

@@ -59,35 +59,3 @@ def detector_metrics(model: nn.Module, loader: DataLoader, *, context) -> Dict[s
         "f1": 2 * prec * rec / max(prec + rec, 1e-09),
         "mean_pos_err_norm": float(np.mean(errs)) if errs else float("nan"),
     }
-
-
-def confusion_matrix(y_true, y_pred, n):
-    cm = np.zeros((n, n), int)
-    for t, p in zip(y_true.tolist(), y_pred.tolist()):
-        cm[t, p] += 1
-    return cm
-
-
-def macro_f1(cm):
-    f1s = []
-    for c in range(cm.shape[0]):
-        tp = cm[c, c]
-        fp = cm[:, c].sum() - tp
-        fn = cm[c, :].sum() - tp
-        pr, rc = (tp / max(tp + fp, 1), tp / max(tp + fn, 1))
-        f1s.append(2 * pr * rc / max(pr + rc, 1e-09))
-    return (float(np.mean(f1s)), np.array(f1s))
-
-
-@torch.no_grad()
-def evaluate(model, ds, *, context):
-    model.eval()
-    pred = model(ds.X.to(context.device)).cpu().argmax(-1)
-    cm = confusion_matrix(ds.y, pred, ds.n_classes)
-    mf1, per = macro_f1(cm)
-    return {
-        "accuracy": float((pred == ds.y).float().mean()),
-        "macro_f1": mf1,
-        "per_class_f1": per,
-        "confusion": cm,
-    }

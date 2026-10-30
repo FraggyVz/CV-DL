@@ -9,7 +9,9 @@ from pathlib import Path
 def main(argv=None):
     parser = argparse.ArgumentParser(description="StratScout modular prototype")
     sub = parser.add_subparsers(dest="command", required=True)
-    prototype = sub.add_parser("prototype", help="Run the existing experimental pipeline")
+    prototype = sub.add_parser(
+        "prototype", help="Run the vision experiment: crop, detector and tracker"
+    )
     prototype.add_argument("--config", type=Path, help="JSON object of Config fields")
     prototype.add_argument("--output", type=Path, required=True, help="New run directory")
     prototype.add_argument("--smoke", action="store_true", help="Small synthetic CPU wiring check")
@@ -75,11 +77,6 @@ def main(argv=None):
     live.add_argument("--min-seconds", type=float, default=2.0, help="Still time before dropped")
     live.add_argument("--t-hue", type=float, default=27.0, help="T icon hue (OpenCV 0-180)")
     live.add_argument("--scale", type=int, default=2, help="Display magnification")
-    label = sub.add_parser("label-rounds", help="Mark round tactics, plants and winners")
-    label.add_argument("--match", help="Match folder name fragment, e.g. furia")
-    label.add_argument("--fps", type=int, default=10, help="Variant to scrub")
-    label.add_argument("--output", type=Path, help="Defaults to labels/<match folder>.rounds.json")
-    label.add_argument("--step", type=float, default=2.0, help="Seconds per arrow key")
     counts = sub.add_parser(
         "icon-count-eval", help="Fit icon splitting on some matches; score team counts on others"
     )
@@ -142,40 +139,6 @@ def main(argv=None):
                     t_hue=args.t_hue,
                     scale=args.scale,
                 )
-            elif args.command == "label-rounds":
-                import cv2
-
-                from .annotations import RoundLabeller, match_rounds_json
-                from .context import RunContext
-                from .live_preview import choose_match, list_matches, match_video
-                from .rounds import cached_rounds
-
-                folder = choose_match(list_matches(), args.match)
-                video = match_video(folder, args.fps)
-                cap = cv2.VideoCapture(str(video))
-                w, h = (
-                    int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
-                    int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
-                )
-                cap.release()
-                print(f"Opening {video}")
-                print("Estimating rounds (the first run for a match scans the video)...")
-                guides = cached_rounds(match_video(folder, 5))
-                print("Estimated rounds (unreviewed guides, not labels):")
-                for r in guides:
-                    note = "  started before recording" if r["partial"] else ""
-                    print(
-                        f"  round {r['round']:2d}  play from {r['start'] + r['freeze']:7.1f}s"
-                        f"  next freeze {r['end']:7.1f}s{note}"
-                    )
-                RoundLabeller(
-                    str(video),
-                    (0, 0, w, h),
-                    str(args.output or match_rounds_json(folder)),
-                    step_s=args.step,
-                    round_guides=guides,
-                    context=RunContext(),
-                ).run()
             elif args.command == "process-recordings":
                 from .recording_batch import process_recordings
 
@@ -236,10 +199,9 @@ def main(argv=None):
 
                 torch.set_num_threads(1)
                 cfg.minimap_px = 32
-                cfg.det_epochs = cfg.cls_epochs = 1
-                cfg.cls_hidden = 16
+                cfg.det_epochs = 1
                 cfg.det_batch = 8
-                cfg.train_matches = cfg.val_matches = cfg.test_matches = cfg.detector_matches = 1
+                cfg.test_matches = cfg.detector_matches = 1
                 cfg.detector_train_frames, cfg.detector_val_frames = 32, 16
                 # A smoke run must not discover or rewrite real inputs.
                 cfg.data_dir = str(args.output / "empty-inputs")
@@ -249,7 +211,6 @@ def main(argv=None):
                     "icon_labels_json",
                     "frames_src_json",
                     "crops_json",
-                    "rounds_npz",
                     "map_image",
                 ):
                     setattr(cfg, name, str(args.output / Path(getattr(cfg, name)).name))

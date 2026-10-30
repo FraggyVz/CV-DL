@@ -1,5 +1,7 @@
 # Bomb Detection
 
+> Archived reference (30 October 2026). Results, commands and status describe the recorded revision, not necessarily the current checkout. Use the [README](../../README.md) for current status and next steps, the [recording guide](../recording-setup.md) for capture, and the [tactic guide](../tactic-definitions.md) for labels.
+
 ## What the radar shows
 
 On the 494×500 spectator-radar crops from the 14 October matches, T players are yellow

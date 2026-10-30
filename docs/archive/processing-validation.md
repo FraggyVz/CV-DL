@@ -1,5 +1,7 @@
 # Processing Validation
 
+> Archived reference (30 October 2026). Results, commands and status describe the recorded revision, not necessarily the current checkout. Use the [README](../../README.md) for current status and next steps, the [recording guide](../recording-setup.md) for capture, and the [tactic guide](../tactic-definitions.md) for labels.
+
 ## Current status — 14 October 2026
 
 The user has reset the recording dataset for a new **1440p/60 fps, 2×** capture.
@@ -8,7 +10,7 @@ reports/scripts were removed. Earlier full-match timings and screenshots are not
 acceptance evidence for the replacement recording.
 
 The reusable processing implementation and synthetic regression fixtures remain.
-See [recording setup](recording-setup.md) for the current prompt-based workflow.
+See [recording setup](../recording-setup.md) for the current prompt-based workflow.
 
 The replacement FURIA–Falcons and Spirit–Falcons recordings have since been processed.
 Both manifests report complete 5/10/30 fps exports using the same native 494×500 crop.

@@ -1,212 +1,212 @@
-# How to Label Rounds
+# Tactical Clip Definitions and Labelling
 
-> **Status: draft rules, not yet agreed by the team.** The numbers below (30 s, 45 s,
-> 5 s, …) are starting points. Try them on a few rounds, note anything that does not
-> fit, and we will agree the final rules together before labelling lots of rounds.
+## Scope and implementation status
 
-This guide explains how to watch a match and record, for every round, **what the
-attackers did** and **how the defenders reacted**. Everyone must follow the same rules,
-otherwise the labels from different people cannot be mixed.
+The agreed target is five classes on Mirage: `A_DIRECT`, `B_DIRECT`, `A_SPLIT`,
+`B_SPLIT` and `RETAKE`. This document is the source of truth for their meaning.
+Timing and participation rules below are working annotation conventions: trial them
+on 15–20 clips before freezing a version and labelling at scale.
 
-**Test the rules on Furia–Falcons and Spirit–Falcons only.** NaVi–Falcons is our held-out
-test match: label it with the final agreed rules, but never use it to try out or change
-the rules. Otherwise our test results would not be fair.
+**This is the target specification, not a description of the current labelling tool.**
+On `vision-only`, `RoundLabeller` and `config.py` retain the legacy attacker/defender
+labels; the `label-rounds` CLI is absent. The separate `label-rounds` branch adds that
+command but still uses the old labels and whole-round format. Both need migration
+before exporting training data under this specification. No new keyboard mapping or
+five-class training/export command is implemented by this documentation change.
 
----
+## Keyboard labelling workflow
 
-## 1. Before you start
+Upgrade the existing keyboard labeller first. Navigate round by round, but save
+individual attack and retake segments within each round. Map-region polygons support
+overlays and route features; they do not supply tactical labels and need not block the
+initial labelling pilot. Do not draw areas or mark every player on every frame for this
+task; player-position annotation is separate detector/tracker validation work.
 
-**Open the labelling window** (from the project folder, with the virtual environment active):
+The proposed workflow is:
 
-```powershell
-python -m stratscout label-rounds --match furia
-```
+1. **Watch the round with context.** Use playback, seeking and frame stepping to identify
+   attacks and retakes. Check estimated round boundaries against the recording.
+2. **Mark a segment's start and end** using the rules below. Keep the surrounding footage
+   available for checking approaches; selecting a segment does not delete the rest.
+3. **Choose a class.** Proposed keys are `1` = `A_DIRECT`, `2` = `B_DIRECT`, `3` = `A_SPLIT`,
+   `4` = `B_SPLIT`, `5` = `RETAKE`. This mapping is not implemented in the legacy tool.
+   New annotations start as `pending` until checked.
+4. **Record exclusions and uncertainty.** Use `excluded` with a reason for clear
+   out-of-scope or unusable candidate segments. Leave uncertain cases `pending` for
+   another reviewer; do not force the nearest class. Routine freeze time, waiting and
+   rotation footage can remain unlabelled without creating an exclusion for every gap.
+5. **Save the segment and continue within the round.** A round can contain multiple
+   segments. Record that the round has been checked separately from segment approval;
+   finishing the viewing pass does not resolve its pending annotations.
+6. **Review and approve.** Resolve class and boundary disagreements, then mark agreed
+   segments `reviewed`. Export only reviewed segments with one of the five classes to
+   training/evaluation datasets. Follow the pilot and match-split rules below.
 
-- The terminal prints a list of rounds with a **"play from"** time for each one. That is
-  roughly when players start moving. Keep it visible.
-- **Click once on the window** so it receives your key presses. The mouse does nothing
-  else; everything is done with the keyboard.
-- Your labels are saved to `labels/<match name>.rounds.json`. If you close and reopen
-  the tool, it continues where you stopped.
+The updated tool should provide autosave, undo and resume, and automatically retain
+match identity, timestamps and definition version. These are requirements for the
+tool migration, not capabilities added by this guide.
 
-**On the minimap:**
+## Five class definitions
 
-- **Yellow** numbered dots = attackers (T). They plant the bomb.
-- **Cyan / blue** numbered dots = defenders (CT). They protect the bomb sites.
-- The **orange rectangle** = the bomb (C4). While someone carries it, it is drawn **on
-  top of that attacker** and hides them: count it as one attacker.
-- A **✕** in a team colour = a player who just died (it shows for about 2 seconds).
-  It is not a living player.
-- **B** = top-left, **A** = bottom-middle. The radar is rotated compared with the usual
-  Mirage picture; the attackers start on the right.
-
-**Only count players you can see.** If dots overlap or one is hidden, do not guess
-where an unseen player is.
-
-**Round 1:** the terminal may mark it "started before recording", but that is only an
-estimate. Label it if the players are still in their spawns at the start; skip it only
-if it really started in the middle.
-
----
-
-## 2. The three kinds of keys
-
-This is the most important thing to understand.
-
-| Kind | Keys | What it does | When to press it |
-|---|---|---|---|
-| **Moving** | `→` / `←` (2 s), `Shift`+`→` / `Shift`+`←` (20 s) | Moves through the video | Any time |
-| **Time markers** | `[` start, `]` end, `a` / `b` bomb planted | **Records the time shown on screen right now** | **Only at the exact moment** it happens |
-| **Choices** | `1`–`5` attackers, `6`–`8` defenders, `t` / `c` winner | Records your decision | Any time before `Enter`. Press another key to change your mind |
-
-Then:
-
-| Key | What it does |
-|---|---|
-| `Enter` | Finishes this round and adds it to the list (the video stays where it is) |
-| `s` | Saves the file. **Do this after every round or two** |
-| `q` | Saves and closes. **Always close with `q`, never with the window's ✕**, or unsaved rounds are lost |
-| `u` | Removes the last finished round (if you made a mistake) |
-| `x` | Removes a wrong bomb-plant marker |
-
-The top of the window always shows the current time (`t=…s`), the estimated game round,
-and everything you have marked so far for this round. Check it before pressing `Enter`.
-
----
-
-## 3. Labelling one round, step by step
-
-1. **Go to the start.** Use `Shift`+`→` to jump near the "play from" time, then `→` until
-   the players start moving. Press **`[`**.
-   Note this time. All the rules below count seconds **from here**.
-
-2. **Watch the attackers (yellow)** with `→`. Decide what they did using
-   [section 4](#4-what-did-the-attackers-do-keys-1-5) and press **`1`–`5`**.
-
-3. **Was the bomb planted?**
-   - **Yes:** move to the first moment the bomb stops on a site and press **`a`** or **`b`**.
-     Careful: a **dropped** bomb looks the same as a planted one. If the carrier just
-     died there (a ✕ next to it), it was dropped, not planted. When unsure, check the
-     round on HLTV (a planted round ends with a defuse, an explosion, or a "bomb planted"
-     event). The plant time matters: it splits the round into the "before plant" part
-     (used for the attackers' tactic) and the "after plant" part (used for the defenders).
-     Then watch the defenders and press **`6`–`8`**
-     ([section 5](#5-how-did-the-defenders-react-keys-6-8)).
-   - **No:** skip this step.
-
-4. **Go to the end.** Move to the moment the round is decided (the last kill, the defuse,
-   or the bomb exploding) and press **`]`**.
-   Do *not* use the next round's start; the round ends when it is decided.
-
-5. **Who won?** Press **`t`** (attackers) or **`c`** (defenders). If you are not sure, check
-   the match's round history on HLTV.
-
-6. **Check the title, then press `Enter`.** The terminal confirms the round, for example:
-   `label 1 (est. game round 2): A_SPLIT plant A defenders RETAKE winner CT`
-
-7. Press **`s`** to save. Move on to the next round.
-
----
-
-## 4. What did the attackers do? (keys 1–5)
-
-Answer these questions in order. Count time from the start you marked with `[`.
-
-**Question 1: Did 3 or more attackers go onto a bomb site before 45 seconds?**
-
-- **No** → press **`5` DEFAULT** (slow round, spreading out for map control).
-  This is also the answer if the attackers all die or give up before going onto a site.
-- **Yes** → go to question 2.
-
-**Question 2: Which site did they finally go onto, and by how many routes?**
-
-| They went onto… | How | Key |
+| Code | Display name | Observable attack pattern |
 |---|---|---|
-| **A** | **One route**, at least 4 players, within 30 s | **`1` A_RUSH** |
-| **B** | **One route**, at least 4 players, within 30 s | **`2` B_RUSH** |
-| **A** | **Two or more routes** at once (each with at least 2 players, arriving within about 10 s of each other), e.g. ramp + palace, or ramp + connector | **`3` A_SPLIT** |
-| **B** | **Two or more routes** at once (same rule), e.g. apartments + short | **`4` B_SPLIT** |
+| `A_DIRECT` | Direct A attack | Ts commit towards A through ramp and/or palace, without a coordinated attack through mid → connector. Ramp + palace still counts as direct. |
+| `B_DIRECT` | Direct B attack | Ts commit towards B through apartments, without a coordinated attack through mid → short. |
+| `A_SPLIT` | A split attack | An attack through ramp and/or palace combines with an attack from mid through connector during the same engagement. |
+| `B_SPLIT` | B split attack | An attack through apartments combines with an attack from mid through short during the same engagement. |
+| `RETAKE` | CT retake | After a confirmed plant, one or more CTs actively attempt to regain the planted site and enable a defuse. Success is not required. |
 
-**Tricky cases**
+`A_DIRECT` and `B_DIRECT` replace the proposed names `A_DEFAULT` and `B_DEFAULT`.
+An actual default is an earlier map-control phase and can precede either a direct
+attack or a split. It is not a sixth class. Rushes, slow attacks, fakes, saves and
+trickles are not additional model classes in this scope. Speed alone never determines
+one of the five labels; a quick apartments attack can be `B_DIRECT`.
 
-- **Fast, but from two routes?** → it is a **split**. The number of routes decides, not the speed.
-- **They faked one site, then went to the other?** → label the site they **finally** went onto.
-- **Eco or force-buy round?** → label what they did as normal.
-- **"Went onto a site"** means actually entering the site area, not just walking towards it.
-- **Fits none of these?** For example, one route but slower than 30 s, or only 3 players
-  on one route. The draft rules don't cover this yet. Pick the closest key and write
-  the round in your notes ([section 8](#8-rounds-that-dont-fit-the-rules)) so the team can decide.
+## Map regions and participation
 
----
+When adding region features, draw and version the regions once for the fixed radar
+layout, using normalised crop coordinates. Keep A ramp, palace, A site, mid, connector,
+short, B apartments and B site separate. Add spawn/rotation regions as context.
+Define site-approach boundaries so
+reviewers use the same positions to judge entry attempts. Polygon tooling and saved
+region definitions remain implementation work; these names are not saved polygons.
 
-## 5. How did the defenders react? (keys 6–8)
+A split requires active participation from both specified approaches. The second group
+must advance towards the site during the attack, not merely occupy mid or watch a flank.
+One participating player can constitute the secondary group; do not require five living
+players or exactly two players per route. Record participation counts where observable.
 
-**Only for rounds where the bomb was planted.** Watch the defenders (blue) after the plant.
+For the pilot, use final-approach starts within approximately **10 normal-game seconds**
+as a coordination check, alongside the movement sequence. This is a provisional rule,
+not a universal CS definition or an automatic label generator. Record the times and
+send borderline cases for review. If this tolerance changes, recheck pilot labels.
 
-| What the defenders did | Key |
+A player going from A site into connector after entry is not a mid-to-A attacker.
+Likewise, a late flank does not retroactively turn a direct attack into a split.
+Judge the approach history, not the final positions. Record unusual routes such as
+mid-only attacks or window/jungle flanks as pending review rather than guessing.
+
+Region occupancy shows presence, not proven map control, intent or utility use.
+Do not infer missing players from the team cap or a fully obscured icon.
+
+## Annotation unit and timestamps
+
+Label a **tactical segment**, not necessarily an entire round. One round may provide
+an `A_SPLIT` attack segment and a separate `RETAKE` segment. Earlier map-control play
+is context, not a competing attack label.
+
+Use elapsed seconds in the prepared, normal-speed video. Store the source match
+identity from `manifest.json`, the round reference and video timestamps. Do not apply
+2× correction again. Record freeze-time ending separately as the live-round start;
+first observed player movement is only an estimate if the actual start is unavailable.
+
+For the pilot, mark:
+
+- **Attack start:** the first clear final advance towards the site by a participating
+  group. Review the preceding footage to identify the route; do not include the whole
+  default/setup phase. Apply the same rule to direct and split attacks.
+- **Attack end:** confirmed completion of the bomb plant, clear abandonment of the
+  attack, or actual round end, whichever happens first. Do not end the segment when
+  the first player exits ramp/palace/apartments or crosses onto the site: entry and
+  the following site fight belong to the same attack. Planting must finish; starting
+  the plant animation is not the endpoint. Apply this rule to all four attack classes.
+  A recognisable attack stopped at an entrance can still receive its route class;
+  success or actual site entry is not required.
+- **Retake start:** the first clear CT advance to contest the planted site after the
+  plant. If CTs are already contesting at the plant, start there.
+- **Retake end:** confirmed defuse, explosion, elimination of all CTs, or clear abandonment.
+  A lone CT or staggered attempt can be `RETAKE`; staying away to save is excluded.
+
+A clear A fake followed by a committed B apartments attack yields an excluded fake
+segment (reason: outside current tactic scope) and a separate `B_DIRECT` segment.
+Keep the fake and rotation footage as context; do not merge them into the B attack.
+An unsuccessful A attack is not automatically a fake just because Ts later attack B:
+keep a clearly identifiable committed A attack as its own labelled segment. Ambiguous
+feints remain pending review. Do not label a segment solely from where the bomb eventually
+gets planted. No-attack rounds and incomplete clips need not enter the five-class dataset.
+
+Verify plants and round endings from the full recording's HUD/audio or aligned demo
+evidence. A stationary badge does not prove a plant; the last T death does not always
+end a round with a planted bomb. If the evidence is unavailable, mark the boundary
+uncertain. Supporting demo truth is for annotation/evaluation, never inference input.
+
+## Proposed annotation record
+
+The updated tool should record match ID, round reference, start/end seconds, class,
+site, participating approaches, relevant approach-entry times, reviewer, definition
+version and notes. Keep class separate from review status:
+
+| Status | Class field | Dataset use |
+|---|---|---|
+| `pending` | Proposed class, or unset if undecided | Await review; do not export |
+| `reviewed` | One agreed class from the five | Eligible for training/evaluation under the match split |
+| `excluded` | Unset for out-of-scope material; retain any previous proposal in the review history | Do not export; record a reason |
+
+These are review states, not extra classifier outputs. Store uncertain boundaries
+explicitly; resolve them before approval or exclude the unusable segment with a reason.
+Track round viewing progress separately so an intentionally empty round is distinguishable
+from one nobody has checked. Unlabelled footage is not automatically reviewed background.
+
+Preserve original labels and create a versioned migration output. **Do not automatically
+rename old labels:** old `A_SPLIT` examples may include ramp + palace and old `DEFAULT`
+examples may lack a committed site. Existing rush/trickle/save labels need video review,
+not a string substitution. Keep proposals separate from reviewed records.
+
+## Worked examples
+
+### Attack boundaries
+
+Illustrative `A_DIRECT` segment, using elapsed prepared-video time:
+
+| Time | Event | Annotation action |
+|---|---|---|
+| 00:40 | Ts begin their committed final advance through ramp/palace | Mark attack start |
+| 00:45 | First T exits ramp | Continue the segment |
+| 00:49 | Ts fight on A site | Continue the segment |
+| 00:58 | Bomb plant completes | Mark attack end |
+
+Save **00:40–00:58 as `A_DIRECT`**. Any subsequent retake is a separate segment.
+If the attack is clearly abandoned or the round ends before the plant, use that earlier
+event instead. A brief pause or one player's retreat does not by itself prove abandonment;
+flag an uncertain boundary for review.
+
+### Class decisions
+
+| Observed sequence | Decision |
 |---|---|
-| **3 or more arrive on the site together** (within about 5 s of each other) | **`6` RETAKE** |
-| **They come back, but one by one** (more than about 5 s apart), or never 3 together | **`7` TRICKLE** |
-| **They don't go back to the site**; they stay away or leave | **`8` SAVE** |
+| Three Ts through ramp and two through palace, no mid-side group | `A_DIRECT` |
+| Ramp/palace group attacks while teammates advance mid → connector | `A_SPLIT` |
+| Four Ts attack through apartments while one holds mid | `B_DIRECT` |
+| Apartments and mid → short groups join the same B attack | `B_SPLIT` |
+| An apartments attack is stopped before entering B | `B_DIRECT`, if the commitment is clear |
+| Ts take mid control, then regroup and attack only through apartments | `B_DIRECT` for the later attack segment |
+| Clear A fake, rotation, then a committed B apartments attack | Exclude the fake; label only the later attack `B_DIRECT` |
+| Committed A attack fails, Ts withdraw and later attack through B apartments | Separate A attack and `B_DIRECT` segments; failure alone does not make the A attack a fake |
+| One CT attempts to regain the planted site but dies | `RETAKE` |
+| CTs stay away to preserve weapons | Excluded: no retake attempt |
+| The second group arrives much later or its route is obscured | Pending review |
 
-**Tricky cases**
+## Review, evaluation and future scope
 
-- **Only 1 or 2 defenders alive?** → `6` if they go in together, `7` if separately, `8` if they stay away.
-- **They started a retake, then gave up?** → label what they did **first**, and write the round in your notes.
+Two reviewers independently label the same 15–20 varied segments. Compare class and
+boundary disagreements, clarify the rules, then freeze a definition version. Do not
+use “pick the closest” as a substitute for review. Check class coverage before collecting
+more footage; neighbouring frames do not count as independent tactical examples.
 
----
+Keep every clip and FPS variant of a match in the same train/validation/test split.
+Agree splits before tuning; retain the documented held-out match for detection work.
+Compare a simple region/route baseline with a learned temporal model. Report per-class
+precision/recall, macro-F1, confusion matrices and failure examples on unseen matches.
+Manual boundaries constitute segmented-clip evaluation, not automatic discovery of
+attacks in an entire match; evaluate boundary detection separately if it is later added.
+Do not train excluded or unlabelled footage as an automatic sixth/background class.
+A five-class model trained only on selected attacks/retakes cannot be assumed to reject
+arbitrary footage. Whole-match scanning needs a separately designed and evaluated
+background/rejection approach, with appropriate reviewed examples.
 
-## 6. Examples
-
-| What happened | Keys, in order |
-|---|---|
-| 4 attackers rush A through ramp at 20 s, plant, 3 defenders come back together, defenders win | `[` … `1` … `a` (at the plant) … `6` … `]` … `c` → `Enter` → `s` |
-| Attackers hit B from apartments and short at 50 s, plant, defenders come back one by one, attackers win | `[` … `4` … `b` … `7` … `]` … `t` → `Enter` → `s` |
-| Slow round, nobody goes onto a site, attackers all die at 70 s, no plant | `[` … `5` … `]` … `c` → `Enter` → `s` |
-| Fake at A, then everyone goes to B through one route, plant, defenders stay away | `[` … `2` … `b` … `8` … `]` … `t` → `Enter` → `s` |
-
-(`…` means "move through the video with the arrow keys".)
-
----
-
-## 7. If something goes wrong
-
-The tool will **not** accept the round when you press `Enter` if:
-
-| Message / problem | Fix |
-|---|---|
-| Start, end or attacker tactic missing | Press `[`, `]` or `1`–`5` |
-| End is before start | Move to the right time and press `]` again |
-| The plant is not between start and end | Press `x`, move to the plant, press `a` / `b` again |
-| Defender reaction chosen but no plant | If the bomb *was* planted, mark it with `a` / `b`. If it wasn't, press `x` to clear the reaction |
-
-Other mistakes:
-
-- **Wrong choice key?** Just press the right one; it replaces the old one.
-- **Already pressed `Enter` on a wrong round?** Press `u` to remove it, then label it again.
-
----
-
-## 8. Rounds that don't fit the rules
-
-Don't spend long on one round. Pick the closest label, press `Enter`, and write one
-line in a notes file, for example:
-
-```
-furia, game round 7, looked like a split but only 1 player on the second route
-```
-
-We will go through these notes together. They are how we improve the rules.
-
----
-
-## Quick reference
-
-```
-MOVE        →/← 2 s     Shift+→/← 20 s
-MARK TIME   [ start     ] end       a / b  bomb planted at A / B
-ATTACKERS   1 A rush    2 B rush    3 A split    4 B split    5 Default
-DEFENDERS   6 Retake    7 Trickle   8 Save        (only if planted)
-WINNER      t attackers c defenders
-FINISH      Enter       s save      q save & quit     u undo     x clear plant
-```
+Preserve elapsed time when sampling model inputs. Rush tempo or an actual default
+opening may be future attributes/phases, not additions needed to inflate the class count.
+Other maps require their own region and route definitions. See the
+[README next steps](../README.md#next-steps) for implementation gaps and the
+[project structure](../README.md#project-structure-and-contracts) for module responsibilities.
+The [recording guide](recording-setup.md) covers capture and preparation.

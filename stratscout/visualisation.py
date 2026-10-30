@@ -12,7 +12,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-from .config import CLASSES
 from .detector import decode_heatmap
 from .segmentation import find_icons_teams
 from .video import crop_change
@@ -27,17 +26,13 @@ def show_pipeline():
         ("Auto-crop", "find the radar"),
         ("Detector", "CNN, Model 1"),
         ("Tracker", "10 fixed slots"),
-        ("Classifier", "Model 2: two\nquestions"),
-        ("Report", "tactics, heatmaps,\nwin rates"),
     ]
     contracts = [
         "frames\n(N,H,W,3)",
         "x\n(N,3,128,128)",
         "detections\n{T, CT}",
-        "positions\n(N,10,2)",
-        "logits\n(B,5) + (B,3)",
     ]
-    learned = {"Detector", "Classifier"}
+    learned = {"Detector"}
     fig, ax = plt.subplots(figsize=(13, 3.0))
     w, gap = (1.55, 0.62)
     for k, (name, sub) in enumerate(stages):
@@ -77,7 +72,7 @@ def show_pipeline():
     ax.set_ylim(-0.7, 1.15)
     ax.axis("off")
     ax.set_title(
-        "StratScout pipeline: pixels in, tactics out (orange outline = learned model; text under arrows = data contract)",
+        "StratScout vision pipeline: pixels in, player positions out (orange outline = learned model; text under arrows = data contract)",
         fontsize=11,
     )
     plt.tight_layout()
@@ -285,31 +280,5 @@ def show_detector_output(
             axes[1][k].set_title("heatmap (max of both teams)", fontsize=8)
             axes[1][k].axis("off")
     fig.suptitle("Model 1 — CNN detections (orange = T, blue = CT)")
-    plt.tight_layout()
-    plt.show()
-
-
-def plot_confusion(cm, title, classes: Sequence[str] = CLASSES):
-    n = len(classes)
-    fig, ax = plt.subplots(figsize=(5.2, 4.4) if n > 3 else (4.2, 3.7))
-    ax.imshow(cm, cmap="Blues")
-    ax.set_xticks(range(n))
-    ax.set_yticks(range(n))
-    ax.set_xticklabels(classes, rotation=45, ha="right", fontsize=8)
-    ax.set_yticklabels(classes, fontsize=8)
-    for i in range(n):
-        for j in range(n):
-            ax.text(
-                j,
-                i,
-                cm[i, j],
-                ha="center",
-                va="center",
-                fontsize=9,
-                color="white" if cm[i, j] > cm.max() / 2 else "black",
-            )
-    ax.set_xlabel("predicted")
-    ax.set_ylabel("true")
-    ax.set_title(title, fontsize=10)
     plt.tight_layout()
     plt.show()

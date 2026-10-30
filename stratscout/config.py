@@ -28,13 +28,12 @@ class Config:
     n_per_team: int = 5
     teams: Tuple[str, str] = ("T", "CT")
     seq_len: int = 32
-    fps_sampled: float = 4.0
     sat_min: int = 90
     val_min: int = 90
     icon_area: Tuple[int, int] = (6, 250)
     hue_tol: float = 22.0
     bg_thresh: int = 40
-    # C4 badge colour and shape rule, measured on 494x500 spectator-radar crops (docs/bomb-detection.md).
+    # C4 badge rule measured on 494x500 crops; see docs/archive/bomb-detection.md.
     bomb_area: Tuple[int, int] = (120, 450)
     bomb_hue: Tuple[float, float] = (10.0, 21.0)  # badge orange ~16; T yellow ~27
     bomb_sv_min: int = 120
@@ -50,21 +49,14 @@ class Config:
     det_match_radius: float = 0.035
     track_gate: float = 0.09
     track_max_miss: int = 8
-    cls_epochs: int = 40
-    cls_lr: float = 0.002
-    cls_batch: int = 32
-    cls_hidden: int = 96
     map_image: str = "mirage_radar.png"
     frames_npy: str = "pilot_frames.npy"
     icon_labels_json: str = "pilot_labels.json"
     frames_src_json: str = "pilot_frames_sources.json"
     crops_json: str = "crops.json"
     labels_dir: str = "labels"
-    rounds_npz: str = "rounds_data.npz"
     out_dir: str = "runs/modular-experiment"
     # Experiment sizes are configurable so smoke checks exercise the real workflow.
-    train_matches: int = 12
-    val_matches: int = 3
     test_matches: int = 3
     detector_matches: int = 3
     rounds_per_match: int = 20
