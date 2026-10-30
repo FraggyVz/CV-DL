@@ -8,6 +8,10 @@ This guide explains how to watch a match and record, for every round, **what the
 attackers did** and **how the defenders reacted**. Everyone must follow the same rules,
 otherwise the labels from different people cannot be mixed.
 
+**Test the rules on Furia–Falcons and Spirit–Falcons only.** NaVi–Falcons is our held-out
+test match: label it with the final agreed rules, but never use it to try out or change
+the rules. Otherwise our test results would not be fair.
+
 ---
 
 ## 1. Before you start
@@ -27,13 +31,21 @@ python -m stratscout label-rounds --match furia
 
 **On the minimap:**
 
-- **Yellow** dots = attackers (T). They plant the bomb.
-- **Cyan / blue** dots = defenders (CT). They protect the bomb sites.
-- The **orange rectangle** = the bomb (C4).
-- **A** and **B** = the two bomb sites.
+- **Yellow** numbered dots = attackers (T). They plant the bomb.
+- **Cyan / blue** numbered dots = defenders (CT). They protect the bomb sites.
+- The **orange rectangle** = the bomb (C4). While someone carries it, it is drawn **on
+  top of that attacker** and hides them: count it as one attacker.
+- A **✕** in a team colour = a player who just died (it shows for about 2 seconds).
+  It is not a living player.
+- **B** = top-left, **A** = bottom-middle. The radar is rotated compared with the usual
+  Mirage picture; the attackers start on the right.
 
-**Skip round 1** of a recording if it started in the middle of a round (the terminal
-marks it "started before recording").
+**Only count players you can see.** If dots overlap or one is hidden, do not guess
+where an unseen player is.
+
+**Round 1:** the terminal may mark it "started before recording", but that is only an
+estimate. Label it if the players are still in their spawns at the start; skip it only
+if it really started in the middle.
 
 ---
 
@@ -73,6 +85,11 @@ and everything you have marked so far for this round. Check it before pressing `
 
 3. **Was the bomb planted?**
    - **Yes:** move to the first moment the bomb stops on a site and press **`a`** or **`b`**.
+     Careful: a **dropped** bomb looks the same as a planted one. If the carrier just
+     died there (a ✕ next to it), it was dropped, not planted. When unsure, check the
+     round on HLTV (a planted round ends with a defuse, an explosion, or a "bomb planted"
+     event). The plant time matters: it splits the round into the "before plant" part
+     (used for the attackers' tactic) and the "after plant" part (used for the defenders).
      Then watch the defenders and press **`6`–`8`**
      ([section 5](#5-how-did-the-defenders-react-keys-6-8)).
    - **No:** skip this step.
