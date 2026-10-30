@@ -13,12 +13,6 @@ python -m stratscout label-segments --match spirit --reviewer yourname --round 7
   `labels/<match folder>.<reviewer>.segments.json`, so two people can label the same
   clips independently without overwriting each other.
 - **Click the window once** so it receives key presses. Everything uses the keyboard.
-- The window opens sized to the screen. Text under the map shows the match, match
-  time, estimated round (e.g. "Round 3/21"), time since that round's freeze time ended,
-  whether the round is checked, the segment being marked ("Draft", orange), this round's
-  saved segments, match totals and a green/red message. The bar between the map and the
-  text is the whole match: grey lines are round starts and coloured blocks are saved
-  segments. Rounds are estimates from the video, used for navigation only.
 - **Only open one window per match and reviewer at a time**, or saves can overwrite
   each other.
 
