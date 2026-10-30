@@ -64,6 +64,10 @@ class Config:
     detector_val_frames: int = 120
 
 
+# The agreed five tactical classes (docs/tactic-definitions.md); keys 1-5 in label-segments.
+TACTIC_CLASSES = ["A_DIRECT", "B_DIRECT", "A_SPLIT", "B_SPLIT", "RETAKE"]
+
+# Legacy pre/post-plant labels, still used by the synthetic data and RoundLabeller.
 T_CLASSES = ["A_RUSH", "B_RUSH", "A_SPLIT", "B_SPLIT", "DEFAULT"]
 
 CT_CLASSES = ["RETAKE", "TRICKLE", "SAVE"]

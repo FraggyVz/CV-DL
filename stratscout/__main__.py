@@ -77,6 +77,14 @@ def main(argv=None):
     live.add_argument("--min-seconds", type=float, default=2.0, help="Still time before dropped")
     live.add_argument("--t-hue", type=float, default=27.0, help="T icon hue (OpenCV 0-180)")
     live.add_argument("--scale", type=int, default=2, help="Display magnification")
+    seg = sub.add_parser("label-segments", help="Label attack/retake segments with the keyboard")
+    seg.add_argument("--match", help="Match folder name fragment, e.g. furia (else pick one)")
+    seg.add_argument("--reviewer", help="Your short name; each reviewer gets their own file")
+    seg.add_argument("--round", type=int, help="Start at this estimated round")
+    seg.add_argument("--start", type=float, default=0, help="Start time in seconds")
+    seg.add_argument("--fps", type=int, default=10, help="Prepared variant to label on")
+    seg.add_argument("--labels-dir", type=Path, default=Path("labels"))
+    seg.add_argument("--scale", type=int, default=2, help="Display magnification")
     counts = sub.add_parser(
         "icon-count-eval", help="Fit icon splitting on some matches; score team counts on others"
     )
@@ -139,6 +147,38 @@ def main(argv=None):
                     t_hue=args.t_hue,
                     scale=args.scale,
                 )
+            elif args.command == "label-segments":
+                from .live_preview import choose_match, list_matches, match_video
+                from .rounds import cached_rounds
+                from .segment_labeller import SegmentLabeller, clock, play_start
+                from .segments import SegmentFile, match_identity, segments_json
+
+                folder = choose_match(list_matches(), args.match)
+                reviewer = args.reviewer or input("Your short name (e.g. gin): ")
+                video = match_video(folder, args.fps)
+                path = segments_json(folder, reviewer, args.labels_dir)
+                store = SegmentFile(
+                    path,
+                    match_id=match_identity(folder),
+                    match_folder=folder,
+                    video=video,
+                    video_fps=int(video.stem[8:-3]),  # minimap-<n>fps; may fall back from --fps
+                    reviewer=reviewer,
+                )
+                print("Estimating rounds (the first run for a match scans the video)...")
+                rounds = cached_rounds(match_video(folder, 5))
+                print("Estimated rounds (navigation aids, not labels):")
+                for r in rounds:
+                    note = "  started before recording" if r["partial"] else ""
+                    print(f"  round {r['round']:2}  play from {clock(play_start(r))}{note}")
+                start = args.start
+                if args.round is not None:
+                    if not 1 <= args.round <= len(rounds):
+                        raise ValueError(f"--round must be 1-{len(rounds)} for this match")
+                    start = play_start(rounds[args.round - 1])
+                print(f"Opening {video}\nSegments save on S to {path}")
+                SegmentLabeller(store, rounds).run(video, start=start, scale=args.scale)
+                print(f"{len(store.segments)} segments in {path}: {store.summary()}")
             elif args.command == "process-recordings":
                 from .recording_batch import process_recordings
 

@@ -7,12 +7,12 @@ The agreed target is five classes on Mirage: `A_DIRECT`, `B_DIRECT`, `A_SPLIT`,
 Timing and participation rules below are working annotation conventions: trial them
 on 15–20 clips before freezing a version and labelling at scale.
 
-**This is the target specification, not a description of the current labelling tool.**
-On `vision-only`, `RoundLabeller` and `config.py` retain the legacy attacker/defender
-labels; the `label-rounds` CLI is absent. The separate `label-rounds` branch adds that
-command but still uses the old labels and whole-round format. Both need migration
-before exporting training data under this specification. No new keyboard mapping or
-five-class training/export command is implemented by this documentation change.
+**Tool status.** `python -m stratscout label-segments` implements the keyboard workflow
+below for the pilot: five-class segments, `pending`/`excluded` status, autosave, undo
+and resume. It does not yet mark segments `reviewed`, record participating approaches,
+entry times or notes, or export a dataset. The legacy `RoundLabeller` and the old
+`config.py` round labels keep the old attacker/defender schema, as did the earlier
+`label-rounds` command; do not use them for new labels.
 
 ## Keyboard labelling workflow
 
@@ -28,9 +28,8 @@ The proposed workflow is:
    attacks and retakes. Check estimated round boundaries against the recording.
 2. **Mark a segment's start and end** using the rules below. Keep the surrounding footage
    available for checking approaches; selecting a segment does not delete the rest.
-3. **Choose a class.** Proposed keys are `1` = `A_DIRECT`, `2` = `B_DIRECT`, `3` = `A_SPLIT`,
-   `4` = `B_SPLIT`, `5` = `RETAKE`. This mapping is not implemented in the legacy tool.
-   New annotations start as `pending` until checked.
+3. **Choose a class.** Keys are `1` = `A_DIRECT`, `2` = `B_DIRECT`, `3` = `A_SPLIT`,
+   `4` = `B_SPLIT`, `5` = `RETAKE`. New annotations start as `pending` until checked.
 4. **Record exclusions and uncertainty.** Use `excluded` with a reason for clear
    out-of-scope or unusable candidate segments. Leave uncertain cases `pending` for
    another reviewer; do not force the nearest class. Routine freeze time, waiting and
@@ -42,9 +41,119 @@ The proposed workflow is:
    segments `reviewed`. Export only reviewed segments with one of the five classes to
    training/evaluation datasets. Follow the pilot and match-split rules below.
 
-The updated tool should provide autosave, undo and resume, and automatically retain
-match identity, timestamps and definition version. These are requirements for the
-tool migration, not capabilities added by this guide.
+### Using `label-segments`
+
+This is a practical guide to the labelling window. The class and boundary rules are
+in the sections below; if this guide ever seems to disagree with them, the rules win.
+
+#### Open the window
+
+From the repository root, with the project environment active:
+
+```powershell
+python -m stratscout label-segments --match furia --reviewer yourname
+python -m stratscout label-segments --match spirit --reviewer yourname --round 7
+```
+
+- Use the **same short name every time**. Each reviewer gets their own file,
+  `labels/<match folder>.<reviewer>.segments.json`, so two people can label the same
+  clips independently without overwriting each other.
+- **Click the window once** so it receives key presses. Everything uses the keyboard.
+- The window opens sized to the screen. Text under the map shows the match, match
+  time, estimated round (e.g. "Round 3/21"), time since that round's freeze time ended,
+  whether the round is checked, the segment being marked ("Draft", orange), this round's
+  saved segments, match totals and a green/red message. The bar between the map and the
+  text is the whole match: grey lines are round starts and coloured blocks are saved
+  segments. Rounds are estimates from the video, used for navigation only.
+- **Only open one window per match and reviewer at a time**, or saves can overwrite
+  each other.
+
+#### Keys
+
+| Group | Keys | What they do |
+|---|---|---|
+| **Move** | `Space` | Play / pause |
+| | `←` / `→` | Back / forward 2 s, and pause |
+| | `K` / `L` | Back / forward 5 s |
+| | `,` / `.` | Back / forward one frame |
+| **Jump** | `[` / `]` | Previous / next round (to the end of its freeze time) |
+| | `N` / `P` | Next / previous saved segment, to rewatch it (`>` marks it in the text) |
+| | `M` / `J` | Add a bookmark here / jump to the next bookmark |
+| **Mark** | `I` / `O` | Segment start / end at the time on screen. Press only at the exact moment |
+| **Choose** | `1` `2` `3` `4` `5` | `A_DIRECT`, `B_DIRECT`, `A_SPLIT`, `B_SPLIT`, `RETAKE` |
+| | `0` | Undecided: saved `pending` for another reviewer. Don't force the nearest class |
+| | `A` / `B` | Planted site. Required for `RETAKE`; attack classes already imply their site |
+| | `E` | Exclude; press again to change the reason (fake, no retake attempt, unusable, other) |
+| | `U` | Mark the start or end as uncertain |
+| **Save / fix** | `S` | **Save the segment to the file immediately** (`Enter` also works) |
+| | `X` | Clear the segment being marked and start again |
+| | `Z` | Remove the last saved segment (never removes a `reviewed` one) |
+| | `C` | Mark this round as checked (watched completely); press again to undo |
+| **Other** | `V` | Put the text below the map (default) or beside it |
+| | `Q` | Quit. Saved segments are already in the file; an unsaved draft is lost |
+
+Choices (`1`–`5`, `0`, `E`, `U`, `A`/`B`) can be changed freely before `S`; the last key
+pressed wins. There is no edit for a saved segment: press `Z` and label it again.
+
+#### When to press `I`: setup versus final push
+
+The attackers usually move twice. Only the second movement starts the segment:
+
+```
+[spawn] --move--> [stop and wait, often 20-60 s] --move again--> [site fight] [plant/end]
+          setup: going to positions                ^ final push: press I here
+```
+
+- **Setup (do not mark):** players leave spawn and take positions such as palace,
+  apartments or mid, then mostly hold still.
+- **Final push (press `I`):** the attacking group leaves those positions and moves
+  towards one site without turning back.
+- **Easiest method:** play until the site fight or plant, step back with `←` to where
+  the group was still waiting, then step forward with `→` or `.` to the moment it
+  starts moving. A fast rush that never stops starts when the group leaves spawn.
+- Use the yellow numbers to follow players. Watch the setup to know who comes from
+  which route, but choose the class only from the final push: a player who stays in
+  mid does not make a split; a player who pushes from mid towards the site does.
+
+#### One round, step by step
+
+1. **`]`** jumps to the next round; **`Space`** plays.
+2. Watch the **yellow** (T) dots through the setup. Press **`I`** at the final push.
+3. Press **`O`** at whichever comes first: the plant **finishes**, the attack is clearly
+   abandoned, or the round ends (for example the last T dies).
+4. Choose the class from the routes used in the push: `1` ramp and/or palace only;
+   `2` apartments only; `3` ramp/palace plus mid → connector; `4` apartments plus
+   mid → short; `0` if you cannot tell.
+5. Check the orange Draft line, then press **`S`**. A green "Saved #…" confirms it; a red
+   message says what is missing.
+6. **If the bomb was planted,** watch the **blue** (CT) dots: `I` at their first clear move
+   to contest the site, `O` at the defuse, explosion, last CT death or clear
+   abandonment, then `5`, `A`/`B`, `S`. If they stay away to save: `I`, `O`, `E` until
+   the reason reads "no retake attempt (save)", `S`.
+7. Press **`C`** when the round is fully watched, then `]` for the next one.
+
+A stationary badge is not proof of a plant: a ✕ next to it means the carrier died and
+dropped it. A planter walking away alive from a badge on site is a strong sign; if in
+doubt press `U`. A round may have several segments (for example an excluded fake and
+the real attack) or none (no attack).
+
+| Situation | Keys |
+|---|---|
+| Push through ramp + palace, plant finishes | `I` … `O` `1` `S` |
+| Apartments push plus one player mid → short at the same time | `I` … `O` `4` `S` |
+| Then 3 CTs return together to B | `I` … `O` `5` `B` `S` |
+| Fake A, rotate, real attack through apartments | `I` … `O` `E` `S`, then `I` … `O` `2` `S` |
+| Cannot tell whether the mid player joined | `I` … `O` `0` `S` |
+
+#### The label file
+
+Segments are written to the JSON file as soon as you press `S`; there is nothing to
+push first. Open it in an editor to read it, but do not edit it by hand: use `Z` and
+label again. Each record stores the match ID from `manifest.json`, start and end in
+seconds of the prepared normal-speed video, the estimated round, class, site, status,
+reviewer, definition version and any exclusion reason or uncertainty flag. Opening a
+file for a different match is refused. During the pilot, do not share files until both
+reviewers have finished, so the comparison stays independent.
 
 ## Five class definitions
 

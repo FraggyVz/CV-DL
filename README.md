@@ -33,10 +33,12 @@ participation. Direct B uses apartments; a B split adds mid → short. Label att
 retake segments separately. Rush speed and actual default openings are not extra classes.
 The [tactic guide](docs/tactic-definitions.md) owns the detailed definitions.
 
-**Tool migration is pending.** `config.py`, `contracts.Round` and `RoundLabeller` still
-use the old pre/post-plant labels. There is no `label-rounds` command on `vision-only`;
-the separate `label-rounds` branch also retains the old schema. Region polygons, reviewed
-segment records and five-class dataset/model integration remain planned. Do not rename
+**Labelling pilot tool.** `python -m stratscout label-segments --match furia --reviewer
+<name>` labels five-class attack/retake segments with the keyboard, one file per match
+and reviewer, saved on every change (see the [tactic guide](docs/tactic-definitions.md#using-label-segments)).
+Marking segments `reviewed`, approach/entry-time fields, region polygons and five-class
+dataset/model integration remain planned. `contracts.Round` and `RoundLabeller` keep
+the old pre/post-plant labels, as did the earlier `label-rounds` command. Do not rename
 old annotations automatically or use the legacy keys as the new class mapping.
 
 ## Windows setup
@@ -86,6 +88,7 @@ not labelled training data.
 python -m stratscout --help
 python -m stratscout bomb-preview
 python -m stratscout bomb-preview --match navi --round 7
+python -m stratscout label-segments --match furia --reviewer <name>
 python -m stratscout bomb-scan --video data/processed/recordings/<match>/minimap-5fps.mp4 --output runs/bomb-scan-001
 python -m stratscout icon-count-eval --train furia spirit --test navi --output runs/icon-count-eval-001
 python -m stratscout prototype --smoke --output runs/smoke-001
@@ -121,6 +124,7 @@ schema are not the current video-preparation or five-class dataset route.
 |---|---|
 | `stratscout/media.py`, `video_profiles`, `video_preparation`, `recording_batch`, `fps_comparison` | Shared preparation and comparison APIs |
 | `segmentation`, `icon_split`, `bomb`, `rounds`, `live_preview`, `count_eval` | Colour/shape detection, overlap handling, estimates and review |
+| `segments`, `segment_labeller` | Five-class segment records, validation, safe saving and the keyboard labeller |
 | `preprocessing`, `detector`, `datasets`, `training`, `evaluation`, `synthetic` | CNN icon detector and experiments |
 | `tracking`, `annotations`, `config`, `contracts`, `context`, `workflow`, `storage`, `video`, `pilot`, `visualisation` | Tracking, legacy labels, explicit run state and orchestration |
 | `stratscout/ingest/` | Optional demo parsing, coordinate mapping and legacy exports |
@@ -161,8 +165,8 @@ annotation/evaluation evidence, not vision-model inputs.
 
 1. **Agree labels:** two reviewers trial the tactic guide on 15–20 varied segments,
    resolve class/boundary disagreements and freeze a definition version.
-2. **Migrate the labelling tool:** follow the [keyboard workflow](docs/tactic-definitions.md#keyboard-labelling-workflow)
-   for attack/retake segments, timestamps, review states and safe save/resume/export.
+2. **Finish the labelling tool:** `label-segments` covers the pilot; add reviewer
+   comparison, `reviewed` approval, approach/entry-time fields and a safe export.
    Preserve original records. Define map regions once when adding route features;
    polygon tooling need not block the labelling pilot.
 3. **Build the dataset:** retain match IDs and source provenance, review labels and
