@@ -1,10 +1,28 @@
 # Tactical Clip Definitions and Labelling
 
-## Quick start
+## Open the window
+
+From the repository root, with the project environment active:
 
 ```powershell
 python -m stratscout label-segments --match furia --reviewer yourname
+python -m stratscout label-segments --match spirit --reviewer yourname --round 7
 ```
+
+- Use the **same short name every time**. Each reviewer gets their own file,
+  `labels/<match folder>.<reviewer>.segments.json`, so two people can label the same
+  clips independently without overwriting each other.
+- **Click the window once** so it receives key presses. Everything uses the keyboard.
+- The window opens sized to the screen. Text under the map shows the match, match
+  time, estimated round (e.g. "Round 3/21"), time since that round's freeze time ended,
+  whether the round is checked, the segment being marked ("Draft", orange), this round's
+  saved segments, match totals and a green/red message. The bar between the map and the
+  text is the whole match: grey lines are round starts and coloured blocks are saved
+  segments. Rounds are estimates from the video, used for navigation only.
+- **Only open one window per match and reviewer at a time**, or saves can overwrite
+  each other.
+
+## Quick start
 
 1. Watch the **yellow** dots: setup first, then press **`I`** when they move again towards a site.
 2. Press **`O`** when the plant finishes, the attack ends, or the last attacker dies.
@@ -66,30 +84,10 @@ The proposed workflow is:
 
 ### Using `label-segments`
 
-This is a practical guide to the labelling window. The class and boundary rules are
-in the sections below; if this guide ever seems to disagree with them, the rules win.
-
-#### Open the window
-
-From the repository root, with the project environment active:
-
-```powershell
-python -m stratscout label-segments --match furia --reviewer yourname
-python -m stratscout label-segments --match spirit --reviewer yourname --round 7
-```
-
-- Use the **same short name every time**. Each reviewer gets their own file,
-  `labels/<match folder>.<reviewer>.segments.json`, so two people can label the same
-  clips independently without overwriting each other.
-- **Click the window once** so it receives key presses. Everything uses the keyboard.
-- The window opens sized to the screen. Text under the map shows the match, match
-  time, estimated round (e.g. "Round 3/21"), time since that round's freeze time ended,
-  whether the round is checked, the segment being marked ("Draft", orange), this round's
-  saved segments, match totals and a green/red message. The bar between the map and the
-  text is the whole match: grey lines are round starts and coloured blocks are saved
-  segments. Rounds are estimates from the video, used for navigation only.
-- **Only open one window per match and reviewer at a time**, or saves can overwrite
-  each other.
+This is a practical guide to the labelling window; [open the window](#open-the-window)
+and the [quick start](#quick-start) are at the top of this document. The class and
+boundary rules are in the sections below; if this guide ever seems to disagree with
+them, the rules win.
 
 #### Keys
 
