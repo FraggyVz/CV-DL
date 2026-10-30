@@ -27,6 +27,8 @@ EXCLUSION_REASONS = (
     "unusable footage",
     "other: see notes",
 )
+# The E key cycles through these in order: E = fake, E E = save, E E E = unusable, E E E E = other.
+KEY_EXCLUSION_REASONS = EXCLUSION_REASONS
 SITE_OF = {"A_DIRECT": "A", "A_SPLIT": "A", "B_DIRECT": "B", "B_SPLIT": "B"}
 
 
@@ -155,6 +157,17 @@ class SegmentFile:
         self.segments.remove(last)
         self.save()
         return last
+
+    def remove(self, segment_id: int) -> Dict:
+        """Remove one segment by id unless it has been reviewed."""
+        seg = next((s for s in self.segments if s["id"] == segment_id), None)
+        if seg is None:
+            raise ValueError(f"no segment #{segment_id}")
+        if seg.get("status") == "reviewed":
+            raise ValueError(f"#{segment_id} is reviewed; only unreviewed work can be deleted")
+        self.segments.remove(seg)
+        self.save()
+        return seg
 
     def toggle_checked(self, round_number: int) -> bool:
         """Mark an estimated round as watched (or unmark it); returns the new state."""

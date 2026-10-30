@@ -18,17 +18,19 @@ import numpy as np
 from .config import TACTIC_CLASSES
 from .live_preview import LEFT_ARROW, RIGHT_ARROW
 from .rounds import round_at
-from .segments import EXCLUSION_REASONS, SITE_OF, SegmentFile
+from .segments import KEY_EXCLUSION_REASONS, SITE_OF, SegmentFile
 
 WINDOW = "StratScout segment labeller"
 ENTER, ESC, BACKSPACE = 13, 27, 8
 STEP_SECONDS = 2.0  # Left/Right arrow jump
 HELP = [
-    "Space play/pause | Left/Right -/+2 s | K/L -/+5 s | , . one frame | [ ] round",
-    "I start  O end | 1 A_DIRECT 2 B_DIRECT 3 A_SPLIT 4 B_SPLIT 5 RETAKE | 0 undecided",
-    "A/B retake site | E exclude (repeat: next reason) | U boundary uncertain | X clear",
-    "S save | Z undo | N/P next/previous saved segment | C round checked | M/J bookmark",
-    "V text below/beside the map | Q quit",
+    "Space play/pause | Left/Right -/+2 s | , . one frame | [ ] previous/next round start",
+    "I start  O end (press again to change) | 0 undecided | U boundary uncertain",
+    "1 A_DIRECT 2 B_DIRECT 3 A_SPLIT 4 B_SPLIT 5 RETAKE (+ A/B site)",
+    "E exclude (repeat: next reason)",
+    "S save | X clear the draft | N/P next/previous saved segment | C round checked | Q quit",
+    "Fix a saved one: D D inside it (or Z Z for the last saved), then I, O, class, S again",
+    "M/J bookmark",
 ]
 STATUS_COLOUR = {"pending": (80, 200, 255), "excluded": (150, 150, 150), "reviewed": (80, 220, 80)}
 
@@ -130,7 +132,7 @@ class SegmentLabeller:
     def __init__(self, store: SegmentFile, rounds: List[Dict]):
         self.store, self.rounds = store, rounds
         self.message, self.ok = "Press I at the start of an attack or retake.", True
-        self.text_beside = False  # V toggles the status text between below and beside the map
+        self.armed = None  # (key, segment id) waiting for the second Z/D press
         self.clear()
 
     def clear(self):
@@ -163,6 +165,7 @@ class SegmentLabeller:
     def press(self, key: str, seconds: float) -> Optional[float]:
         """Apply one key at video time seconds; returns a time to jump to, if any."""
         d = self.draft
+        armed, self.armed = self.armed, None  # any other key cancels a pending delete
         if key == "i":
             d["start_s"] = seconds
             self.say(f"Start {clock(seconds)}. Now mark the end with O.")
@@ -183,8 +186,9 @@ class SegmentLabeller:
                 d["site"] = key.upper()
                 self.say(f"Site {d['site']}.")
         elif key == "e":
-            k = EXCLUSION_REASONS.index(self.reason) + 1 if self.reason else 0
-            self.reason = EXCLUSION_REASONS[k % len(EXCLUSION_REASONS)]
+            reasons = KEY_EXCLUSION_REASONS
+            k = reasons.index(self.reason) + 1 if self.reason in reasons else 0
+            self.reason = reasons[k % len(reasons)]
             self.undecided = False
             self.say(f"Exclude: {self.reason} (E again for the next reason, X to clear).")
         elif key == "u":
@@ -205,20 +209,37 @@ class SegmentLabeller:
                     f"{clock(saved['end_s'])} to {self.store.path.name}"
                 )
                 self.clear()
-        elif key == "z":
+        elif key in ("z", "d"):
+            if key == "z":
+                # The last saved segment.
+                seg = max(self.store.segments, key=lambda s: s["id"], default=None)
+                if seg is None:
+                    self.say("Nothing to delete.", False)
+                    return None
+            else:
+                # The saved segment being watched: the latest one started at or before now.
+                here = [s for s in self.store.segments if s["start_s"] <= seconds <= s["end_s"]]
+                if not here:
+                    self.say("D deletes the saved segment you are inside (marked >).", False)
+                    return None
+                seg = max(here, key=lambda s: s["start_s"])
+            what = seg["label"] or seg.get("exclusion_reason") or "undecided"
+            span = f"#{seg['id']} {what} {clock(seg['start_s'])}-{clock(seg['end_s'])}"
+            if armed != (key, seg["id"]):
+                # Deleting saved work needs a second press of the same key.
+                self.armed = (key, seg["id"])
+                self.say(f"Press {key.upper()} again to delete {span} (any other key cancels).")
+                return None
             try:
-                gone = self.store.undo_last()
+                self.store.remove(seg["id"])
             except ValueError as exc:
                 self.say(str(exc), False)
             else:
-                self.say(f"Removed #{gone['id']}." if gone else "Nothing to undo.", bool(gone))
+                self.say(f"Deleted {span}. Label it again and press S.")
         elif key == "c":
             r = self.round_of(seconds)
             done = self.store.toggle_checked(r["round"])
             self.say(f"Round {r['round']} marked {'checked' if done else 'not checked'}.")
-        elif key == "v":
-            self.text_beside = not self.text_beside
-            self.say(f"Text {'beside' if self.text_beside else 'below'} the map.")
         elif key == "m":
             self.store.add_bookmark(seconds)
             self.say(f"Bookmark at {clock(seconds)}.")
@@ -330,19 +351,12 @@ class SegmentLabeller:
         """The window image: the frame, the match timeline and the status text.
 
         With size=(width, height) the image is built at exactly the window's size, so the
-        window never rescales it and the text stays sharp. The text goes below the timeline,
-        or beside the frame when text_beside is set and the window is wide enough."""
+        window never rescales it and the text stays sharp; long lines wrap."""
         lines = self.status_lines(seconds, mode)
         fh, fw = bgr.shape[:2]
         width, height = size or (fw * scale, fh * scale + 360)
-        font = float(np.clip(height / 1600, 0.45, 0.7))
         bar = self.timeline(width, duration, seconds)
-        map_w = int((height - len(bar)) * fw / fh)
-        if self.text_beside and width - map_w >= 420:
-            area_h = height - len(bar)
-            text = to_height(text_panel(lines, width - map_w, font), area_h)
-            return np.vstack([np.hstack([fit_into(bgr, map_w, area_h), text]), bar])
-        text = text_panel(lines, width, min(font, 0.6))
+        text = text_panel(lines, width, float(np.clip(height / 1600, 0.45, 0.6)))
         frame = fit_into(bgr, width, max(height - len(bar) - len(text), 50))
         return to_height(np.vstack([frame, bar, text]), height)
 
@@ -359,7 +373,7 @@ class SegmentLabeller:
         index, speed, shown, frame = int(np.clip(start * fps, 0, total - 1)), 0, None, None
         # Free ratio: compose() fills the window exactly and keeps the frame's own ratio.
         cv2.namedWindow(WINDOW, cv2.WINDOW_NORMAL | cv2.WINDOW_FREERATIO)
-        sized_for = None  # the layout the window was last sized for
+        sized = False
         try:
             while True:
                 t0 = time.perf_counter()
@@ -375,16 +389,12 @@ class SegmentLabeller:
                     raise ValueError(f"no frame at {start}s in {video}")
                 secs = index / fps
                 mode = "PLAYING" if speed else "PAUSED"
-                if sized_for != self.text_beside:
-                    # Fit the visible screen above the taskbar; wider when the text is beside.
+                if not sized:
+                    # Fit the visible screen above the taskbar; the window stays resizable.
                     left, top, room_w, room_h = screen_work_area()
-                    h = max(room_h - 70, 300)
-                    map_w = int((h - 22) * frame.shape[1] / frame.shape[0])
-                    w = min(room_w - 20, map_w + 900 if self.text_beside else 1100)
-                    cv2.resizeWindow(WINDOW, w, h)
-                    if sized_for is None:
-                        cv2.moveWindow(WINDOW, left + 5, top + 5)
-                    sized_for = self.text_beside
+                    cv2.resizeWindow(WINDOW, min(room_w - 20, 1100), max(room_h - 70, 300))
+                    cv2.moveWindow(WINDOW, left + 5, top + 5)
+                    sized = True
                 # Draw at the window's own size so the text is never stretched or blurred.
                 _, _, w, h = cv2.getWindowImageRect(WINDOW)
                 size = (w, h) if w > 200 and h > 200 else None
@@ -408,8 +418,6 @@ class SegmentLabeller:
                     break
                 elif key == ord(" "):
                     speed = 0 if speed == 1 else 1
-                elif key in (ord("k"), ord("l")):
-                    index += int(5 * fps) * (1 if key == ord("l") else -1)
                 elif key in (ord(","), ord(".")):
                     speed, index = 0, index + (1 if key == ord(".") else -1)
                 else:
