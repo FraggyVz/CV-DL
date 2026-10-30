@@ -1,9 +1,11 @@
 # Modular Architecture
 
+> Archived reference (30 October 2026). Results, commands and status describe the recorded revision, not necessarily the current checkout. Use the [README](../../README.md) for current status and next steps, the [recording guide](../recording-setup.md) for capture, and the [tactic guide](../tactic-definitions.md) for labels.
+
 ## Boundaries
 
-The package owns implementation. Notebooks own experiment order, explanatory text
-and presentation. There is no runtime notebook parsing, `exec` loader, wildcard
+The package owns implementation. Earlier notebooks were optional experiment interfaces.
+There is no runtime notebook parsing, `exec` loader, wildcard
 import or duplicated notebook implementation. Normal Python imports connect modules.
 
 | Modules | Responsibility |
@@ -35,12 +37,24 @@ stages). They stretched every round to 32 steps between start and plant, so traj
 timing in seconds was lost. A new time-aware tactic model will be built separately on
 top of the tracker's positions. The removed code is available at commit `1a63107`.
 
+The target is now one of `A_DIRECT`, `B_DIRECT`, `A_SPLIT`, `B_SPLIT`, `RETAKE`
+per reviewed tactical segment, as specified in [tactic definitions](../tactic-definitions.md).
+An attack and a subsequent retake in one round are separate examples. Region polygons
+and approach history support direct-versus-mid-split classification; ramp + palace
+alone is not an A split. Tempo is supporting evidence, not a separate class.
+
+`config.py`, `contracts.Round` and `annotations.RoundLabeller` retain legacy round/
+pre/post-plant contracts. `vision-only` does not expose `label-rounds`; that command
+on the separate branch is also legacy. A versioned segment format, review-state support,
+region configuration and corresponding dataset/model integration remain unimplemented.
+Migrate by reviewing source clips, not by remapping old class strings automatically.
+
 Preparation commands bypass the prototype workflow. They use JSON profiles/manifests
 and explicit arguments, not `RunContext`, the 32-frame sampler or tracker.
 `process-recordings.ps1` launches the batch CLI using a local project environment.
 The batch calls the existing preparation/comparison APIs; it does not duplicate
 their encoding logic. Preparation/comparison depend on `media`. Capture is manual and has no Python OBS
-dependency. See [recording setup](recording-setup.md) for
+dependency. See [recording setup](../recording-setup.md) for
 formats, paths and recovery semantics.
 
 Preparation manifests now use schema 2 with `playback_speed` and explicit timeline
@@ -96,6 +110,9 @@ For example, after detector preparation/training, the notebook can access
 
 Interactive tools are explicit too:
 
+The example below launches the **legacy** round labeller, not the proposed five-class
+segment tool. Do not treat its keyboard choices or exports as the new class contract.
+
 ```python
 from stratscout.annotations import RoundLabeller
 
@@ -112,8 +129,8 @@ relative configuration paths are resolved against the working directory.
 This migration preserves the numerical algorithms. Regression fixtures were produced
 by executing selected definitions from the original committed notebook. Tests compare
 trajectories, rendered frames, tracking, heatmaps and CNN outputs, check
-imports and module dependency cycles, test video decoding/export and execute both thin
-notebooks with small synthetic inputs in a temporary directory.
+imports and module dependency cycles, and test video decoding/export. The retained
+notebook execution checks require the earlier thin notebook files to be present.
 
 Intentional orchestration changes: CPU is the default device; experiment sizes are
 configurable; checkpoint/summary writes refuse overwrites. Summary metadata

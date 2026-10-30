@@ -1,5 +1,13 @@
 # Shared Base Review — 12 October 2026
 
+> Archived reference (30 October 2026). Results, commands and status describe the recorded revision, not necessarily the current checkout. Use the [README](../../README.md) for current status and next steps, the [recording guide](../recording-setup.md) for capture, and the [tactic guide](../tactic-definitions.md) for labels.
+
+> **Current taxonomy:** this is a historical audit. Its class lists describe the old
+> implementation, not the agreed target. Use [tactic definitions](../tactic-definitions.md)
+> for `A_DIRECT`, `B_DIRECT`, `A_SPLIT`, `B_SPLIT`, `RETAKE` and segment labelling.
+> Legacy annotation code still needs migration; the old classifiers were removed on
+> `vision-only`. Historical findings below are retained as evidence.
+
 > **Capture reset, 14 October:** old recordings, crop profiles and unlabelled pilot
 > caches were removed at the user's request. File inventories below are historical.
 > Use the current recording guide for the new 1440p/60 fps, 2× workflow.
@@ -24,7 +32,7 @@ segmentation, icon and round labelling tools, a two-channel CNN heatmap detector
 fixed-slot tracking, four classifier architectures, oracle/vision comparisons,
 occupancy maps, route plots and win-rate aggregation.
 
-The current main notebook asks two separate questions:
+At the reviewed commit, the main notebook asked two separate questions:
 
 - Before plant: `A_RUSH`, `B_RUSH`, `A_SPLIT`, `B_SPLIT`, `DEFAULT`.
 - After plant: `RETAKE`, `TRICKLE`, `SAVE`.

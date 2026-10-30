@@ -1,239 +1,200 @@
 # StratScout
 
-StratScout is a CS2 Mirage research prototype: minimap pixels → player detection →
-tracking. A time-aware tactic model (attacker tactics before the plant, defender
-responses afterwards) will be built on the tracked positions later.
-Demo files are development evidence; the vision pipeline takes video pixels.
+StratScout analyses CS2 Mirage minimap videos: player detection → tracking → tactical
+classification. The current package implements the vision and recording-preparation
+work; the five-class tactical model and its updated labelling workflow are next.
+Inference uses video pixels. Demo files may support annotation and evaluation, but
+are not required runtime input.
+
+## Start here
+
+- **This README:** setup, commands, structure, current limitations and next steps.
+- **[Recording guide](docs/recording-setup.md):** OBS/radar settings, trimming,
+  2× correction, cropping, 5/10/30 fps exports and sharing.
+- **[Tactic guide](docs/tactic-definitions.md):** class definitions, map regions,
+  keyboard labelling workflow, segment boundaries and annotation review.
+- **[Contributor rules](AGENTS.md):** coding conventions, checks and data protection.
 
 ## Current status
 
-Ryan's prototype has been moved into the `stratscout/` Python package. Both notebooks
-are thin, optional experiment interfaces importing that implementation. Importing
-modules does not extract data, train models, open windows or save results.
+The `vision-only` base contains the colour baseline, CNN icon detector, icon splitting,
+tracker, bomb badge detection, estimated rounds, interactive preview and companion demo
+utilities. Processing exports aligned 5/10/30 fps minimap videos with manifests and
+comparison reports. Recording is manual; there is no OBS control or replay automation.
 
-The colour baseline, CNN detector, tracker, annotation tools and companion demo-ingest
-utilities are retained. **The old tactic classifiers, trajectory features, inference
-pipeline and occupancy/win-rate reports were removed on the `vision-only` branch**:
-they stretched each round to 32 steps, so timing in seconds was lost. A new
-time-aware model will replace them (old code: commit `1a63107`). **This is an
-experimental vision pipeline, not validated on real matches.** Existing tracking,
-label-safety and ingest-schema problems are recorded in the
-[baseline review](docs/base-review-2026-10-12.md).
+**This is not yet a validated tactical classifier.** The old classifiers were removed
+because their fixed 32-step round sampling lost elapsed timing. That implementation is
+available at commit `1a63107`. Detection results include visual reviews and label-free
+count proxies, not a measured precision/recall result on a reviewed dataset.
 
-On the `bomb-state` branch, spectator-radar detection adds C4 badge detection and
-carried/dropped candidates, estimated rounds, overlapping-icon splitting with a five-per-team
-cap, label-free count checks and an interactive preview. Results are proxies and visual
-reviews, not labelled accuracy; see [bomb detection](docs/bomb-detection.md) and
-[overlapping icons](docs/icon-split.md).
+The agreed tactic classes are `A_DIRECT`, `B_DIRECT`, `A_SPLIT`, `B_SPLIT`, `RETAKE`.
+Direct A includes ramp and/or palace; an A split adds coordinated mid → connector
+participation. Direct B uses apartments; a B split adds mid → short. Label attack and
+retake segments separately. Rush speed and actual default openings are not extra classes.
+The [tactic guide](docs/tactic-definitions.md) owns the detailed definitions.
 
-Independent recording-preparation commands now export aligned **5, 10 and 30 fps**
-videos with validated manifests and visual comparison reports. Recording is manual
-in OBS; the Python tools process saved videos. See the
-[validation status and acceptance checks](docs/processing-validation.md).
+**Tool migration is pending.** `config.py`, `contracts.Round` and `RoundLabeller` still
+use the old pre/post-plant labels. There is no `label-rounds` command on `vision-only`;
+the separate `label-rounds` branch also retains the old schema. Region polygons, reviewed
+segment records and five-class dataset/model integration remain planned. Do not rename
+old annotations automatically or use the legacy keys as the new class mapping.
 
 ## Windows setup
 
-Use Python 3.13. The refactor was checked on Python 3.13.14 with CPU Torch.
-Create a new environment if an existing one points to a moved interpreter:
+Use Python 3.13 and FFmpeg/ffprobe with `libx264` on PATH. The refactor was checked with
+Python 3.13.14 and CPU Torch. From the repository root:
 
 ```powershell
 py -3.13 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install torch==2.14.1 --index-url https://download.pytorch.org/whl/cpu
-python -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip install torch==2.14.1 --index-url https://download.pytorch.org/whl/cpu
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+ffmpeg -version
+ffprobe -version
 ```
 
-The Python 3.13 launcher entry must exist; otherwise run its executable directly.
-During this refactor, the working environment was created at `.venv-modular/`;
-activate it with `.\.venv-modular\Scripts\Activate.ps1` to use it locally.
-The requirements include the companion's pandas/demoparser2 dependencies.
-For notebooks, select this environment in your editor; install `ipykernel` there
-if your editor requests it. For linting, install `requirements-dev.txt`.
+A working environment may already exist at `.venv-modular`; use its Python instead.
+Commands below use `python` from the chosen environment. If PowerShell blocks activation
+or `.ps1` launchers, invoke `.\.venv\Scripts\python.exe` (or `.venv-modular`) directly;
+changing the machine execution policy is unnecessary. Select the same interpreter in
+an editor. Development dependencies provide Ruff; the main requirements include the
+companion's pandas/demoparser2 dependencies.
 
-Video preparation also requires **FFmpeg and ffprobe** with `libx264` on PATH.
-Check `ffmpeg -version` and `ffprobe -version` in the same terminal.
-FFmpeg is a separate executable dependency. The new
-commands do not import Torch or the legacy pipeline.
+## Process a recording
 
-## Record once, prepare three frame rates
-
-**Normal workflow:** put finished recordings directly in `data/raw/inbox/`, then run:
+Record at **2560×1440, 60 fps, constant 2× demo playback** with the fixed radar layout
+in the [recording guide](docs/recording-setup.md). Wait for OBS to finish, put the file
+in `data/raw/inbox/`, then run:
 
 ```powershell
-.\process-recordings.ps1
+python -m stratscout process-recordings
 ```
 
-For each new recording, answer three terminal prompts: **demo playback speed,
-start time and end time**. For example, enter `2`, `0:00` and `23:51` for a 2×
-recording whose useful footage ends at raw-video time 23:51. Press Enter to accept
-2× speed, start at zero or keep the remainder. Times refer to the raw video
-player, not the demo clock. Type `s` to skip a file or Ctrl+C to stop.
+The optional `process-recordings.ps1` launcher selects a local project environment.
+The batch prompts for playback speed, start and end in **raw-video time**. First use
+selects a crop and saves `configs/recording-video.json`; matching layouts reuse it.
+Outputs appear in `data/processed/recordings/<match-name>/`: three normal-speed MP4s,
+`manifest.json` and `comparison/report.html`. Masters are preserved and completed
+bundles are skipped. Keep the manifest with the videos; use a new output directory to
+change settings or retry an incomplete bundle. Advanced commands, recovery, acceptance
+checks and sharing instructions belong in the recording guide. Prepared videos are
+not labelled training data.
 
-There are no per-video settings files to create or edit. The processor restores
-normal game time before creating 5/10/30 fps versions; 60 fps alone does not imply
-2× playback. The batch defaults to 2× because the current capture setup is
-**2560×1440, 60 fps, constant 2× demo playback**. See the
-[speed and trimming guide](docs/recording-setup.md#prompt-based-processing).
-Old recordings, exports, capture-specific scripts/profiles and unlabelled pilot
-caches were removed on 14 October. The new recording needs its own crop and validation.
-
-The launcher uses `.venv-modular` or `.venv`. Alternatively, with your environment
-active, run `python -m stratscout process-recordings`. The first run opens a crop
-selector and saves `configs/recording-video.json`. Select the entire minimap;
-odd dimensions are adjusted by one pixel without resizing. Confirm both selection
-and preview with Enter. Later runs
-reuse that crop for recordings with the same resolution **and radar layout**.
-
-The batch scans MKV/MP4/MOV/AVI files directly in the inbox, encodes and validates
-5/10/30 fps minimap videos, and generates comparison previews, stills and an HTML
-report. Outputs go under `data/processed/recordings/<match-name>/`, using a cleaned
-version of the source filename. Full hashes in the manifests still identify duplicates;
-a short hash suffix distinguishes different sources with the same name. The command
-prints each report path. It leaves masters untouched, skips completed bundles and
-continues past failed files. Run it again after adding recordings; it is not a
-background watcher. Wait for OBS to stop and finish saving before running it.
-
-Reports sample three spread-out windows of up to ten seconds (one for short clips).
-They do not automatically find rounds, deaths or bomb events. Crop selection and
-visual review are still human tasks; encoding/export/reporting are automatic.
-
-Use `--input FOLDER`, `--profile FILE`, `--output FOLDER` or `--at SECONDS` to override
-defaults. Changing resolution/HUD layout requires a new profile; use a new output
-root to retry incomplete bundles or change their crop, speed or trim. Completed
-bundles retain their saved settings and are skipped before any prompts. For unattended
-whole-file processing, use `--non-interactive --playback-speed 2` with an existing
-crop profile. See
-[recovery and identity rules](docs/recording-setup.md#outputs-and-recovery).
-
-For explicit control of individual steps, the original commands remain available:
-
-```powershell
-python -m stratscout video-profile --video data/raw/inbox/match.mkv --output configs/recording-video.json --at 60
-python -m stratscout prepare-video --video data/raw/inbox/match.mkv --profile configs/recording-video.json --playback-speed 2 --fps 5 10 30 --match-id mirage-match-001 --output data/processed/mirage-001
-python -m stratscout compare-fps --input data/processed/mirage-001 --windows 55:5 115:5 190:5
-```
-
-Select a rectangle and confirm with Enter, then inspect the adjusted native crop
-and press Enter to save (Escape cancels). `--at` selects the preview time; `--crop
-x0 y0 x1 y1` bypasses the GUI for known coordinates and still requires even dimensions.
-Profiles store source dimensions
-and half-open bounds; a mismatched resolution is refused. No recording-specific
-profile is bundled. The first selection creates the local profile automatically.
-
-`prepare-video --start 115 --duration 10` makes a short pilot with its source offset
-retained. Both values always use **raw-video seconds**. Add `--playback-speed 2`
-to turn those ten recorded seconds into twenty seconds at normal game speed.
-Choose a new destination each time. Outputs include three H.264 MP4s,
-`manifest.json`, encoding/decode logs and, after comparison, `comparison/report.html`,
-JSON, labelled videos and PNG stills. Comparison windows use **source-video seconds**.
-File sizes and decoding timings do not measure detection accuracy.
-
-For future recordings, follow [manual OBS and radar setup](docs/recording-setup.md).
-The current captures use **2560×1440 output, 60 fps, constant 2× demo playback**.
-Use NVENC H.264, MKV and High Quality/Medium File Size. Keep the resolution and radar
-layout fixed across new recordings.
-Capture FPS divided by replay speed must meet the highest output rate. This checks
-the file's nominal rate, not unique rendered frames: if CS2 renders below 60 fps at
-2×, repeated OBS frames reduce the actual observations. No WebSocket setup is needed.
-Check a short recording and its
-crop before capturing a full match; OBS/game settings are not validated by the CLI.
-
-## Run and check
-
-From the repository root:
+## Preview and experiments
 
 ```powershell
 python -m stratscout --help
+python -m stratscout bomb-preview
+python -m stratscout bomb-preview --match navi --round 7
+python -m stratscout bomb-scan --video data/processed/recordings/<match>/minimap-5fps.mp4 --output runs/bomb-scan-001
+python -m stratscout icon-count-eval --train furia spirit --test navi --output runs/icon-count-eval-001
 python -m stratscout prototype --smoke --output runs/smoke-001
+```
+
+Replace `<match>` with a processed folder name. New experiment/scan destinations must
+not already exist. The preview uses Space to play/pause, arrows to seek, K/L for ±5 s,
+N/B for one frame, `[`/`]` for estimated rounds and Q to quit. It shows player/bomb
+estimates; the hidden carrier is inferred, not directly observed. A stationary bomb
+without carrier evidence is a dropped candidate; planted bombs are not separated.
+
+`icon-count-eval` checks counts without reviewed labels; it does not establish detection
+accuracy. Fit detector settings on Furia–Falcons and Spirit–Falcons and keep NaVi–Falcons
+held out. Do not tune on the test match. Keep every FPS variant and tactical segment of
+a match in one dataset split, and reserve validation data separately for model selection.
+
+The smoke command trains a tiny synthetic detector and checks tracking, saving
+`detector.pt` and `summary.json`. It does not use real recordings or establish accuracy.
+For an explicit vision experiment, pass `prototype --config configs/local.json --output
+runs/experiment-001`; the JSON contains `Config` fields such as `data_dir`, `video_exts`,
+`map_image` and `det_epochs`. Add `--device cuda` for a compatible GPU Torch installation,
+or `--plots` for interactive figures. The prototype scans one directory directly and
+can write pilot caches; it does not automatically use preparation manifests or correct
+raw 2× timing. Establish prepared inputs and safe labels before training on real data.
+
+Companion demo stages remain available via `ingest --stage radar|parse|map|export
+--config configs/ingest.json` (choose one stage). Their legacy 8 fps exporter and label
+schema are not the current video-preparation or five-class dataset route.
+
+## Project structure and contracts
+
+| Location/modules | Responsibility |
+|---|---|
+| `stratscout/media.py`, `video_profiles`, `video_preparation`, `recording_batch`, `fps_comparison` | Shared preparation and comparison APIs |
+| `segmentation`, `icon_split`, `bomb`, `rounds`, `live_preview`, `count_eval` | Colour/shape detection, overlap handling, estimates and review |
+| `preprocessing`, `detector`, `datasets`, `training`, `evaluation`, `synthetic` | CNN icon detector and experiments |
+| `tracking`, `annotations`, `config`, `contracts`, `context`, `workflow`, `storage`, `video`, `pilot`, `visualisation` | Tracking, legacy labels, explicit run state and orchestration |
+| `stratscout/ingest/` | Optional demo parsing, coordinate mapping and legacy exports |
+| `tests/` | Regression, import-safety, media and synthetic workflow checks |
+| `configs/`, `data/raw/inbox/`, `data/processed/recordings/`, `runs/` | Local settings, masters, prepared bundles and generated experiments |
+| `mirage_radar.png` | Map asset; recordings, generated results and environments stay outside Git |
+
+Implementation lives in Python modules, not notebooks. Pass `RunContext` or
+`IngestContext` explicitly; imports must not start processing, training, GUIs or writes.
+OpenCV returns BGR; detector tensors use RGB. Preserve uint8 input where preprocessing
+divides by 255, T/CT heatmap channel order (0/1) and positive centre peaks. Keep encoding
+in the shared preparation API. Record observed/missing/inferred positions distinctly;
+never turn a team-size cap into invented detections. Demo truth and round winners are
+annotation/evaluation evidence, not vision-model inputs.
+
+## Known limitations
+
+- **Label safety:** legacy proposal/review writes can overwrite labels; empty icon
+  frames are dropped. Explicit review status, uncertain centres and safe migration
+  are not implemented. Never target reviewed labels with automatic proposals.
+- **Tracking:** fixed slots can invent or retain stale positions; gates/miss limits are
+  per step rather than per second. Missing-player handling needs repair before relying
+  on trajectories for classification.
+- **Detection:** spawn stacks can be under-counted; overlaps, carriers and death markers
+  need labelled evaluation. Five-per-team counts and visual reviews are not precision/recall.
+  Planted-bomb separation and round boundaries remain unverified estimates.
+- **Data integration:** legacy ingest/round schemas differ from the target segment format.
+  World-to-radar mapping and demo/video alignment require calibration. Real icon data
+  splitting must enforce match separation. Removed classifier results and historical
+  synthetic scores are not current performance evidence.
+- **Capture:** nominal FPS cannot prove unique rendered frames; pauses, stalls or replay
+  speed changes break the constant-speed assumption. Check each new layout and recording.
+- **Notebook checks:** the retained notebook-execution test expects the old root notebooks.
+  If those files are absent, that test cannot pass; notebook-test maintenance is separate
+  from this documentation reorganisation.
+
+## Next steps
+
+1. **Agree labels:** two reviewers trial the tactic guide on 15–20 varied segments,
+   resolve class/boundary disagreements and freeze a definition version.
+2. **Migrate the labelling tool:** follow the [keyboard workflow](docs/tactic-definitions.md#keyboard-labelling-workflow)
+   for attack/retake segments, timestamps, review states and safe save/resume/export.
+   Preserve original records. Define map regions once when adding route features;
+   polygon tooling need not block the labelling pilot.
+3. **Build the dataset:** retain match IDs and source provenance, review labels and
+   establish train/validation/test splits by match before tuning.
+4. **Validate vision/tracking:** measure per-team and carrier performance and repair
+   missing-player handling. Compare 5/10/30 fps on labelled evidence.
+5. **Train tactics:** compare a region/route baseline with a learned temporal model using
+   elapsed seconds. Report per-class precision/recall, macro-F1, confusion matrices and
+   failures on unseen matches. Manual clip boundaries do not prove whole-match detection.
+6. **Deliver a usable application:** show detections and tactical segments, make local
+   deployment reproducible, evaluate optimisation/cloud deployment where feasible and
+   document limits. Other maps and default-opening/tempo attributes are later extensions.
+
+## Development checks and historical references
+
+Follow [AGENTS.md](AGENTS.md). From the root with the chosen environment:
+
+```powershell
 python -m unittest discover -s tests
+ruff check stratscout tests
+ruff format --check stratscout tests
+python -m stratscout prototype --smoke --output runs/new-smoke-run
 ```
 
-The smoke command runs a small synthetic detector/tracker experiment on CPU and
-writes `detector.pt` and `summary.json`. It does not read your real
-recordings or annotations. **Its scores are wiring checks, not accuracy evidence.**
-Choose a new output directory for every run; existing destinations are refused.
+Choose a fresh smoke directory. Synthetic checks do not establish real-match accuracy.
+Historical material is retained in `docs/archive/` for investigations and report evidence,
+not routine onboarding. Statements there apply to the recorded revision:
 
-For the full prototype, use a JSON object containing `Config` fields:
-
-```json
-{
-  "data_dir": "data/raw/inbox",
-  "video_exts": [".mkv", ".mp4"],
-  "map_image": "mirage_radar.png",
-  "det_epochs": 25
-}
-```
-
-Save it as `configs/local.json`, then run:
-
-```powershell
-python -m stratscout prototype --config configs/local.json --output runs/experiment-001
-```
-
-Add `--plots` for interactive figures or `--device cuda` for a suitable GPU Torch
-installation. The full workflow can extract/cache pilot frames and crop metadata;
-read the annotation hazards below before using reviewed data. Video discovery scans
-the configured directory directly, not recursively. One file represents one match.
-The prototype does not consume the preparation manifest or correct 2× raw timing
-automatically; this example selects inputs only. Establish normal-time samples and
-reviewed labels before using the new capture for model training.
-
-## Bomb badge scan and live preview
-
-The C4 badge is found by colour then shape (badge-orange pixels forming a filled
-rectangle). It is drawn over its carrier, so a badge is carried when the carrier's yellow
-rim or white arrow shows at its edge. Carried and dropped badges look identical, so a still
-badge with no carrier showing for 2 s is listed as a dropped candidate for review:
-
-```powershell
-python -m stratscout bomb-scan --video data/processed/recordings/<match>/minimap-5fps.mp4 --output runs/bomb-scan/<match>
-```
-
-`bomb-preview` (pick a match, or `--match navi --round 7`) plays a video with live player
-and bomb detections and estimated rounds: Space play/pause, Right/Left arrows
-fast-forward/rewind, K/L ∓5 s, N/B one frame, `[`/`]` previous/next round, Q quits.
-Candidates are unreviewed, not labels. See [bomb detection](docs/bomb-detection.md).
-
-## Overlapping players
-
-Overlapping icons of one team are split by disc fitting, ✕ death markers (no white arrow)
-are ignored and each team is capped at five. Compare versions without labels, fitting on
-two matches and testing on the third:
-
-```powershell
-python -m stratscout icon-count-eval --train furia spirit --test navi --output runs/icon-count-eval
-```
-
-See [overlapping icons](docs/icon-split.md) for the method, results and trade-offs.
-
-## Notebooks and demo ingest
-
-- `stratscout_prototype.ipynb`: inspect each vision/training/report step.
-- `stratscout_dem_ingest.ipynb`: radar-video exports and optional demo parsing/mapping.
-- `python -m stratscout ingest --stage radar --config configs/ingest.json`: explicit
-  radar export using a `DemCfg` JSON object and existing `crops.json`.
-- Other ingest stages are `parse`, `map` and `export`; export requires reviewed demo
-  labels. **The companion's legacy label schema is incompatible with the main
-  two-head schema.** Its outputs are not automatically wired into training.
-
-The companion's legacy exporter still defaults to 8 fps and retains its old API and
-overwrite semantics. Use **`prepare-video` for new recording preparation**. Its
-timestamped variants are independent of the prototype's 32-frames-per-round sampler;
-they are not automatically a training dataset.
-
-## Development and limitations
-
-See [module responsibilities and API examples](docs/architecture.md),
-[the recording direction](docs/development-direction.md) and
-[contributor rules](AGENTS.md).
-
-- Tracker placeholders/coasting are unchanged, and its gate/miss limits are counted
-  per step rather than per second.
-- Legacy annotation proposal/save behaviour still needs repair. Back up reviewed
-  labels; never direct `auto_label_icons` at a reviewed annotation file.
-- Icon splitting is evaluated only with label-free proxies and visual review; it
-  under-counts spawn stacks of five. Labelled live-play frames are still needed.
-- Recording and CS2 playback are manual; no OBS control command is included.
-- Lower frame rates do not fix bomb-carrier occlusion; labelled accuracy comes later.
-- Old capture assets were explicitly cleared; reusable models, map assets and
-  regression fixtures remain. New capture validation and labelled evaluation are pending.
+- [Original baseline audit](docs/archive/base-review-2026-10-12.md)
+- [Architecture and API notes](docs/archive/architecture.md)
+- [Previous development plan](docs/archive/development-direction.md)
+- [Bomb-detection experiments](docs/archive/bomb-detection.md)
+- [Icon-splitting experiments](docs/archive/icon-split.md)
+- [Processing validation history](docs/archive/processing-validation.md)
+- [Module migration inventory](docs/archive/module-inventory.json), retained for regression checks

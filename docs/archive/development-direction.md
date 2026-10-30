@@ -1,15 +1,17 @@
 # Development Direction
 
+> Archived reference (30 October 2026). Results, commands and status describe the recorded revision, not necessarily the current checkout. Use the [README](../../README.md) for current status and next steps, the [recording guide](../recording-setup.md) for capture, and the [tactic guide](../tactic-definitions.md) for labels.
+
 ## Implemented base
 
-Both notebooks call the modular Python package; see [architecture](architecture.md).
+Implementation lives in the modular Python package; see [architecture](architecture.md).
 Reusable algorithms and checkpoints remain intact. The [baseline review](base-review-2026-10-12.md)
 still applies: tracking validity, annotation safety, schema alignment and real-match
 evaluation remain unresolved. Synthetic scores do not establish model quality.
 
 ## Recording and processing milestone
 
-Use [the recording guide](recording-setup.md) and `process-recordings` for new footage.
+Use [the recording guide](../recording-setup.md) and `process-recordings` for new footage.
 The legacy `ingest --stage radar` interface remains available. Record each match once,
 then derive **5, 10 and 30 fps** variants. Recording is manual in OBS; future masters
 use 2560×1440 output at 60 fps with constant 2× demo playback. The batch speed prompt
@@ -52,12 +54,23 @@ This feeds step 4 below.
 
 ## Ordered work and completion criteria
 
+The agreed target is `A_DIRECT`, `B_DIRECT`, `A_SPLIT`, `B_SPLIT`, `RETAKE`.
+[Tactic definitions](../tactic-definitions.md) governs region meanings, participation,
+segment boundaries and review. Direct A includes ramp + palace; a split adds a
+coordinated mid-side approach. No extra rush/default-opening classes are required.
+The existing annotation code and separate `label-rounds` branch still use older
+labels; the documented target is not yet an implemented training/export workflow.
+
 1. **Check new manual captures:** verify the live CS2 preview, record 30 seconds,
    inspect the master and calibrate its crop. Run `prepare-video` and inspect the
    exports before a whole-match recording. No scripted OBS start/stop is needed.
-2. **Protect and align labels:** preserve reviewed labels, separate proposals/review,
-   retain empty frames and reconcile ingest/main pre/post-plant schemas. Finish this
-   before substantial labelling or automatic proposal generation.
+2. **Protect and align labels:** trial the five-class definitions on 15–20 segments
+   labelled independently by two reviewers; resolve disagreements and version the rules.
+   Define Mirage regions and approach boundaries. Update the tool and schema for
+   separate attack/retake segments, timestamps and pending/reviewed/excluded states.
+   Preserve originals, separate proposals from reviewed labels, retain empty icon frames
+   and review legacy labels rather than automatically renaming them. Completion means
+   the tool can save/resume/export the agreed format without losing reviewed data.
 3. **Create match-separated data:** retain masters/demos and match IDs; add round
    manifests, timestamps and explicit demo/video synchronisation. All FPS variants
    of a match must stay in one split. Cropped videos alone are not labelled data.
@@ -68,11 +81,19 @@ This feeds step 4 below.
    players, and express the gate and miss limits per second of elapsed time.
 6. **Build the time-aware tactic model:** the old classifiers were removed on the
    `vision-only` branch because their 32-steps-per-round sampling discarded timing.
-   Sample reviewed real pre/post-plant rounds on a fixed clock in seconds, keep splits
-   by match, and compare against simple baselines (e.g. a time-to-plant rule).
+   Sample reviewed tactical segments on a fixed clock in seconds, keep splits by match,
+   and compare a learned model against a region/route baseline. Report per-class
+   precision/recall, macro-F1 and confusion matrices on unseen matches. Manually bounded
+   clips do not establish automatic whole-match event detection. Compare FPS variants
+   or timing features before expanding the class set.
 7. **Application/deployment:** build around measured model behaviour and clear failure
    states. CS2 launch, playback, camera and match-ending automation are separate work,
    justified when manual capture becomes the bottleneck.
+
+Future extensions may add other maps or label default openings and attack tempo as
+separate phases/attributes. They must not turn the current five classes into overlapping
+definitions. Dataset quality, model comparisons, usable deployment and clear expansion
+boundaries take priority over adding more classes.
 
 Lower rates reduce frame counts, not storage in a guaranteed ratio. Preserve native
 spatial resolution and full-screen context for round/objective annotation. This

@@ -33,7 +33,7 @@ class Config:
     icon_area: Tuple[int, int] = (6, 250)
     hue_tol: float = 22.0
     bg_thresh: int = 40
-    # C4 badge colour and shape rule, measured on 494x500 spectator-radar crops (docs/bomb-detection.md).
+    # C4 badge rule measured on 494x500 crops; see docs/archive/bomb-detection.md.
     bomb_area: Tuple[int, int] = (120, 450)
     bomb_hue: Tuple[float, float] = (10.0, 21.0)  # badge orange ~16; T yellow ~27
     bomb_sv_min: int = 120

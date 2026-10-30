@@ -468,7 +468,9 @@ def describe_icon_review(context):
     """Explicit workflow step migrated from original notebook cell 38."""
     print("to label real footage:")
     print("Import auto_label_icons and ReviewTool from stratscout.annotations.")
-    print("Pass context=context and context.state['pilot_frames']; see docs/architecture.md.")
+    print(
+        "Pass context=context and context.state['pilot_frames']; see docs/archive/architecture.md."
+    )
     print(
         "Keep proposal output separate from reviewed labels: legacy proposals overwrite their path."
     )

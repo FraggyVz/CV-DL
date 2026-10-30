@@ -1,13 +1,16 @@
 # Recording and Frame-Rate Comparison
 
+Use [README](../README.md) for installation, commands and current project status.
+The [tactic guide](tactic-definitions.md) covers labelling after preparation.
+
 ## Current capture setup
 
 Use **2560×1440 output, 60 fps, constant 2× demo playback**. Record manually in OBS.
 The processor restores normal game speed, crops the minimap and exports aligned
 5/10/30 fps videos. It does not operate CS2, control OBS or identify match endings.
 
-Old recordings, exports and crop presets have been cleared. Calibrate the new
-recording instead of reusing coordinates from an earlier match.
+Obsolete capture assets were cleared on 14 October. Calibrate once for the current
+layout, then reuse the saved profile only when resolution and radar layout match.
 
 ## OBS and CS2
 
@@ -136,6 +139,26 @@ new `--output` directory to retry or change a cut; existing results are not over
 Only direct MKV/MP4/MOV/AVI children of the inbox are scanned. Subfolders and demos
 are ignored. One failed file does not block the others; failures produce a non-zero
 exit status. The script is not a watcher and must not run on an active OBS recording.
+
+## Acceptance checks
+
+Before using a new recording for labelling:
+
+1. Confirm OBS has stopped and verify resolution, nominal FPS and constant replay speed.
+   Inspect movement for stalls or repeated frames; header FPS alone is insufficient.
+2. Review the raw-time cut and crop. Keep gameplay through the actual round end, without
+   unnecessary menus or victory-screen tails. Never modify the master to trim exports.
+3. Confirm the manifest and comparison report are complete. Check all three exports
+   retain native crop dimensions and their duration equals retained raw time × replay speed.
+4. Inspect opening, middle and ending footage, including deaths, close icons, player
+   numbers and bomb-carrier overlap. Check the normal-speed playback visually.
+5. Keep the source hash, match identity and manifest with the exports. A batch rerun should
+   skip complete bundles; it is not a full corruption check for existing outputs.
+
+The processor fully decodes new exports before marking them complete. Passing these
+checks establishes media preparation, not CV accuracy or the best training frame rate.
+Those require reviewed labels and match-separated evaluation. Past measurements are
+preserved in [archived processing notes](archive/processing-validation.md).
 
 ## Sharing processed matches
 

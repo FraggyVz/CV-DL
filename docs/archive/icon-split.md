@@ -1,5 +1,7 @@
 # Overlapping Player Icons
 
+> Archived reference (30 October 2026). Results, commands and status describe the recorded revision, not necessarily the current checkout. Use the [README](../../README.md) for current status and next steps, the [recording guide](../recording-setup.md) for capture, and the [tactic guide](../tactic-definitions.md) for labels.
+
 ## Problem
 
 The colour baseline (`segmentation.find_icons_teams`) treats each connected blob of

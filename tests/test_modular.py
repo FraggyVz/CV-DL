@@ -90,7 +90,7 @@ class RegressionTests(unittest.TestCase):
 
 class ModuleTests(unittest.TestCase):
     def test_all_definitions_are_available(self):
-        inventory = json.loads((ROOT / "docs/module-inventory.json").read_text())
+        inventory = json.loads((ROOT / "docs/archive/module-inventory.json").read_text())
         for entries in inventory.values():
             for item in entries:
                 with self.subTest(name=item["name"]):
