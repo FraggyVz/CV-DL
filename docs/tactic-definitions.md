@@ -1,5 +1,26 @@
 # Tactical Clip Definitions and Labelling
 
+## Get the videos (do this once)
+
+The match videos are too big for GitHub, so they come as ZIP files instead.
+
+1. Download the match ZIPs (Furia, Spirit, NaVi) from the shared folder.
+2. Right-click each ZIP → **Extract All…** → choose the `data/processed/recordings/`
+   folder inside the project. Create the folder if it does not exist.
+3. Check the result. Each match should be **one folder**, with the videos directly inside:
+
+   ```text
+   data/processed/recordings/
+       furia-falcons-mirage-cologne-major-2026/minimap-10fps.mp4
+       spirit-falcons-mirage-cologne-major/minimap-10fps.mp4
+       navi-falcons-mirage-cologne-major/minimap-10fps.mp4
+   ```
+
+**Common mistake:** a folder inside a folder with the same name, e.g.
+`navi-falcons-.../navi-falcons-.../minimap-10fps.mp4`. Fix it by moving the inner
+folder up one level and deleting the empty outer one. If the labeller says it
+cannot find the match, this is almost always why.
+
 ## Open the window
 
 From the repository root, with the project environment active:
