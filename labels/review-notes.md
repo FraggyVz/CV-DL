@@ -19,3 +19,13 @@ Labels by `jx`. All segments are `pending` until the team agrees on these rounds
 | 1 | Undecided: two players came from behind via connector → jungle → CT spawn → window while the others hit B through apartments. Does a flank like this count as a split? |
 | 10 | One player alone planted B. Labelled B_DIRECT, but does a solo count as an attack? |
 | 12 | Undecided: mid → connector only, plus a flank, with nobody via ramp or palace. |
+
+## NaVi–Falcons
+
+| Round | Reason |
+|---|---|
+| 6 | Labelled B_SPLIT: the mid player only just reached short as apartments pushed. |
+| 9 | No attack (all five died fighting in mid), so no segment. Confirm this is right. |
+| 15 | Labelled B_DIRECT, but the mid player came onto short late, while the bomb was being planted. Split? |
+| 16 | Undecided: pressure from connector, palace and apartments, then one player planted B alone. |
+| 17 | Undecided: late 2-man hit (one held short, one came through apartments). Split or direct? |
