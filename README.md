@@ -35,7 +35,7 @@ The [tactic guide](docs/tactic-definitions.md) owns the detailed definitions.
 
 **Labelling pilot tool.** `python -m stratscout label-segments --match furia --reviewer
 <name>` labels five-class attack/retake segments with the keyboard, one file per match
-and reviewer, saved on every change (see the [tactic guide](docs/tactic-definitions.md#using-label-segments)).
+and reviewer, saved on every change (see the [labelling guide](docs/labelling-guide.md#using-label-segments)).
 Marking segments `reviewed`, approach/entry-time fields, region polygons and five-class
 dataset/model integration remain planned. `contracts.Round` and `RoundLabeller` keep
 the old pre/post-plant labels, as did the earlier `label-rounds` command. Do not rename
