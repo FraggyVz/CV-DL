@@ -46,13 +46,15 @@
    "end_s": 126.6,
    "label": "B_DIRECT",
    "site": "B",
-   "status": "pending",
+   "status": "reviewed",
    "estimated_round": 2,
    "round_play_start_s": 67.2,
    "boundary_uncertain": false,
    "reviewer": "jx",
    "definition_version": "2026-10-30-pilot",
-   "created_at": "2026-10-30T09:21:25+00:00"
+   "created_at": "2026-10-30T09:21:25+00:00",
+   "reviewed_by": "gin",
+   "reviewed_at": "2026-11-01T07:05:14+00:00"
   },
   {
    "id": 2,
@@ -60,13 +62,15 @@
    "end_s": 260.5,
    "label": "A_SPLIT",
    "site": "A",
-   "status": "pending",
+   "status": "reviewed",
    "estimated_round": 3,
    "round_play_start_s": 151.6,
    "boundary_uncertain": false,
    "reviewer": "jx",
    "definition_version": "2026-10-30-pilot",
-   "created_at": "2026-10-30T09:41:23+00:00"
+   "created_at": "2026-10-30T09:41:23+00:00",
+   "reviewed_by": "gin",
+   "reviewed_at": "2026-11-01T07:05:14+00:00"
   },
   {
    "id": 3,
@@ -74,13 +78,15 @@
    "end_s": 476.0,
    "label": "A_SPLIT",
    "site": "A",
-   "status": "pending",
+   "status": "reviewed",
    "estimated_round": 5,
    "round_play_start_s": 362.4,
    "boundary_uncertain": false,
    "reviewer": "jx",
    "definition_version": "2026-10-30-pilot",
-   "created_at": "2026-10-30T13:24:45+00:00"
+   "created_at": "2026-10-30T13:24:45+00:00",
+   "reviewed_by": "gin",
+   "reviewed_at": "2026-11-01T07:05:14+00:00"
   },
   {
    "id": 4,
@@ -88,13 +94,15 @@
    "end_s": 337.4,
    "label": "B_DIRECT",
    "site": "B",
-   "status": "pending",
+   "status": "reviewed",
    "estimated_round": 4,
    "round_play_start_s": 284.8,
    "boundary_uncertain": false,
    "reviewer": "jx",
    "definition_version": "2026-10-30-pilot",
-   "created_at": "2026-10-30T13:27:51+00:00"
+   "created_at": "2026-10-30T13:27:51+00:00",
+   "reviewed_by": "gin",
+   "reviewed_at": "2026-11-01T07:05:14+00:00"
   },
   {
    "id": 5,
@@ -102,13 +110,15 @@
    "end_s": 604.6,
    "label": "A_DIRECT",
    "site": "A",
-   "status": "pending",
+   "status": "reviewed",
    "estimated_round": 6,
    "round_play_start_s": 534.8,
    "boundary_uncertain": false,
    "reviewer": "jx",
    "definition_version": "2026-10-30-pilot",
-   "created_at": "2026-10-30T13:36:01+00:00"
+   "created_at": "2026-10-30T13:36:01+00:00",
+   "reviewed_by": "gin",
+   "reviewed_at": "2026-11-01T07:05:14+00:00"
   },
   {
    "id": 6,
@@ -116,13 +126,15 @@
    "end_s": 614.6,
    "label": "RETAKE",
    "site": "A",
-   "status": "pending",
+   "status": "reviewed",
    "estimated_round": 6,
    "round_play_start_s": 534.8,
    "boundary_uncertain": false,
    "reviewer": "jx",
    "definition_version": "2026-10-30-pilot",
-   "created_at": "2026-10-30T13:37:54+00:00"
+   "created_at": "2026-10-30T13:37:54+00:00",
+   "reviewed_by": "gin",
+   "reviewed_at": "2026-11-01T07:05:14+00:00"
   },
   {
    "id": 7,
@@ -130,13 +142,15 @@
    "end_s": 740.1,
    "label": "A_SPLIT",
    "site": "A",
-   "status": "pending",
+   "status": "reviewed",
    "estimated_round": 7,
    "round_play_start_s": 640.0,
    "boundary_uncertain": false,
    "reviewer": "jx",
    "definition_version": "2026-10-30-pilot",
-   "created_at": "2026-10-30T13:47:26+00:00"
+   "created_at": "2026-10-30T13:47:26+00:00",
+   "reviewed_by": "gin",
+   "reviewed_at": "2026-11-01T07:05:14+00:00"
   },
   {
    "id": 9,
@@ -144,13 +158,15 @@
    "end_s": 919.5,
    "label": "A_SPLIT",
    "site": "A",
-   "status": "pending",
+   "status": "reviewed",
    "estimated_round": 9,
    "round_play_start_s": 871.6,
    "boundary_uncertain": false,
    "reviewer": "jx",
    "definition_version": "2026-10-30-pilot",
-   "created_at": "2026-10-30T13:53:42+00:00"
+   "created_at": "2026-10-30T13:53:42+00:00",
+   "reviewed_by": "gin",
+   "reviewed_at": "2026-11-01T07:05:14+00:00"
   },
   {
    "id": 10,
@@ -158,13 +174,15 @@
    "end_s": 846.2,
    "label": "A_DIRECT",
    "site": "A",
-   "status": "pending",
+   "status": "reviewed",
    "estimated_round": 8,
    "round_play_start_s": 802.0,
    "boundary_uncertain": false,
    "reviewer": "jx",
    "definition_version": "2026-10-30-pilot",
-   "created_at": "2026-10-30T14:10:55+00:00"
+   "created_at": "2026-10-30T14:10:55+00:00",
+   "reviewed_by": "gin",
+   "reviewed_at": "2026-11-01T07:05:14+00:00"
   },
   {
    "id": 11,
@@ -172,13 +190,15 @@
    "end_s": 940.2,
    "label": "RETAKE",
    "site": "A",
-   "status": "pending",
+   "status": "reviewed",
    "estimated_round": 9,
    "round_play_start_s": 871.6,
    "boundary_uncertain": false,
    "reviewer": "jx",
    "definition_version": "2026-10-30-pilot",
-   "created_at": "2026-10-30T14:13:14+00:00"
+   "created_at": "2026-10-30T14:13:14+00:00",
+   "reviewed_by": "gin",
+   "reviewed_at": "2026-11-01T07:05:14+00:00"
   },
   {
    "id": 12,
@@ -186,13 +206,15 @@
    "end_s": 1060.0,
    "label": "B_DIRECT",
    "site": "B",
-   "status": "pending",
+   "status": "reviewed",
    "estimated_round": 10,
    "round_play_start_s": 1014.8,
    "boundary_uncertain": false,
    "reviewer": "jx",
    "definition_version": "2026-10-30-pilot",
-   "created_at": "2026-10-30T14:22:21+00:00"
+   "created_at": "2026-10-30T14:22:21+00:00",
+   "reviewed_by": "gin",
+   "reviewed_at": "2026-11-01T07:05:14+00:00"
   },
   {
    "id": 13,
@@ -216,13 +238,15 @@
    "end_s": 1190.7,
    "label": "A_DIRECT",
    "site": "A",
-   "status": "pending",
+   "status": "reviewed",
    "estimated_round": 11,
    "round_play_start_s": 1126.0,
    "boundary_uncertain": false,
    "reviewer": "jx",
    "definition_version": "2026-10-30-pilot",
-   "created_at": "2026-10-30T14:34:45+00:00"
+   "created_at": "2026-10-30T14:34:45+00:00",
+   "reviewed_by": "gin",
+   "reviewed_at": "2026-11-01T07:05:14+00:00"
   },
   {
    "id": 15,
@@ -277,13 +301,15 @@
    "end_s": 1704.0,
    "label": "B_SPLIT",
    "site": "B",
-   "status": "pending",
+   "status": "reviewed",
    "estimated_round": 13,
    "round_play_start_s": 1640.4,
    "boundary_uncertain": false,
    "reviewer": "jx",
    "definition_version": "2026-10-30-pilot",
-   "created_at": "2026-10-30T14:46:14+00:00"
+   "created_at": "2026-10-30T14:46:14+00:00",
+   "reviewed_by": "gin",
+   "reviewed_at": "2026-11-01T07:05:14+00:00"
   },
   {
    "id": 19,
@@ -291,13 +317,15 @@
    "end_s": 1720.2,
    "label": "RETAKE",
    "site": "B",
-   "status": "pending",
+   "status": "reviewed",
    "estimated_round": 13,
    "round_play_start_s": 1640.4,
    "boundary_uncertain": false,
    "reviewer": "jx",
    "definition_version": "2026-10-30-pilot",
-   "created_at": "2026-10-30T14:47:26+00:00"
+   "created_at": "2026-10-30T14:47:26+00:00",
+   "reviewed_by": "gin",
+   "reviewed_at": "2026-11-01T07:05:14+00:00"
   },
   {
    "id": 20,
@@ -335,13 +363,15 @@
    "end_s": 1956.8,
    "label": "A_DIRECT",
    "site": "A",
-   "status": "pending",
+   "status": "reviewed",
    "estimated_round": 15,
    "round_play_start_s": 1874.0,
    "boundary_uncertain": false,
    "reviewer": "jx",
    "definition_version": "2026-10-30-pilot",
-   "created_at": "2026-10-30T14:53:27+00:00"
+   "created_at": "2026-10-30T14:53:27+00:00",
+   "reviewed_by": "gin",
+   "reviewed_at": "2026-11-01T07:05:14+00:00"
   },
   {
    "id": 23,
@@ -365,13 +395,15 @@
    "end_s": 2168.3,
    "label": "A_SPLIT",
    "site": "A",
-   "status": "pending",
+   "status": "reviewed",
    "estimated_round": 16,
    "round_play_start_s": 2069.2,
    "boundary_uncertain": false,
    "reviewer": "jx",
    "definition_version": "2026-10-30-pilot",
-   "created_at": "2026-10-30T14:57:51+00:00"
+   "created_at": "2026-10-30T14:57:51+00:00",
+   "reviewed_by": "gin",
+   "reviewed_at": "2026-11-01T07:05:14+00:00"
   },
   {
    "id": 25,
@@ -379,13 +411,15 @@
    "end_s": 2289.1,
    "label": "A_SPLIT",
    "site": "A",
-   "status": "pending",
+   "status": "reviewed",
    "estimated_round": 18,
    "round_play_start_s": 2258.0,
    "boundary_uncertain": false,
    "reviewer": "jx",
    "definition_version": "2026-10-30-pilot",
-   "created_at": "2026-10-30T15:02:31+00:00"
+   "created_at": "2026-10-30T15:02:31+00:00",
+   "reviewed_by": "gin",
+   "reviewed_at": "2026-11-01T07:05:14+00:00"
   },
   {
    "id": 26,
@@ -393,13 +427,15 @@
    "end_s": 2415.9,
    "label": "A_DIRECT",
    "site": "A",
-   "status": "pending",
+   "status": "reviewed",
    "estimated_round": 19,
    "round_play_start_s": 2313.2,
    "boundary_uncertain": false,
    "reviewer": "jx",
    "definition_version": "2026-10-30-pilot",
-   "created_at": "2026-10-30T15:08:50+00:00"
+   "created_at": "2026-10-30T15:08:50+00:00",
+   "reviewed_by": "gin",
+   "reviewed_at": "2026-11-01T07:05:14+00:00"
   },
   {
    "id": 27,
@@ -407,13 +443,15 @@
    "end_s": 2498.8,
    "label": "B_DIRECT",
    "site": "B",
-   "status": "pending",
+   "status": "reviewed",
    "estimated_round": 20,
    "round_play_start_s": 2439.6,
    "boundary_uncertain": false,
    "reviewer": "jx",
    "definition_version": "2026-10-30-pilot",
-   "created_at": "2026-10-30T15:10:06+00:00"
+   "created_at": "2026-10-30T15:10:06+00:00",
+   "reviewed_by": "gin",
+   "reviewed_at": "2026-11-01T07:05:14+00:00"
   },
   {
    "id": 28,
@@ -421,13 +459,15 @@
    "end_s": 2664.9,
    "label": "B_DIRECT",
    "site": "B",
-   "status": "pending",
+   "status": "reviewed",
    "estimated_round": 21,
    "round_play_start_s": 2556.4,
    "boundary_uncertain": false,
    "reviewer": "jx",
    "definition_version": "2026-10-30-pilot",
-   "created_at": "2026-10-30T15:13:25+00:00"
+   "created_at": "2026-10-30T15:13:25+00:00",
+   "reviewed_by": "gin",
+   "reviewed_at": "2026-11-01T07:05:14+00:00"
   },
   {
    "id": 29,
@@ -435,13 +475,15 @@
    "end_s": 2696.3,
    "label": "RETAKE",
    "site": "B",
-   "status": "pending",
+   "status": "reviewed",
    "estimated_round": 21,
    "round_play_start_s": 2556.4,
    "boundary_uncertain": false,
    "reviewer": "jx",
    "definition_version": "2026-10-30-pilot",
-   "created_at": "2026-10-30T15:15:08+00:00"
+   "created_at": "2026-10-30T15:15:08+00:00",
+   "reviewed_by": "gin",
+   "reviewed_at": "2026-11-01T07:05:14+00:00"
   },
   {
    "id": 30,
@@ -449,13 +491,15 @@
    "end_s": 41.9,
    "label": "B_SPLIT",
    "site": "B",
-   "status": "pending",
+   "status": "reviewed",
    "estimated_round": 1,
    "round_play_start_s": 0.0,
    "boundary_uncertain": false,
    "reviewer": "jx",
    "definition_version": "2026-10-30-pilot",
-   "created_at": "2026-10-30T15:21:56+00:00"
+   "created_at": "2026-10-30T15:21:56+00:00",
+   "reviewed_by": "gin",
+   "reviewed_at": "2026-11-01T07:05:14+00:00"
   }
  ]
 }
