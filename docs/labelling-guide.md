@@ -349,6 +349,31 @@ flag an uncertain boundary for review.
 | CTs stay away to preserve weapons | Excluded: no retake attempt |
 | The second group arrives much later or its route is obscured | Pending review |
 
+## After labelling: mark reviewed and export clips
+
+Only `reviewed` segments are exported for training. Once the team agrees a match's
+labels, mark them (undecided and excluded segments are refused, and reviewed segments
+can no longer be deleted in the labeller):
+
+```powershell
+python -m stratscout review-segments --match furia --reviewer jx --by gin --all-labelled
+python -m stratscout review-segments --match navi --reviewer jx --by gin --ids 3 5 9
+```
+
+`--all-labelled --except 7 12` leaves the listed segments pending. Then cut the clips:
+
+```powershell
+python -m stratscout export-segments --test navi --output runs/dataset-2026-11-01
+```
+
+The output folder holds `train/` and `test/`, each with its own `manifest.csv` (one row
+per clip: class, match, round, times, source video) and `clips/<class>/*.mp4`, plus a
+shared `export.json` (counts, skipped segments, label-file hashes). Every clip of a
+`--test` match goes to `test/`; all others go to `train/`, so no match is shared between
+splits and training code can be given `train/` alone. Choose validation folds from the
+train matches only, by whole match. `--include-pending` exports unreviewed labels for trial
+runs only; `--no-clips` writes just the manifest. The output folder must be new.
+
 ## Review, evaluation and future scope
 
 Two reviewers independently label the same 15–20 varied segments. Compare class and

@@ -85,6 +85,25 @@ def main(argv=None):
     seg.add_argument("--fps", type=int, default=10, help="Prepared variant to label on")
     seg.add_argument("--labels-dir", type=Path, default=Path("labels"))
     seg.add_argument("--scale", type=int, default=2, help="Display magnification")
+    review = sub.add_parser("review-segments", help="Mark agreed segments as reviewed")
+    review.add_argument("--match", required=True, help="Match folder name fragment")
+    review.add_argument("--reviewer", required=True, help="Whose label file to update")
+    review.add_argument("--by", required=True, help="Who agreed the labels, e.g. gin")
+    pick = review.add_mutually_exclusive_group(required=True)
+    pick.add_argument("--ids", type=int, nargs="+", help="Segment numbers to mark reviewed")
+    pick.add_argument(
+        "--all-labelled", action="store_true", help="Every pending segment that has a class"
+    )
+    review.add_argument("--except", dest="skip", type=int, nargs="*", default=[])
+    review.add_argument("--labels-dir", type=Path, default=Path("labels"))
+    export = sub.add_parser("export-segments", help="Cut reviewed segments into a clip dataset")
+    export.add_argument("--test", nargs="+", required=True, help="Held-out match fragments")
+    export.add_argument("--output", type=Path, required=True, help="New folder; must not exist")
+    export.add_argument("--reviewer", help="Use this reviewer's files only")
+    export.add_argument("--include-pending", action="store_true", help="Also export pending")
+    export.add_argument("--fps", type=int, default=10, help="Prepared variant to cut from")
+    export.add_argument("--no-clips", action="store_true", help="Write the manifest only")
+    export.add_argument("--labels-dir", type=Path, default=Path("labels"))
     counts = sub.add_parser(
         "icon-count-eval", help="Fit icon splitting on some matches; score team counts on others"
     )
@@ -179,6 +198,47 @@ def main(argv=None):
                 print(f"Opening {video}\nSegments save on S to {path}")
                 SegmentLabeller(store, rounds).run(video, start=start, scale=args.scale)
                 print(f"{len(store.segments)} segments in {path}: {store.summary()}")
+            elif args.command == "review-segments":
+                from .live_preview import choose_match, list_matches, match_video
+                from .segments import SegmentFile, match_identity, segments_json
+
+                folder = choose_match(list_matches(), args.match)
+                path = segments_json(folder, args.reviewer, args.labels_dir)
+                if not path.exists():
+                    raise ValueError(f"no label file {path}")
+                fps = json.loads(path.read_text(encoding="utf-8"))["video_fps"]
+                store = SegmentFile(
+                    path,
+                    match_id=match_identity(folder),
+                    match_folder=folder,
+                    video=match_video(folder, fps),
+                    video_fps=fps,
+                    reviewer=args.reviewer,
+                )
+                ids = args.ids or [
+                    s["id"]
+                    for s in store.segments
+                    if s["status"] == "pending" and s.get("label") and s["id"] not in args.skip
+                ]
+                done = store.review(ids, args.by)
+                print(f"Marked {len(done)} segments reviewed in {path}: {[s['id'] for s in done]}")
+            elif args.command == "export-segments":
+                from .segment_export import export_segments
+
+                summary = export_segments(
+                    args.labels_dir,
+                    Path("data/processed/recordings"),
+                    args.output,
+                    args.test,
+                    reviewer=args.reviewer,
+                    include_pending=args.include_pending,
+                    fps=args.fps,
+                    clips=not args.no_clips,
+                )
+                print(f"{summary['clips']} clips in {args.output}")
+                for split, counts in summary["counts"].items():
+                    print(f"  {split}: {counts}")
+                print(f"  skipped: {summary['skipped']}")
             elif args.command == "process-recordings":
                 from .recording_batch import process_recordings
 

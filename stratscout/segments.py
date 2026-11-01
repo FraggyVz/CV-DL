@@ -169,6 +169,23 @@ class SegmentFile:
         self.save()
         return seg
 
+    def review(self, segment_ids, reviewed_by: str) -> List[Dict]:
+        """Mark labelled pending segments reviewed after team agreement; all or nothing."""
+        wanted = set(segment_ids)
+        found = [s for s in self.segments if s["id"] in wanted]
+        missing = wanted - {s["id"] for s in found}
+        if missing:
+            raise ValueError(f"no segment {sorted(missing)}")
+        for s in found:
+            if s["status"] != "pending" or s.get("label") is None:
+                kind = "undecided" if s["status"] == "pending" else s["status"]
+                raise ValueError(f"#{s['id']} is {kind}; only labelled pending segments")
+        stamp, by = _now(), reviewer_name(reviewed_by)
+        for s in found:
+            s.update(status="reviewed", reviewed_by=by, reviewed_at=stamp)
+        self.save()
+        return found
+
     def toggle_checked(self, round_number: int) -> bool:
         """Mark an estimated round as watched (or unmark it); returns the new state."""
         checked = set(self.data["checked_rounds"]) ^ {round_number}
