@@ -41,21 +41,6 @@
  "bookmarks": [],
  "segments": [
   {
-   "id": 1,
-   "start_s": 44.3,
-   "end_s": 55.1,
-   "label": null,
-   "site": null,
-   "status": "pending",
-   "estimated_round": 1,
-   "round_play_start_s": 0.0,
-   "boundary_uncertain": false,
-   "undecided": true,
-   "reviewer": "jx",
-   "definition_version": "2026-10-30-pilot",
-   "created_at": "2026-10-31T08:10:23+00:00"
-  },
-  {
    "id": 2,
    "start_s": 236.0,
    "end_s": 254.6,
@@ -228,20 +213,6 @@
    "created_at": "2026-10-31T08:53:18+00:00"
   },
   {
-   "id": 14,
-   "start_s": 1261.1,
-   "end_s": 1269.3,
-   "label": "B_DIRECT",
-   "site": "B",
-   "status": "pending",
-   "estimated_round": 10,
-   "round_play_start_s": 1193.2,
-   "boundary_uncertain": false,
-   "reviewer": "jx",
-   "definition_version": "2026-10-30-pilot",
-   "created_at": "2026-10-31T08:56:26+00:00"
-  },
-  {
    "id": 15,
    "start_s": 1272.9,
    "end_s": 1291.9,
@@ -409,6 +380,20 @@
    "reviewer": "jx",
    "definition_version": "2026-10-30-pilot",
    "created_at": "2026-10-31T09:37:29+00:00"
+  },
+  {
+   "id": 27,
+   "start_s": 44.8,
+   "end_s": 55.7,
+   "label": "B_DIRECT",
+   "site": "B",
+   "status": "pending",
+   "estimated_round": 1,
+   "round_play_start_s": 0.0,
+   "boundary_uncertain": false,
+   "reviewer": "jx",
+   "definition_version": "2026-10-30-pilot",
+   "created_at": "2026-11-01T05:37:41+00:00"
   }
  ]
 }
