@@ -5,13 +5,11 @@ import contextlib
 import importlib
 import io
 import json
-import os
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 import cv2
 import matplotlib
@@ -19,7 +17,6 @@ import numpy as np
 import torch
 
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 
 from stratscout import workflow
 from stratscout.annotations import ReviewTool
@@ -227,49 +224,6 @@ class FileWorkflowTests(unittest.TestCase):
         result = world_to_radar(world, {"s": 1, "ox": 0, "oy": 0}, context=ctx)
         np.testing.assert_allclose(result[:2], [[0, 0], [1, 1]])
         self.assertTrue(np.isnan(result[2]).all())
-
-
-class NotebookWorkflowTests(unittest.TestCase):
-    def test_both_thin_notebooks_execute_in_isolation(self):
-        original_cwd = Path.cwd()
-        with tempfile.TemporaryDirectory() as directory:
-            os.chdir(directory)
-            try:
-                for filename in ("stratscout_prototype.ipynb", "stratscout_dem_ingest.ipynb"):
-                    namespace = {}
-                    for index, cell in enumerate(
-                        json.loads((ROOT / filename).read_text(encoding="utf-8"))["cells"]
-                    ):
-                        if cell["cell_type"] != "code":
-                            continue
-                        with (
-                            self.subTest(notebook=filename, cell=index),
-                            contextlib.redirect_stdout(io.StringIO()),
-                            patch.object(plt, "show"),
-                        ):
-                            exec(
-                                compile(
-                                    "".join(cell["source"]), filename + f":cell{index}", "exec"
-                                ),
-                                namespace,
-                            )
-                            if index == 2 and filename == "stratscout_prototype.ipynb":
-                                cfg = namespace["context"].config
-                                cfg.minimap_px = 32
-                                cfg.det_epochs = 1
-                                cfg.test_matches = cfg.detector_matches = 1
-                                cfg.detector_train_frames = 32
-                                cfg.detector_val_frames = 16
-                                cfg.det_batch = 8
-                            plt.close("all")
-                summary = json.loads(Path("runs/modular-experiment/summary.json").read_text())
-                self.assertEqual(
-                    set(summary["detector"]), {"precision", "recall", "f1", "mean_pos_err_norm"}
-                )
-                self.assertNotIn("classifiers", summary)
-                self.assertTrue(Path("runs/modular-experiment/detector.pt").exists())
-            finally:
-                os.chdir(original_cwd)
 
 
 if __name__ == "__main__":

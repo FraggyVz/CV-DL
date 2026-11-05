@@ -7,30 +7,29 @@ The agreed target is five classes on Mirage: `A_DIRECT`, `B_DIRECT`, `A_SPLIT`,
 Timing and participation rules below are working annotation conventions: trial them
 on 15–20 clips before freezing a version and labelling at scale.
 
-**This is the target specification, not a description of the current labelling tool.**
-On `vision-only`, `RoundLabeller` and `config.py` retain the legacy attacker/defender
-labels; the `label-rounds` CLI is absent. The separate `label-rounds` branch adds that
-command but still uses the old labels and whole-round format. Both need migration
-before exporting training data under this specification. No new keyboard mapping or
-five-class training/export command is implemented by this documentation change.
+**Tool status.** `label-segments`, `review-segments` and `export-segments` implement
+this specification for the pilot; the [labelling guide](labelling-guide.md) explains
+how to use them. Not yet implemented: participating approaches, approach-entry times
+and notes in the record, reviewer comparison and region polygons. The legacy
+`RoundLabeller` and the old `config.py` round labels keep the attacker/defender schema;
+do not use them for new labels or as the five-class mapping.
 
 ## Keyboard labelling workflow
 
-Upgrade the existing keyboard labeller first. Navigate round by round, but save
+Navigate round by round, but save
 individual attack and retake segments within each round. Map-region polygons support
 overlays and route features; they do not supply tactical labels and need not block the
 initial labelling pilot. Do not draw areas or mark every player on every frame for this
 task; player-position annotation is separate detector/tracker validation work.
 
-The proposed workflow is:
+The workflow is:
 
 1. **Watch the round with context.** Use playback, seeking and frame stepping to identify
    attacks and retakes. Check estimated round boundaries against the recording.
 2. **Mark a segment's start and end** using the rules below. Keep the surrounding footage
    available for checking approaches; selecting a segment does not delete the rest.
-3. **Choose a class.** Proposed keys are `1` = `A_DIRECT`, `2` = `B_DIRECT`, `3` = `A_SPLIT`,
-   `4` = `B_SPLIT`, `5` = `RETAKE`. This mapping is not implemented in the legacy tool.
-   New annotations start as `pending` until checked.
+3. **Choose a class.** Keys are `1` = `A_DIRECT`, `2` = `B_DIRECT`, `3` = `A_SPLIT`,
+   `4` = `B_SPLIT`, `5` = `RETAKE`. New annotations start as `pending` until checked.
 4. **Record exclusions and uncertainty.** Use `excluded` with a reason for clear
    out-of-scope or unusable candidate segments. Leave uncertain cases `pending` for
    another reviewer; do not force the nearest class. Routine freeze time, waiting and
@@ -42,9 +41,8 @@ The proposed workflow is:
    segments `reviewed`. Export only reviewed segments with one of the five classes to
    training/evaluation datasets. Follow the pilot and match-split rules below.
 
-The updated tool should provide autosave, undo and resume, and automatically retain
-match identity, timestamps and definition version. These are requirements for the
-tool migration, not capabilities added by this guide.
+`label-segments` autosaves, supports deletion and resume, and records match identity,
+timestamps and definition version automatically.
 
 ## Five class definitions
 
@@ -130,11 +128,12 @@ evidence. A stationary badge does not prove a plant; the last T death does not a
 end a round with a planted bomb. If the evidence is unavailable, mark the boundary
 uncertain. Supporting demo truth is for annotation/evaluation, never inference input.
 
-## Proposed annotation record
+## Annotation record
 
-The updated tool should record match ID, round reference, start/end seconds, class,
-site, participating approaches, relevant approach-entry times, reviewer, definition
-version and notes. Keep class separate from review status:
+Each record holds match ID, estimated round, start/end seconds, class, site, status,
+boundary uncertainty, any exclusion reason, reviewer and definition version, plus
+`reviewed_by`/`reviewed_at` once approved. Participating approaches, approach-entry
+times and notes are still to be added. Keep class separate from review status:
 
 | Status | Class field | Dataset use |
 |---|---|---|

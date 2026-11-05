@@ -12,7 +12,9 @@ are not required runtime input.
 - **[Recording guide](docs/recording-setup.md):** OBS/radar settings, trimming,
   2× correction, cropping, 5/10/30 fps exports and sharing.
 - **[Tactic guide](docs/tactic-definitions.md):** class definitions, map regions,
-  keyboard labelling workflow, segment boundaries and annotation review.
+  labelling workflow, segment boundaries and annotation review.
+- **[Labelling guide](docs/labelling-guide.md):** getting the videos, the labelling
+  window's keys, marking segments reviewed and exporting clips.
 - **[Contributor rules](AGENTS.md):** coding conventions, checks and data protection.
 
 ## Current status
@@ -33,11 +35,15 @@ participation. Direct B uses apartments; a B split adds mid → short. Label att
 retake segments separately. Rush speed and actual default openings are not extra classes.
 The [tactic guide](docs/tactic-definitions.md) owns the detailed definitions.
 
-**Labelling pilot tool.** `python -m stratscout label-segments --match furia --reviewer
-<name>` labels five-class attack/retake segments with the keyboard, one file per match
-and reviewer, saved on every change (see the [labelling guide](docs/labelling-guide.md#using-label-segments)).
-Marking segments `reviewed`, approach/entry-time fields, region polygons and five-class
-dataset/model integration remain planned. `contracts.Round` and `RoundLabeller` keep
+**Labelling pilot.** `label-segments` labels five-class attack/retake segments with the
+keyboard, one file per match and reviewer, saved on every change. `review-segments`
+marks agreed segments `reviewed` and `export-segments` cuts them into train/test clip
+folders split by whole match (see the [labelling guide](docs/labelling-guide.md)).
+Three matches are labelled by one reviewer with a second reviewer's comments in
+[labels/review-notes.md](labels/review-notes.md): 44 reviewed training clips
+(Furia, Spirit) and 24 test clips (NaVi). No tactic model uses them yet.
+Approach/entry-time fields, reviewer comparison and region polygons remain planned.
+`contracts.Round` and `RoundLabeller` keep
 the old pre/post-plant labels, as did the earlier `label-rounds` command. Do not rename
 old annotations automatically or use the legacy keys as the new class mapping.
 
@@ -61,6 +67,39 @@ or `.ps1` launchers, invoke `.\.venv\Scripts\python.exe` (or `.venv-modular`) di
 changing the machine execution policy is unnecessary. Select the same interpreter in
 an editor. Development dependencies provide Ruff; the main requirements include the
 companion's pandas/demoparser2 dependencies.
+
+## Where files go
+
+Large files are shared outside GitHub. Put them in these folders, which Git already
+ignores, so every machine has the same layout and the commands find them by default:
+
+```text
+data/
+    raw/inbox/                     new OBS recordings (2× masters) waiting to be processed
+    processed/
+        recordings/<match>/        prepared match videos: minimap-5/10/30fps.mp4, manifest.json
+        datasets/<export date>/    labelled clip datasets
+            export.json            counts, splits and label-file hashes for this export
+            train/  manifest.csv, clips/<class>/*.mp4
+            test/   manifest.csv, clips/<class>/*.mp4
+labels/                            segment label files (*.segments.json): committed to Git
+configs/                           local settings, e.g. recording-video.json (not committed)
+runs/                              experiment, scan and smoke-test outputs (not committed)
+```
+
+- **Your own recording:** see [Process a recording](#process-a-recording). The batch
+  reads `data/raw/inbox/` and writes `data/processed/recordings/<match>/`.
+- **Shared match videos:** extract each match ZIP into `data/processed/recordings/` so
+  each match is one folder with the videos directly inside it; see the
+  [labelling guide](docs/labelling-guide.md#get-the-videos-do-this-once). Keep
+  `manifest.json`: labels and exports check the match ID it contains.
+- **Shared clip dataset:** extract it into a dated folder such as
+  `data/processed/datasets/2026-11-01/`, with `export.json`, `train/` and `test/`
+  directly inside. If train and test arrive as separate ZIPs carrying the same
+  `export.json`, keep one copy at the top. Make a new dated folder for each export;
+  never mix clips from two exports.
+- Do not commit videos, datasets or checkpoints. Only `labels/` and code are shared
+  through Git.
 
 ## Process a recording
 
@@ -129,7 +168,7 @@ schema are not the current video-preparation or five-class dataset route.
 | `tracking`, `annotations`, `config`, `contracts`, `context`, `workflow`, `storage`, `video`, `pilot`, `visualisation` | Tracking, legacy labels, explicit run state and orchestration |
 | `stratscout/ingest/` | Optional demo parsing, coordinate mapping and legacy exports |
 | `tests/` | Regression, import-safety, media and synthetic workflow checks |
-| `configs/`, `data/raw/inbox/`, `data/processed/recordings/`, `runs/` | Local settings, masters, prepared bundles and generated experiments |
+| `configs/`, `data/`, `runs/` | Local settings, recordings, clip datasets and generated experiments; see [Where files go](#where-files-go) |
 | `mirage_radar.png` | Map asset; recordings, generated results and environments stay outside Git |
 
 Implementation lives in Python modules, not notebooks. Pass `RunContext` or
@@ -157,20 +196,18 @@ annotation/evaluation evidence, not vision-model inputs.
   synthetic scores are not current performance evidence.
 - **Capture:** nominal FPS cannot prove unique rendered frames; pauses, stalls or replay
   speed changes break the constant-speed assumption. Check each new layout and recording.
-- **Notebook checks:** the retained notebook-execution test expects the old root notebooks.
-  If those files are absent, that test cannot pass; notebook-test maintenance is separate
-  from this documentation reorganisation.
 
 ## Next steps
 
-1. **Agree labels:** two reviewers trial the tactic guide on 15–20 varied segments,
-   resolve class/boundary disagreements and freeze a definition version.
-2. **Finish the labelling tool:** `label-segments` covers the pilot; add reviewer
-   comparison, `reviewed` approval, approach/entry-time fields and a safe export.
-   Preserve original records. Define map regions once when adding route features;
-   polygon tooling need not block the labelling pilot.
-3. **Build the dataset:** retain match IDs and source provenance, review labels and
-   establish train/validation/test splits by match before tuning.
+1. **Agree labels:** the pilot labels were reviewed by comment rather than by two
+   independent label files. Resolve the open items in
+   [labels/review-notes.md](labels/review-notes.md), then freeze a definition version.
+2. **Finish the labelling tool:** add reviewer comparison and approach/entry-time
+   fields; refuse approval of segments with uncertain boundaries. Preserve original
+   records. Define map regions once when adding route features.
+3. **Grow the dataset:** label more matches (class coverage is thin, e.g. one
+   `A_SPLIT` in the test match), keep match IDs and provenance, and choose validation
+   by whole match from the training matches before tuning.
 4. **Validate vision/tracking:** measure per-team and carrier performance and repair
    missing-player handling. Compare 5/10/30 fps on labelled evidence.
 5. **Train tactics:** compare a region/route baseline with a learned temporal model using
@@ -202,3 +239,5 @@ not routine onboarding. Statements there apply to the recorded revision:
 - [Icon-splitting experiments](docs/archive/icon-split.md)
 - [Processing validation history](docs/archive/processing-validation.md)
 - [Module migration inventory](docs/archive/module-inventory.json), retained for regression checks
+- [8 October progress deck](docs/archive/StratScout%20progress.pptx), which predates the
+  five-class definitions and reports synthetic-only results

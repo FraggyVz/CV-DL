@@ -1,6 +1,19 @@
 # Rounds to Review
 
-Labels by `jx`. All segments are `pending` until the team agrees on these rounds.
+Labels by `jx`. After Gin's comments below, the agreed segments were marked
+`reviewed` by `gin` on 1 November 2026 and exported as 44 training and 24 test clips.
+
+## Still open
+
+| Match | Segment | Status | Question |
+|---|---|---|---|
+| Furia | #16 (round 12) | pending, undecided | Mid-to-A attack; no class covers it (Gin: leave pending) |
+| Furia | #20, #21 (round 14) | pending, undecided | No comment yet: abandoned B push, then a mid-only push to A |
+| Spirit | #17 (round 12) | pending, undecided | Mid-to-A attack; no class covers it (Gin: leave pending) |
+| Spirit | #5 (round 5) | reviewed `A_SPLIT` | Boundary still marked uncertain; confirm or fix it |
+| NaVi | #25 (round 16) | reviewed `RETAKE` | Gin said to leave round 16 unlabelled; confirm whether this retake should stay |
+
+The original questions and Gin's answers follow.
 
 ## Furia–Falcons (training)
 
