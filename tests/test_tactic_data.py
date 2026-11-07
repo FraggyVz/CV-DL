@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader, Subset
 from stratscout.config import TACTIC_CLASSES
 from stratscout.context import RunContext
 from stratscout.segment_export import COLUMNS, cut_clip
+from stratscout.tactic_data import TacticClipDataset, whole_match_folds
 
 
 class TacticDataTests(unittest.TestCase):
