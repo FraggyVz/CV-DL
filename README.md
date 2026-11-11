@@ -41,7 +41,9 @@ marks agreed segments `reviewed` and `export-segments` cuts them into train/test
 folders split by whole match (see the [labelling guide](docs/labelling-guide.md)).
 Three matches are labelled by one reviewer with a second reviewer's comments in
 [labels/review-notes.md](labels/review-notes.md): 44 reviewed training clips
-(Furia, Spirit) and 24 test clips (NaVi). No tactic model uses them yet.
+(Furia, Spirit) and 24 test clips (NaVi). The [tactic baseline](docs/tactic-baseline.md)
+(frozen ResNet-18 frame features, mean-pooled, one linear layer) trains on the training
+clips and reports development scores only; the NaVi test clips have not been scored.
 Approach/entry-time fields, reviewer comparison and region polygons remain planned.
 `contracts.Round` and `RoundLabeller` keep
 the old pre/post-plant labels, as did the earlier `label-rounds` command. Do not rename
