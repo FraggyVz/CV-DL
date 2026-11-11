@@ -41,8 +41,9 @@ marks agreed segments `reviewed` and `export-segments` cuts them into train/test
 folders split by whole match (see the [labelling guide](docs/labelling-guide.md)).
 Three matches are labelled by one reviewer with a second reviewer's comments in
 [labels/review-notes.md](labels/review-notes.md): 44 reviewed training clips
-(Furia, Spirit) and 24 test clips (NaVi). A first residual-TCN experiment
-(`train-tactics`, see [Tactic model](#tactic-model)) is trained on them.
+(Furia, Spirit) and 24 test clips (NaVi). The [tactic baseline](docs/tactic-baseline.md)
+(frozen ResNet-18 frame features, mean-pooled, one linear layer) trains on the training
+clips and reports development scores only; the NaVi test clips have not been scored.
 Approach/entry-time fields, reviewer comparison and region polygons remain planned.
 `contracts.Round` and `RoundLabeller` keep
 the old pre/post-plant labels, as did the earlier `label-rounds` command. Do not rename
@@ -190,18 +191,18 @@ schema are not the current video-preparation or five-class dataset route.
 
 ## Project structure and contracts
 
-| Location/modules | Responsibility |
-|---|---|
-| `stratscout/media.py`, `video_profiles`, `video_preparation`, `recording_batch`, `fps_comparison` | Shared preparation and comparison APIs |
-| `segmentation`, `icon_split`, `bomb`, `rounds`, `live_preview`, `count_eval` | Colour/shape detection, overlap handling, estimates and review |
-| `segments`, `segment_labeller` | Five-class segment records, validation, safe saving and the keyboard labeller |
-| `segment_export`, `tactic_features`, `tactic_tcn` | Clip export, per-frame clip features and the tactic TCN experiment |
-| `preprocessing`, `detector`, `datasets`, `training`, `evaluation`, `synthetic` | CNN icon detector and experiments |
-| `tracking`, `annotations`, `config`, `contracts`, `context`, `workflow`, `storage`, `video`, `pilot`, `visualisation` | Tracking, legacy labels, explicit run state and orchestration |
-| `stratscout/ingest/` | Optional demo parsing, coordinate mapping and legacy exports |
-| `tests/` | Regression, import-safety, media and synthetic workflow checks |
-| `configs/`, `data/`, `runs/` | Local settings, recordings, clip datasets and generated experiments; see [Where files go](#where-files-go) |
-| `mirage_radar.png` | Map asset; recordings, generated results and environments stay outside Git |
+| Location/modules                                                                                                      | Responsibility                                                                                             |
+| --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `stratscout/media.py`, `video_profiles`, `video_preparation`, `recording_batch`, `fps_comparison`                     | Shared preparation and comparison APIs                                                                     |
+| `segmentation`, `icon_split`, `bomb`, `rounds`, `live_preview`, `count_eval`                                          | Colour/shape detection, overlap handling, estimates and review                                             |
+| `segments`, `segment_labeller`                                                                                        | Five-class segment records, validation, safe saving and the keyboard labeller                              |
+| `segment_export`, `tactic_features`, `tactic_tcn`                                                                     | Clip export, per-frame clip features and the tactic TCN experiment                                         |
+| `preprocessing`, `detector`, `datasets`, `training`, `evaluation`, `synthetic`                                        | CNN icon detector and experiments                                                                          |
+| `tracking`, `annotations`, `config`, `contracts`, `context`, `workflow`, `storage`, `video`, `pilot`, `visualisation` | Tracking, legacy labels, explicit run state and orchestration                                              |
+| `stratscout/ingest/`                                                                                                  | Optional demo parsing, coordinate mapping and legacy exports                                               |
+| `tests/`                                                                                                              | Regression, import-safety, media and synthetic workflow checks                                             |
+| `configs/`, `data/`, `runs/`                                                                                          | Local settings, recordings, clip datasets and generated experiments; see [Where files go](#where-files-go) |
+| `mirage_radar.png`                                                                                                    | Map asset; recordings, generated results and environments stay outside Git                                 |
 
 Implementation lives in Python modules, not notebooks. Pass `RunContext` or
 `IngestContext` explicitly; imports must not start processing, training, GUIs or writes.

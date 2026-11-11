@@ -127,10 +127,51 @@ def main(argv=None):
     counts.add_argument("--test", nargs="+", required=True, help="Held-out match name fragments")
     counts.add_argument("--output", type=Path, required=True, help="New folder; must not exist")
     counts.add_argument("--fps", type=int, default=5, help="Prepared variant to evaluate")
+    tactics = sub.add_parser("tactic-baseline", help="Train Plan A using whole-match validation")
+    tactics.add_argument("--manifest", type=Path, required=True, help="Exported train/manifest.csv")
+    tactics.add_argument("--output", type=Path, required=True, help="New run directory")
+    tactics.add_argument("--exclude-uncertain", action="store_true")
+    tactics.add_argument(
+        "--size", type=int, default=224, help="Whole-map square size, e.g. 224 or 320"
+    )
+    tactics.add_argument("--frames", type=int, default=16)
+    tactics.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2])
+    tactics.add_argument("--epochs", type=int, default=200)
+    tactics.add_argument("--patience", type=int, default=30)
+    epoch_choice = tactics.add_mutually_exclusive_group()
+    epoch_choice.add_argument(
+        "--fixed-epochs", type=int, metavar="N", help="Train exactly N epochs; no early stopping"
+    )
+    epoch_choice.add_argument(
+        "--cross-fold",
+        dest="fixed_epochs",
+        action="store_const",
+        const=None,
+        help="Use the other fold's best epoch for each seed (default)",
+    )
+    tactics.add_argument("--device", default="cpu")
     args = parser.parse_args(argv)
     if args.command not in ("prototype", "ingest"):
         try:
-            if args.command == "bomb-scan":
+            if args.command == "tactic-baseline":
+                from .context import RunContext
+                from .tactic_training import BaselineConfig, run_baseline
+
+                run_baseline(
+                    args.manifest,
+                    args.output,
+                    context=RunContext(device=args.device),
+                    config=BaselineConfig(
+                        size=args.size,
+                        n_frames=args.frames,
+                        seeds=tuple(args.seeds),
+                        epochs=args.epochs,
+                        patience=args.patience,
+                        fixed_epochs=args.fixed_epochs,
+                    ),
+                    exclude_uncertain=args.exclude_uncertain,
+                )
+            elif args.command == "bomb-scan":
                 from .bomb import write_bomb_scan
                 from .context import RunContext
 
