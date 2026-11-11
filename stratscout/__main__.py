@@ -104,6 +104,22 @@ def main(argv=None):
     export.add_argument("--fps", type=int, default=10, help="Prepared variant to cut from")
     export.add_argument("--no-clips", action="store_true", help="Write the manifest only")
     export.add_argument("--labels-dir", type=Path, default=Path("labels"))
+    tactic = sub.add_parser(
+        "train-tactics", help="Cross-validate the tactic TCN on an exported clip dataset"
+    )
+    tactic.add_argument("--dataset", type=Path, required=True, help="export-segments folder")
+    tactic.add_argument("--output", type=Path, required=True, help="New folder; must not exist")
+    tactic.add_argument("--epochs", type=int, default=150, help="Most epochs to try")
+    tactic.add_argument("--seeds", type=int, default=5, help="Training seeds per setting")
+    tactic.add_argument("--grid", type=int, default=8, help="Occupancy grid cells per side")
+    tactic.add_argument("--models", nargs="+", default=["tcn", "control"])
+    tactic.add_argument("--cache", type=Path, default=Path("runs/tactic-cache"))
+    tactic.add_argument("--device", default="cpu", help="PyTorch device, e.g. cpu or cuda")
+    tactic.add_argument(
+        "--evaluate-test",
+        action="store_true",
+        help="Also train on all training matches and score the test match (do this once)",
+    )
     counts = sub.add_parser(
         "icon-count-eval", help="Fit icon splitting on some matches; score team counts on others"
     )
@@ -239,6 +255,24 @@ def main(argv=None):
                 for split, counts in summary["counts"].items():
                     print(f"  {split}: {counts}")
                 print(f"  skipped: {summary['skipped']}")
+            elif args.command == "train-tactics":
+                from .tactic_tcn import TacticConfig, run_tactic_experiment
+
+                cfg = TacticConfig(
+                    epochs=args.epochs,
+                    seeds=tuple(range(args.seeds)),
+                    grid=args.grid,
+                    models=tuple(args.models),
+                )
+                run_tactic_experiment(
+                    args.dataset,
+                    args.output,
+                    cfg,
+                    evaluate_test=args.evaluate_test,
+                    cache_dir=args.cache,
+                    device=args.device,
+                )
+                print(f"Report: {args.output / 'report.md'}")
             elif args.command == "process-recordings":
                 from .recording_batch import process_recordings
 

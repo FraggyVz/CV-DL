@@ -41,7 +41,8 @@ marks agreed segments `reviewed` and `export-segments` cuts them into train/test
 folders split by whole match (see the [labelling guide](docs/labelling-guide.md)).
 Three matches are labelled by one reviewer with a second reviewer's comments in
 [labels/review-notes.md](labels/review-notes.md): 44 reviewed training clips
-(Furia, Spirit) and 24 test clips (NaVi). No tactic model uses them yet.
+(Furia, Spirit) and 24 test clips (NaVi). A first residual-TCN experiment
+(`train-tactics`, see [Tactic model](#tactic-model)) is trained on them.
 Approach/entry-time fields, reviewer comparison and region polygons remain planned.
 `contracts.Round` and `RoundLabeller` keep
 the old pre/post-plant labels, as did the earlier `label-rounds` command. Do not rename
@@ -130,6 +131,7 @@ python -m stratscout bomb-preview --match navi --round 7
 python -m stratscout label-segments --match furia --reviewer <name>
 python -m stratscout bomb-scan --video data/processed/recordings/<match>/minimap-5fps.mp4 --output runs/bomb-scan-001
 python -m stratscout icon-count-eval --train furia spirit --test navi --output runs/icon-count-eval-001
+python -m stratscout train-tactics --dataset data/processed/datasets/2026-11-01 --output runs/tactic-tcn-001
 python -m stratscout prototype --smoke --output runs/smoke-001
 ```
 
@@ -143,6 +145,35 @@ without carrier evidence is a dropped candidate; planted bombs are not separated
 accuracy. Fit detector settings on Furia–Falcons and Spirit–Falcons and keep NaVi–Falcons
 held out. Do not tune on the test match. Keep every FPS variant and tactical segment of
 a match in one dataset split, and reserve validation data separately for model selection.
+
+### Tactic model
+
+`train-tactics` trains a residual dilated TCN on an exported clip dataset, alongside a
+time-blind control (the same features pooled over the clip) and a majority-class baseline.
+
+- **Features.** Every clip frame goes through the spectator-radar detector, giving one
+  feature vector per frame. Detections are cached in `runs/tactic-cache/`; the first run
+  takes a few minutes. Each match's background is the median of frames from all of its
+  clips. Each vector holds per-team soft occupancy on an 8×8 grid, team counts,
+  centroids and spread, the C4 badge and elapsed seconds. No tracker is involved.
+- **Model.** Steps are taken at 5 fps, so real timing is kept; clips are padded and
+  masked, never stretched. Five residual blocks (dilations 1–16) see about 25 s, and
+  pooling covers the whole clip.
+- **Protocol.** Settings and the epoch count are chosen by leave-one-match-out
+  cross-validation on the training matches (5 seeds). The test match is scored only
+  with `--evaluate-test`: by then the models are trained on all training matches, and
+  the score is reported per seed and as a seed ensemble. Run that once, after the
+  settings are fixed; changing settings after seeing the test score turns NaVi into
+  validation data.
+- **Outputs.** `report.md`, `report.json`, `config.json` and `cv_predictions.csv`.
+  The report gives macro-F1 per held-out match, then per-class precision, recall and
+  F1 and a confusion matrix, pooled over the held-out matches (every training clip is
+  predicted once, by a model that never saw its match). With `--evaluate-test` it also
+  writes `predictions.csv`, `models/` and the same per-class tables for the test match.
+
+Detections are unvalidated colour estimates, so the features inherit their misses
+(e.g. players standing on site letters, stacks). Results on this pilot dataset (44
+training clips, 24 test clips) show feasibility, not deployable accuracy.
 
 The smoke command trains a tiny synthetic detector and checks tracking, saving
 `detector.pt` and `summary.json`. It does not use real recordings or establish accuracy.
@@ -164,6 +195,7 @@ schema are not the current video-preparation or five-class dataset route.
 | `stratscout/media.py`, `video_profiles`, `video_preparation`, `recording_batch`, `fps_comparison` | Shared preparation and comparison APIs |
 | `segmentation`, `icon_split`, `bomb`, `rounds`, `live_preview`, `count_eval` | Colour/shape detection, overlap handling, estimates and review |
 | `segments`, `segment_labeller` | Five-class segment records, validation, safe saving and the keyboard labeller |
+| `segment_export`, `tactic_features`, `tactic_tcn` | Clip export, per-frame clip features and the tactic TCN experiment |
 | `preprocessing`, `detector`, `datasets`, `training`, `evaluation`, `synthetic` | CNN icon detector and experiments |
 | `tracking`, `annotations`, `config`, `contracts`, `context`, `workflow`, `storage`, `video`, `pilot`, `visualisation` | Tracking, legacy labels, explicit run state and orchestration |
 | `stratscout/ingest/` | Optional demo parsing, coordinate mapping and legacy exports |
