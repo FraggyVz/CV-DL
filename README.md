@@ -56,7 +56,7 @@ Python 3.13.14 and CPU Torch. From the repository root:
 
 ```powershell
 py -3.13 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install torch==2.14.1 --index-url https://download.pytorch.org/whl/cpu
+.\.venv\Scripts\python.exe -m pip install torch==2.14.1 torchvision==0.29.1 --index-url https://download.pytorch.org/whl/cpu
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 ffmpeg -version
@@ -132,7 +132,7 @@ python -m stratscout bomb-preview --match navi --round 7
 python -m stratscout label-segments --match furia --reviewer <name>
 python -m stratscout bomb-scan --video data/processed/recordings/<match>/minimap-5fps.mp4 --output runs/bomb-scan-001
 python -m stratscout icon-count-eval --train furia spirit --test navi --output runs/icon-count-eval-001
-python -m stratscout train-tactics --dataset data/processed/datasets/2026-11-01 --output runs/tactic-tcn-001
+python -m stratscout train-tactics --dataset data/processed/datasets/2026-11-01 --output runs/tactic-tcn-001 --exclude-uncertain
 python -m stratscout prototype --smoke --output runs/smoke-001
 ```
 
@@ -160,12 +160,18 @@ time-blind control (the same features pooled over the clip) and a majority-class
 - **Model.** Steps are taken at 5 fps, so real timing is kept; clips are padded and
   masked, never stretched. Five residual blocks (dilations 1–16) see about 25 s, and
   pooling covers the whole clip.
-- **Protocol.** Settings and the epoch count are chosen by leave-one-match-out
-  cross-validation on the training matches (5 seeds). The test match is scored only
-  with `--evaluate-test`: by then the models are trained on all training matches, and
-  the score is reported per seed and as a seed ensemble. Run that once, after the
-  settings are fixed; changing settings after seeing the test score turns NaVi into
-  validation data.
+- **Protocol.** Leave-one-match-out cross-validation on the training matches (5
+  seeds). The main score is cross-fold, as in the [tactic baseline](docs/tactic-baseline.md):
+  each held-out match is scored at the epoch that was best on the other match. The
+  "optimistic" score (one epoch chosen and scored on the same folds) is for comparison
+  only. The learning rate is constant after a 5-epoch warm-up, so an epoch chosen
+  inside a longer run equals a run of exactly that length. Clips with uncertain
+  boundaries (currently Spirit #5) are refused unless `--exclude-uncertain` is passed,
+  matching the clip loader; excluded clips are listed in the report. The test match is
+  scored only with `--evaluate-test`: by then the models are trained on all training
+  matches, and the score is reported per seed and as a seed ensemble. Run that once,
+  after the settings are fixed; changing settings after seeing the test score turns
+  NaVi into validation data.
 - **Outputs.** `report.md`, `report.json`, `config.json` and `cv_predictions.csv`.
   The report gives macro-F1 per held-out match, then per-class precision, recall and
   F1 and a confusion matrix, pooled over the held-out matches (every training clip is

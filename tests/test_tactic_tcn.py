@@ -12,10 +12,14 @@ from stratscout.tactic_features import clip_features, feature_dim, load_dataset
 from stratscout.tactic_tcn import (
     ResidualTCN,
     TacticConfig,
+    _eval_features,
     classification_metrics,
+    cross_fold_choice,
     pad_batch,
+    predict,
     receptive_field,
     run_tactic_experiment,
+    train_model,
 )
 
 
@@ -60,6 +64,29 @@ class ModelTests(unittest.TestCase):
 
     def test_receptive_field(self):
         self.assertEqual(receptive_field(3, (1, 2, 4, 8, 16)), 125)
+
+    def test_checkpoint_inside_a_longer_run_equals_a_run_of_that_length(self):
+        """The epoch chosen in cross-validation must mean the same model when the final
+        run trains for exactly that many epochs, so the schedule cannot depend on it."""
+        rng = np.random.default_rng(1)
+        train = [(detections(12, [(rng.random(), rng.random(), k % 2)]), k % 5) for k in range(10)]
+        cfg = TacticConfig(eval_every=4, channels=8, dilations=(1, 2), batch=4)
+        seen = []
+
+        def record(model, norm):
+            seen.append(predict(model, _eval_features([d for d, _ in train], norm, cfg)))
+            return 0.0
+
+        train_model("tcn", train, cfg, 0, epochs=12, validate=record)
+        short, norm, _ = train_model("tcn", train, cfg, 0, epochs=8)
+        direct = predict(short, _eval_features([d for d, _ in train], norm, cfg))
+        np.testing.assert_allclose(seen[1], direct, atol=1e-5)  # checkpoint 2 = epoch 8
+
+    def test_each_fold_uses_the_other_folds_best_epoch(self):
+        curves = {"a": np.array([0.9, 0.1, 0.2]), "b": np.array([0.1, 0.2, 0.8])}
+        self.assertEqual(cross_fold_choice(curves), {"a": 2, "b": 0})
+        three = {"a": np.array([1.0, 0]), "b": np.array([0, 0.5]), "c": np.array([0, 0.6])}
+        self.assertEqual(cross_fold_choice(three), {"a": 1, "b": 0, "c": 0})
 
 
 class MetricTests(unittest.TestCase):
@@ -149,7 +176,30 @@ class ExperimentTests(unittest.TestCase):
                 run_tactic_experiment(
                     "synthetic", out, cfg, rows=rows, dets=dets, log=lambda m: None
                 )
-        self.assertGreater(report["models"]["tcn"]["cv"]["best_macro_f1"], 0.6)
+            # An uncertain boundary is refused unless explicitly excluded, then reported.
+            marked = [{**rows[0], "uncertain": True}] + rows[1:]
+            quick = TacticConfig(epochs=10, eval_every=10, seeds=(0,), models=("control",))
+            refused = Path(tmp) / "refused"
+            with self.assertRaisesRegex(ValueError, "exclude-uncertain"):
+                run_tactic_experiment(
+                    "synthetic", refused, quick, rows=marked, dets=dets, log=lambda m: None
+                )
+            self.assertFalse(refused.exists())
+            kept = run_tactic_experiment(
+                "synthetic",
+                Path(tmp) / "excluded",
+                quick,
+                exclude_uncertain=True,
+                rows=marked,
+                dets=dets,
+                log=lambda m: None,
+            )
+            self.assertEqual(kept["excluded_uncertain"], [rows[0]["clip_id"]])
+            self.assertEqual(sum(kept["clips"]["train"].values()), 29)
+        cv = report["models"]["tcn"]["cv"]
+        self.assertEqual(set(cv["cross_fold_epochs"]), {"m1", "m2"})
+        self.assertLessEqual(cv["cross_fold_macro_f1"], cv["optimistic_macro_f1"] + 1e-9)
+        self.assertGreater(cv["cross_fold_macro_f1"], 0.6)
         self.assertGreater(report["models"]["tcn"]["test"]["ensemble"]["macro_f1"], 0.6)
         pooled = report["models"]["tcn"]["cv"]["pooled"]["ensemble"]
         self.assertEqual(sum(m["support"] for m in pooled["per_class"].values()), 30)

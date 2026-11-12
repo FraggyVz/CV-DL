@@ -116,6 +116,11 @@ def main(argv=None):
     tactic.add_argument("--cache", type=Path, default=Path("runs/tactic-cache"))
     tactic.add_argument("--device", default="cpu", help="PyTorch device, e.g. cpu or cuda")
     tactic.add_argument(
+        "--exclude-uncertain",
+        action="store_true",
+        help="Omit clips with uncertain boundaries (listed in the report) instead of refusing",
+    )
+    tactic.add_argument(
         "--evaluate-test",
         action="store_true",
         help="Also train on all training matches and score the test match (do this once)",
@@ -310,6 +315,7 @@ def main(argv=None):
                     args.output,
                     cfg,
                     evaluate_test=args.evaluate_test,
+                    exclude_uncertain=args.exclude_uncertain,
                     cache_dir=args.cache,
                     device=args.device,
                 )

@@ -44,6 +44,9 @@ def load_dataset(root) -> List[Dict]:
             for row in csv.DictReader(handle):
                 if row["label"] not in TACTIC_CLASSES:
                     raise ValueError(f"{manifest}: unknown class {row['label']!r}")
+                flag = row.get("boundary_uncertain", "False").strip().lower()
+                if flag not in ("true", "false"):
+                    raise ValueError(f"{manifest}: boundary_uncertain must be True or False")
                 rows.append(
                     {
                         "clip_id": row["clip_id"],
@@ -52,6 +55,7 @@ def load_dataset(root) -> List[Dict]:
                         "y": TACTIC_CLASSES.index(row["label"]),
                         "match": row["match_folder"],
                         "duration_s": float(row["duration_s"]),
+                        "uncertain": flag == "true",
                         "path": root / split / row["clip"],
                     }
                 )

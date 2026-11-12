@@ -43,7 +43,8 @@ class TacticConfig:
     epochs: int = 150
     eval_every: int = 10
     batch: int = 8
-    lr: float = 3e-3
+    lr: float = 1e-3
+    warmup_epochs: int = 5
     weight_decay: float = 1e-2
     label_smoothing: float = 0.05
     jitter: float = 0.005  # normalised position noise in training
@@ -217,9 +218,11 @@ def train_model(
     norm = Normaliser.fit([clip_features(d, step=cfg.step, grid=cfg.grid) for d in dets])
     model = build_model(kind, feature_dim(cfg.grid), cfg).to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
-    sched = torch.optim.lr_scheduler.OneCycleLR(
-        opt, cfg.lr, total_steps=max(epochs * math.ceil(len(train) / cfg.batch), 1)
-    )
+    # Linear warm-up, then a constant rate. The schedule must not depend on the total
+    # epoch count: the epoch chosen in cross-validation (a checkpoint inside a longer run)
+    # has to be the same model as a final run trained for exactly that many epochs.
+    warm_steps = max(cfg.warmup_epochs * math.ceil(len(train) / cfg.batch), 1)
+    sched = torch.optim.lr_scheduler.LambdaLR(opt, lambda step: min(1.0, (step + 1) / warm_steps))
     loss_fn = nn.CrossEntropyLoss(
         weight=class_weights(ys).to(device), label_smoothing=cfg.label_smoothing
     )
@@ -258,10 +261,14 @@ def _eval_features(dets: Sequence[Dict], norm: Normaliser, cfg: TacticConfig) ->
 
 
 def cross_validate(kind: str, rows: List[Dict], dets: Dict, cfg: TacticConfig, device="cpu"):
-    """Leave one training match out. Returns per-(fold, seed) histories, the epoch with
-    the best mean validation macro-F1 (earliest on ties) and, at that epoch, "pooled"
-    metrics: every training clip predicted once by a model that never saw its match,
-    scored per seed and as a seed ensemble (mean probabilities), with per-clip rows."""
+    """Leave one training match out, then score each held-out match at the epoch that
+    was best on the OTHER held-out matches (mean over seeds; earliest on ties), so no
+    match chooses its own epoch. That cross-fold score is the main result; picking one
+    epoch on all folds and scoring the same folds is kept as "optimistic". "pooled"
+    gives per-class metrics at the cross-fold epochs: every training clip predicted once
+    by a model that never saw its match, per seed and as a seed ensemble (mean
+    probabilities), with per-clip rows. "final_epoch" (best mean over all folds) is the
+    epoch count for training on all training matches."""
     train_rows = [r for r in rows if r["split"] == "train"]
     matches = sorted({r["match"] for r in train_rows})
     if len(matches) < 2:
@@ -283,19 +290,22 @@ def cross_validate(kind: str, rows: List[Dict], dets: Dict, cfg: TacticConfig, d
             _, _, history = train_model(kind, fit, cfg, seed, validate=validate, device=device)
             runs.append({"held_out": held, "seed": seed, "history": history, "probs": probs_at})
     epochs = [e for e, _ in runs[0]["history"]]
-    mean = [float(np.mean([r["history"][i][1] for r in runs])) for i in range(len(epochs))]
-    best = int(np.argmax(mean))
-    per_fold = {
-        m: float(np.mean([r["history"][best][1] for r in runs if r["held_out"] == m]))
+    scores = {
+        m: np.array([[h[1] for h in r["history"]] for r in runs if r["held_out"] == m])
         for m in matches
-    }
+    }  # (seeds, checkpoints) per held-out match
+    fold_curve = {m: scores[m].mean(0) for m in matches}
+    mean = np.mean([fold_curve[m] for m in matches], 0)
+    best = int(np.argmax(mean))
+    chosen = cross_fold_choice(fold_curve)
+    per_fold = {m: float(fold_curve[m][chosen[m]]) for m in matches}
     # Clips in the order the folds visited them, matching each run's probability rows.
     ordered = [r for m in matches for r in train_rows if r["match"] == m]
     y_true = [r["y"] for r in ordered]
     per_seed = [
         np.concatenate(
             [
-                next(r for r in runs if r["held_out"] == m and r["seed"] == s)["probs"][best]
+                next(r for r in runs if r["held_out"] == m and r["seed"] == s)["probs"][chosen[m]]
                 for m in matches
             ]
         )
@@ -305,10 +315,12 @@ def cross_validate(kind: str, rows: List[Dict], dets: Dict, cfg: TacticConfig, d
     mean_probs = np.mean(per_seed, 0)
     return {
         "runs": [{k: v for k, v in r.items() if k != "probs"} for r in runs],
-        "curve": list(zip(epochs, mean)),
-        "best_epoch": epochs[best],
-        "best_macro_f1": mean[best],
+        "curve": [(e, float(v)) for e, v in zip(epochs, mean)],
+        "cross_fold_macro_f1": float(np.mean(list(per_fold.values()))),
+        "cross_fold_epochs": {m: epochs[chosen[m]] for m in matches},
         "per_fold_macro_f1": per_fold,
+        "optimistic_macro_f1": float(mean[best]),
+        "final_epoch": epochs[best],
         "pooled": {
             "seed_macro_f1": seed_scores,
             "seed_macro_f1_mean": float(np.mean(seed_scores)),
@@ -316,6 +328,15 @@ def cross_validate(kind: str, rows: List[Dict], dets: Dict, cfg: TacticConfig, d
             "ensemble": classification_metrics(y_true, mean_probs.argmax(1)),
         },
         "predictions": prediction_rows(kind, ordered, mean_probs),
+    }
+
+
+def cross_fold_choice(fold_curves: Dict[str, np.ndarray]) -> Dict[str, int]:
+    """For each held-out match, the checkpoint index that was best (earliest on ties) on
+    the mean validation curve of the OTHER held-out matches."""
+    return {
+        m: int(np.argmax(np.mean([c for o, c in fold_curves.items() if o != m], 0)))
+        for m in fold_curves
     }
 
 
@@ -365,6 +386,7 @@ def run_tactic_experiment(
     cfg: TacticConfig = TacticConfig(),
     *,
     evaluate_test: bool = False,
+    exclude_uncertain: bool = False,
     cache_dir="runs/tactic-cache",
     device: str = "cpu",
     log=print,
@@ -379,8 +401,17 @@ def run_tactic_experiment(
         raise FileExistsError(
             f"{output} already exists; choose a new --output folder, e.g. runs/tactic-tcn-002"
         )
-    output.mkdir(parents=True)
     rows = load_dataset(dataset) if rows is None else rows
+    uncertain = [r["clip_id"] for r in rows if r.get("uncertain")]
+    if uncertain and not exclude_uncertain:
+        raise ValueError(
+            f"uncertain boundary in {', '.join(uncertain)}; resolve the annotation or pass "
+            "--exclude-uncertain and report the exclusion"
+        )
+    if uncertain:
+        log(f"Excluded {len(uncertain)} uncertain-boundary clips: {', '.join(uncertain)}")
+        rows = [r for r in rows if not r.get("uncertain")]
+    output.mkdir(parents=True)
     if dets is None:
         log(f"Detections for {len(rows)} clips (cached in {cache_dir})")
         dets = cached_detections(rows, cache_dir, log=log)
@@ -395,6 +426,7 @@ def run_tactic_experiment(
             }
             for split in ("train", "test")
         },
+        "excluded_uncertain": uncertain,
         "majority": majority_baseline(rows),
         "models": {},
         "test_evaluated": evaluate_test,
@@ -405,7 +437,10 @@ def run_tactic_experiment(
     for kind in cfg.models:
         log(f"Cross-validating {kind} ({len(cfg.seeds)} seeds x leave-one-match-out)")
         cv = cross_validate(kind, rows, dets, cfg, device)
-        log(f"  best epoch {cv['best_epoch']}: mean validation macro-F1 {cv['best_macro_f1']:.3f}")
+        log(
+            f"  cross-fold macro-F1 {cv['cross_fold_macro_f1']:.3f} (optimistic "
+            f"{cv['optimistic_macro_f1']:.3f}); final epoch count {cv['final_epoch']}"
+        )
         cv_predictions += cv["predictions"]
         entry = {
             "cv": {k: v for k, v in cv.items() if k not in ("runs", "predictions")},
@@ -413,12 +448,12 @@ def run_tactic_experiment(
         }
         if evaluate_test and test_rows:
             log(
-                f"Training {kind} on all training matches for {cv['best_epoch']} epochs; scoring test"
+                f"Training {kind} on all training matches for {cv['final_epoch']} epochs; scoring test"
             )
             probs, seed_scores = [], []
             for seed in cfg.seeds:
                 model, norm, _ = train_model(
-                    kind, train_pairs, cfg, seed, epochs=cv["best_epoch"], device=device
+                    kind, train_pairs, cfg, seed, epochs=cv["final_epoch"], device=device
                 )
                 p = predict(
                     model,
@@ -436,7 +471,7 @@ def run_tactic_experiment(
                         "norm_mean": norm.mean,
                         "norm_std": norm.std,
                         "config": asdict(cfg),
-                        "epochs": cv["best_epoch"],
+                        "epochs": cv["final_epoch"],
                         "classes": TACTIC_CLASSES,
                     },
                     output / "models" / f"{kind}-seed{seed}.pt",
@@ -477,31 +512,43 @@ def render_report(report: Dict) -> str:
         lines.append(f"| {split} | " + " | ".join(str(counts[c]) for c in TACTIC_CLASSES) + " |")
     maj = report["majority"]
     folds = [m for m in maj if m not in ("test", "class")]
+    if report.get("excluded_uncertain"):
+        lines += [
+            "",
+            "Excluded (uncertain boundary): " + ", ".join(report["excluded_uncertain"]) + ".",
+        ]
     lines += [
         "",
         "## Cross-validation (training matches only)",
         "",
-        "Each training match is held out in turn; mean macro-F1 over seeds at the chosen epoch.",
+        "Each training match is held out in turn and scored (mean macro-F1 over seeds) at the "
+        "epoch that was best on the other match, so no match picks its own epoch. "
+        "Optimistic picks one epoch on all folds and scores the same folds; use it only as a "
+        "comparison. Final epochs: used when training on all training matches.",
         "",
-        "| Model | Best epoch | Mean | " + " | ".join(f"held out: {m}" for m in folds) + " |",
-        "|---|---|---|" + "---|" * len(folds),
-        f"| majority ({maj['class']}) | – | {np.mean([maj[m] for m in folds]):.3f} | "
+        "| Model | Cross-fold | "
+        + " | ".join(f"held out: {m} (epoch)" for m in folds)
+        + " | Optimistic | Final epochs |",
+        "|---|---|" + "---|" * len(folds) + "---|---|",
+        f"| majority ({maj['class']}) | {np.mean([maj[m] for m in folds]):.3f} | "
         + " | ".join(f"{maj[m]:.3f}" for m in folds)
-        + " |",
+        + " | – | – |",
     ]
     for kind, entry in report["models"].items():
         cv = entry["cv"]
         lines.append(
-            f"| {kind} | {cv['best_epoch']} | {cv['best_macro_f1']:.3f} | "
-            + " | ".join(f"{cv['per_fold_macro_f1'][m]:.3f}" for m in folds)
-            + " |"
+            f"| {kind} | {cv['cross_fold_macro_f1']:.3f} | "
+            + " | ".join(
+                f"{cv['per_fold_macro_f1'][m]:.3f} ({cv['cross_fold_epochs'][m]})" for m in folds
+            )
+            + f" | {cv['optimistic_macro_f1']:.3f} | {cv['final_epoch']} |"
         )
     lines += [
         "",
         "### Per class, pooled over held-out matches",
         "",
-        "At the chosen epoch every training clip is predicted once, by models that never saw "
-        "its match. Pooled macro-F1 can differ from the per-fold mean above. Per-clip "
+        "At the cross-fold epochs every training clip is predicted once, by models that never "
+        "saw its match. Pooled macro-F1 can differ from the per-fold mean above. Per-clip "
         "predictions: `cv_predictions.csv`.",
     ]
     for kind, entry in report["models"].items():
