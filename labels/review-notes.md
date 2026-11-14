@@ -12,7 +12,6 @@ Labels by `jx`. After Gin's comments below, the agreed segments were marked
 | Spirit | #17 (round 12) | pending, undecided | Mid-to-A attack; no class covers it (Gin: leave pending) |
 | Spirit | #5 (round 5) | reviewed `A_SPLIT` | Boundary still marked uncertain; confirm or fix it |
 | NaVi | #25 (round 16) | reviewed `RETAKE` | Gin said to leave round 16 unlabelled; confirm whether this retake should stay |
-
 The original questions and Gin's answers follow.
 
 ## Furia–Falcons (training)
@@ -57,6 +56,14 @@ count as `B_DIRECT`.
 
 **Round 12:** Leave this pending, as we do not currently have a mid-to-A class.
 
+## Aurora–Vitality (training)
+
+| Round | Reason |
+|---|---|
+| 2 | Labelled B_SPLIT: the short player held catwalk during the apartments push and only reached B at the end. Split or direct? |
+| 5, 7 | In both, the short player died on catwalk just as apartments pushed. Round 5 is labelled B_DIRECT and round 7 B_SPLIT; which should both be? |
+| 12 | Labelled A_SPLIT, but the mid player came through CT spawn, not connector. He reached A with the ramp/palace group. |
+| 19 | Labelled A_SPLIT: two came through connector while the palace player stayed in palace, as in Furia 7. A third came through window to CT spawn. |
 ## NaVi–Falcons (test)
 
 | Round | Reason |
