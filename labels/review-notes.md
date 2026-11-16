@@ -64,6 +64,14 @@ count as `B_DIRECT`.
 | 5, 7 | In both, the short player died on catwalk just as apartments pushed. Round 5 is labelled B_DIRECT and round 7 B_SPLIT; which should both be? |
 | 12 | Labelled A_SPLIT, but the mid player came through CT spawn, not connector. He reached A with the ramp/palace group. |
 | 19 | Labelled A_SPLIT: two came through connector while the palace player stayed in palace, as in Furia 7. A third came through window to CT spawn. |
+
+## MOUZ–BetBoom (training)
+
+| Round | Reason |
+|---|---|
+| 4 | A part excluded as a fake: the bomb never went to A, but the players got onto A and traded kills before B was taken. Fake or failed A attack? |
+| 12 | Labelled B_SPLIT: mainly a short hit, with one player moving into apartments at the same time but never coming onto B. |
+| 20 | Undecided: a short-only push on B with nobody in apartments. Same as the mid-to-A case? |
 ## NaVi–Falcons (test)
 
 | Round | Reason |
