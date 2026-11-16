@@ -20,15 +20,18 @@ clip, then trains a linear layer for the five classes in the [tactic guide](tact
 ## Run it
 
 1. Put the exported MP4 clips beside their `train/manifest.csv`; see the [clip loader](clip-loader.md).
-2. Run the default cross-fold comparison:
+2. Run the default comparison:
    ```powershell
-   python -m stratscout tactic-baseline --manifest data/processed/datasets/2026-11-01/train/manifest.csv --output runs/plan-a-cross-fold --exclude-uncertain
+   python -m stratscout tactic-baseline --manifest data/processed/datasets/2026-11-16/train/manifest.csv --output runs/plan-a-nested --exclude-uncertain
    ```
 3. Open `report.md` inside that output folder.
 
+The 2026-11-16 export has 83 training clips from four matches: Furia, Spirit, Aurora-Vitality
+and MOUZ-BetBoom. Each match takes one turn as the validation match while the other three train.
+
 To choose the epoch count yourself beforehand, use a separate run (40 is an example):
 ```powershell
-python -m stratscout tactic-baseline --manifest data/processed/datasets/2026-11-01/train/manifest.csv --output runs/plan-a-fixed-40 --exclude-uncertain --fixed-epochs 40
+python -m stratscout tactic-baseline --manifest data/processed/datasets/2026-11-16/train/manifest.csv --output runs/plan-a-fixed-40 --exclude-uncertain --fixed-epochs 40
 ```
 
 **Common mistake:** an existing output folder causes an error; choose a new name.
@@ -40,12 +43,29 @@ The first run downloads about 45 MB of ImageNet weights; later runs reuse that d
 | Frames | 16 evenly spaced frames; resize the whole map to 224x224, with no crop |
 | Preprocessing | RGB scaled to 0-1, then fixed ImageNet mean/std once; no augmentation |
 | Model | ResNet and BatchNorm stay frozen in evaluation mode; only the last layer learns |
-| Training | Fresh head for each Furia/Spirit swap and seed (0, 1, 2); features reused within the run |
-| Class balance | All five classes required in each training fold; weights and majority guess use training counts only |
+| Training | Fresh head for each validation match and seed (0, 1, 2); features reused within the run |
+| Class balance | All five classes required in each training fold, inner folds included; weights and majority guess use training counts only |
 | Optimiser | Full-batch AdamW; learning rate 0.01, weight decay 0.001 |
-| Cross-fold (default, or `--cross-fold`) | Each seed uses the OTHER fold's best epoch, then refits to exactly that epoch |
+| Epoch choice (default, or `--cross-fold`) | Never chosen on the scored match; see [how the epoch is chosen](#how-the-epoch-is-chosen) |
 | Epoch search | Up to 200 epochs, patience 30; best validation macro-F1, lower loss breaks ties |
 | Fixed epochs | `--fixed-epochs N` overrides search/patience; no early stopping, score only epoch N |
+
+## How the epoch is chosen
+
+The command picks the method from the number of training matches. `config.json` records it as `epoch_mode`.
+
+**Three or more matches: nested.** For each validation match and seed:
+
+1. Set the validation match aside.
+2. Leave out one of the remaining matches at a time, train on the rest and score the left-out match at every epoch.
+3. Average those curves, one equal vote per match, and take the best epoch of the average.
+4. Refit on all the remaining matches for exactly that many epochs.
+5. Score the validation match once.
+
+**Two matches: cross-fold.** There is no spare match to search on, so each seed borrows the
+other fold's best epoch and refits to it. This is unchanged, and reproduces the saved 2026-11-01 result.
+
+**`--fixed-epochs N`** skips the search for any number of matches.
 
 ## What you get
 
@@ -53,6 +73,7 @@ The first run downloads about 45 MB of ImageNet weights; later runs reuse that d
 |---|---|
 | `report.md`, `summary.json` | Main and optimistic scores, majority scores; mean, SD and range across seeds in JSON |
 | `fold-*.json` | Epoch choices, counts/weights, per-class precision/recall/F1, accuracy, confusion matrices |
+| `*-selection-history.json` | Nested only: the averaged inner curve that chose the epoch, with each inner match's score |
 | `predictions.csv` | Main-mode validation predictions and probabilities, one per clip per seed |
 | `config.json`, `input-manifest.csv`, `samples.json` | Settings, versions, exclusions, source references, hashes and sampled times |
 | `features.pt` | Fixed clip features |
@@ -73,8 +94,11 @@ count with the loader, then `normalise_frames(frames, context=context).unsqueeze
 
 No flipping or mirroring is an existing project constraint. There is no synthetic training.
 Mean pooling ignores frame order and elapsed time; hand-cut clips already supply the boundaries.
-Only two development matches: cross-fold still reuses both, because each validation match
-trains the other fold's model. It is not nested validation or an independent test score.
+Nested selection keeps each validation match out of its own model and epoch choice. It is
+still not a test score: the settings were chosen while looking at these same matches, and
+four matches is a small sample, so scores differ a lot from one validation match to the next.
+Inner fits train on one match fewer than the refit, so the chosen epoch suits a smaller training set.
+With only two matches, cross-fold still reuses both: each validation match trains the other fold's model.
 Choose fixed N before seeing results; repeated size/epoch tuning still uses these matches.
-Seed SD is not uncertainty on unseen matches. NaVi stays held out; this command accepts only
-the training split. These are development classification scores, not final test results or temporal AP/mAP.
+Seed SD is not uncertainty on unseen matches. NaVi and Vitality-Falcons stay held out; this command
+accepts only the training split. These are development classification scores, not final test results or temporal AP/mAP.
