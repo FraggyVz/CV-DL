@@ -72,6 +72,7 @@ count as `B_DIRECT`.
 | 4 | A part excluded as a fake: the bomb never went to A, but the players got onto A and traded kills before B was taken. Fake or failed A attack? |
 | 12 | Labelled B_SPLIT: mainly a short hit, with one player moving into apartments at the same time but never coming onto B. |
 | 20 | Undecided: a short-only push on B with nobody in apartments. Same as the mid-to-A case? |
+
 ## NaVi–Falcons (test)
 
 | Round | Reason |
@@ -94,3 +95,10 @@ a direct attack or a split, I am confident that watching the actual gameplay wou
 show why this is not a representative example of either.
 
 **Round 17:** Leave this unlabelled, as it is no longer a coordinated hit.
+
+## Vitality–Falcons (test)
+
+| Round | Reason |
+|---|---|
+| 10 | Labelled A_SPLIT: the ramp player was killed in palace alley by a CT who had pushed out onto ramp, as the connector group went in. |
+| 19 | Labelled A_DIRECT: a CT had pushed into palace, and all three attackers died at the ramp and palace exits within 10 s. Attack or just a fight in palace? |
