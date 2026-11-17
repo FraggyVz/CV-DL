@@ -65,6 +65,22 @@ count as `B_DIRECT`.
 | 12 | Labelled A_SPLIT, but the mid player came through CT spawn, not connector. He reached A with the ramp/palace group. |
 | 19 | Labelled A_SPLIT: two came through connector while the palace player stayed in palace, as in Furia 7. A third came through window to CT spawn. |
 
+### Gin's comments
+
+**Round 2:** I would keep `B_SPLIT`.
+
+**Round 5:** Change this to `B_SPLIT`. The short player was participating in the
+split but died during the approach; his death does not make it a direct attack.
+
+**Round 7:** Keep `B_SPLIT`.
+
+**Round 12:** Keep `A_SPLIT`. The mid player did not come through CT spawn; he
+moved from mid through window into jungle and killed defenders on A site.
+
+**Round 19:** The initial attack is `A_SPLIT`. After the first T and the CT
+defending B die, the Ts identify the remaining CT on A. The bomb carrier then
+rotates to B while the other Ts gradually advance to eliminate the last CT.
+
 ## MOUZ–BetBoom (training)
 
 | Round | Reason |
@@ -72,6 +88,17 @@ count as `B_DIRECT`.
 | 4 | A part excluded as a fake: the bomb never went to A, but the players got onto A and traded kills before B was taken. Fake or failed A attack? |
 | 12 | Labelled B_SPLIT: mainly a short hit, with one player moving into apartments at the same time but never coming onto B. |
 | 20 | Undecided: a short-only push on B with nobody in apartments. Same as the mid-to-A case? |
+
+### Gin's comments
+
+**Round 4:** This is a mid-to-A attack, not a fake. Leave it unlabelled, as we do
+not currently have a class for this route.
+
+**Round 12:** Keep `B_SPLIT`, even though the apartments player remained inside
+apartments.
+
+**Round 20:** Leave this unlabelled. It is a clutch situation: the other Ts died
+in mid, leaving one player alone in palace.
 
 ## NaVi–Falcons (test)
 
@@ -102,3 +129,11 @@ show why this is not a representative example of either.
 |---|---|
 | 10 | Labelled A_SPLIT: the ramp player was killed in palace alley by a CT who had pushed out onto ramp, as the connector group went in. |
 | 19 | Labelled A_DIRECT: a CT had pushed into palace, and all three attackers died at the ramp and palace exits within 10 s. Attack or just a fight in palace? |
+
+### Gin's comments
+
+**Round 10:** I would not classify this as `A_SPLIT`. The players coming through
+connector did not attack A site; they moved through jungle into window instead.
+
+**Round 19:** I would keep `A_DIRECT`. It was a committed attack that failed
+quickly.
