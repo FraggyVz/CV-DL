@@ -142,9 +142,12 @@ these settings; random-thirds was planned before its score was seen and not tune
 | RETAKE | 20 | 0.711 | 0.817 | 0.714 | 0.564 |
 
 Per-match and per-class values are macro-F1 or F1, averaged over seeds (and over matches
-for classes). No shuffled refit, out of 20 per model, reached its model's real score.
+for classes). No shuffled refit, out of 20 per model, reached its model's real score, so
+the shuffled-label check found no sign of leakage. It cannot rule out every leak, and it
+does not show how a model will do on a new match.
 
-**The thirds gain comes from frame order, not from the extra inputs.** `random-thirds`
+**This is evidence that time order helps on these development matches, not proof.**
+`random-thirds`
 has the same inputs and head as `thirds` and scores like `mean` (0.526 against 0.518;
 ahead in only 6 of 12 match-and-seed pairs). `thirds` beats `random-thirds` on all four
 matches and in 11 of 12 pairs, by 0.094 on average.
@@ -153,7 +156,8 @@ matches and in 11 of 12 pairs, by 0.094 on average.
 `mean` on average, but 0.285 of that is on MOUZ vs BetBoom, whose seed spread is the
 largest (+/- 0.150). Without MOUZ the gain is 0.042, and on Aurora vs Vitality there is
 none. Against `random-thirds`, the gain without MOUZ is 0.065. With four matches this is
-a consistent sign that order helps, not a settled size of the gain.
+evidence that time order helps on these development matches, not a settled size of the
+gain or proof that it holds on other matches.
 
 **The GRU is below the baseline on every match** and almost never predicts a split
 correctly. It is one untuned configuration on 82 clips. Its optimistic score, with the
@@ -199,6 +203,16 @@ Each sampled frame becomes 260 numbers, saved in `position-features.pt`:
 | `mean/`, `thirds/`, `gru/` | One folder per model with the [baseline's files](tactic-baseline.md#what-you-get); `random-thirds/` when run |
 | `<model>/shuffled-labels.json` | Each shuffled refit's score, when `--shuffles` is used |
 
+To reload a saved head, use `stratscout.tactic_temporal.load_temporal(checkpoint, context=...)`.
+It works for every model and both inputs. It rebuilds the head from the checkpoint and
+the folder's `config.json`. For image runs it finds `encoder.pt` (in the run folder, or
+beside a reused cache) and refuses it unless its sha256 matches. `predict(frames)` takes a
+saved cache's frames and gives the head's logits. Plan A runs still load with
+`tactic_model.load_baseline`.
+
+A reused cache is refused if any clip file has changed since it was cached, even when the
+manifest is the same.
+
 ## Results with position features (2026-11-16)
 
 Run: `runs/tactic-positions-20261117`; bomb-badge ablation:
@@ -228,7 +242,7 @@ nothing was changed after seeing the scores.
 | RETAKE | 20 | 0.711 / 0.698 | 0.817 / 0.671 | 0.564 / 0.521 |
 
 No shuffled refit (20 per model) reached its real score; shuffled position scores averaged
-about 0.17.
+about 0.17. As above, the check found no sign of leakage.
 
 **What it shows.**
 
@@ -237,8 +251,9 @@ about 0.17.
   as A direct fall from 21 to 12, and the reverse from 19 to 12. B_SPLIT does not improve
   (0.42 to 0.39), and RETAKE stays level.
 - **`thirds` loses its lead:** on positions it is below `mean`, and below its own
-  image-feature score on Spirit and MOUZ. B_SPLIT falls to 0.29. So "order helps" was
-  shown for image features only; with positions it does not hold on these runs.
+  image-feature score on Spirit and MOUZ. B_SPLIT falls to 0.29. So the evidence that time
+  order helps on these development matches comes from image features only; with
+  positions it does not hold on these runs.
 - **The GRU is still far below the others** with either input.
 - **The bomb badge adds little:**
 
@@ -255,14 +270,15 @@ about 0.17.
   and 0.24 on images).
 
 With four matches and one run each, a 0.06-0.08 gap moves between matches and is only a
-sign, not a settled ranking. The detector gaps (about 1 frame in 9 misses a player; about
+sign, not a settled ranking. The +/- values are seed spreads: a rough guide, not a
+significance test, because the seeds rerun the same four matches. The detector gaps (about 1 frame in 9 misses a player; about
 1 T position in 6 is inferred) are in these inputs.
 
 ## Limits
 
 There are 83 clips from four matches. A small gap between a model and the baseline is
 within noise: changing only the seed, or the validation match, moves the score by more.
-The report lists both spreads beside the results.
+The report lists both spreads beside the results. Comparing a gap with the seed spread is a rough guide, not a significance test: the seeds rerun the same four matches and clips, so they show training noise, not how a score would move on other matches.
 The models share the baseline's [limits](tactic-baseline.md#limits): these are
 development scores on the training matches, not test results.
 The GRU has about 280 weights per training clip, so it can memorise the training fold.

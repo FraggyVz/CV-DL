@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import zlib
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
@@ -16,6 +17,7 @@ import torch
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence
 
+from .config import TACTIC_CLASSES
 from .context import RunContext
 from .storage import write_new_text
 from .tactic_features import (
@@ -24,6 +26,7 @@ from .tactic_features import (
     load_frame_features,
     save_frame_features,
 )
+from .tactic_model import TacticBaseline, build_baseline, file_sha256
 from .tactic_positions import KIND, channel_columns, extract_position_features, native_dataset
 from .tactic_training import (
     BaselineConfig,
@@ -435,6 +438,126 @@ def run_temporal(
     write_new_text(output / "report.md", comparison_report(output, comparison, dataset))
     print(f"Saved comparison: {output / 'report.md'}", flush=True)
     return comparison
+
+
+@dataclass
+class TemporalCheckpoint:
+    """One saved temporal head, rebuilt and ready to score per-frame caches.
+
+    ``encoder`` is the frozen ResNet-18 for image runs and None for position runs.
+    ``predict`` takes the same per-frame dict as a saved cache (``features``,
+    ``timestamps_s``, ``repeat_mask``, ``clip_ids``), with every position channel
+    still present, and returns the head's logits.
+    """
+
+    name: str
+    inputs: str
+    head: nn.Module
+    encoder: TacticBaseline | None
+    saved: dict
+    config: dict
+    dropped_columns: list = field(default_factory=list)
+
+    def predict(self, frames: dict) -> torch.Tensor:
+        width = self.config.get("inputs", {}).get("width")
+        if self.dropped_columns:
+            keep = [
+                i for i in range(frames["features"].shape[2]) if i not in set(self.dropped_columns)
+            ]
+            frames = {**frames, "features": frames["features"][:, :, keep]}
+        if width is not None and frames["features"].shape[2] != width:
+            raise ValueError(
+                f"Expected {width} numbers per frame, got {frames['features'].shape[2]}"
+            )
+        inputs, _, _ = model_inputs(self.name, frames, self.saved["classes"])
+        device = next(self.head.parameters()).device
+        with torch.no_grad():
+            return self.head(inputs.to(device)).cpu()
+
+
+def _find_encoder(checkpoint: Path, encoder) -> Path:
+    """The run's encoder.pt: next to the checkpoint, in its run folder, or beside the
+    frame cache the run reused (named in the run's summary.json)."""
+    if encoder is not None:
+        return Path(encoder)
+    model_folder, run_folder = checkpoint.parent, checkpoint.parent.parent
+    candidates = [model_folder / "encoder.pt", run_folder / "encoder.pt"]
+    summary = run_folder / "summary.json"
+    if summary.is_file():
+        cache = Path(
+            json.loads(summary.read_text(encoding="utf-8"))
+            .get("frame_features", "")
+            .replace("\\", "/")
+        )
+        # A reused cache is recorded as given on the command line, from the repository root.
+        candidates += [
+            cache.parent / "encoder.pt",
+            run_folder.parent.parent / cache.parent / "encoder.pt",
+        ]
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    raise ValueError(f"No encoder.pt found for {checkpoint}; pass encoder=")
+
+
+def load_temporal(checkpoint, *, context: RunContext, encoder=None) -> TemporalCheckpoint:
+    """Restore any temporal run's head offline: mean, thirds, random-thirds or GRU, on
+    image or position inputs.
+
+    The model name and settings come from the checkpoint and its folder's config.json.
+    Image runs also restore encoder.pt and refuse it unless its sha256 matches the one
+    saved with the head. Position runs refuse a checkpoint made by a different detector
+    or channel layout. Plan A runs still load with ``tactic_model.load_baseline``.
+    """
+    checkpoint = Path(checkpoint)
+    saved = torch.load(checkpoint, map_location="cpu", weights_only=True)
+    prefix, _, rest = saved["model"].partition("-")
+    name = rest.removesuffix("-linear")
+    if prefix not in ("resnet18", "positions") or name not in MODELS:
+        raise ValueError(f"{checkpoint}: {saved['model']!r} is not a temporal model")
+    if saved["classes"] != list(TACTIC_CLASSES):
+        raise ValueError(f"{checkpoint}: class order does not match this code")
+    config = json.loads((checkpoint.parent / "config.json").read_text(encoding="utf-8"))
+    if config["model"] != saved["model"] or config["manifest_sha256"] != saved["manifest_sha256"]:
+        raise ValueError(f"{checkpoint}: config.json in this folder belongs to another run")
+    inputs = "positions" if prefix == "positions" else "images"
+    restored_encoder, dropped = None, []
+    if inputs == "images":
+        encoder_path = _find_encoder(checkpoint, encoder)
+        if saved["encoder_sha256"] is None or file_sha256(encoder_path) != saved["encoder_sha256"]:
+            raise ValueError(f"{encoder_path} does not match this checkpoint's encoder")
+        restored_encoder = build_baseline(context=context, pretrained=False)
+        restored_encoder.encoder.load_state_dict(
+            torch.load(encoder_path, map_location="cpu", weights_only=True)
+        )
+        restored_encoder.eval()
+    else:
+        if config["inputs"]["source"] != KIND:
+            raise ValueError(f"{checkpoint}: made from different position features ({KIND!r})")
+        dropped = (
+            channel_columns(config["inputs"]["dropped_channels"])
+            if config["inputs"]["dropped_channels"]
+            else []
+        )
+    state = saved["classifier"]
+    n_classes = len(saved["classes"])
+    if name == "gru":
+        settings = config["temporal"]
+        head = TemporalGRU(
+            state["project.weight"].shape[1], settings["projection"], settings["hidden"], n_classes
+        )
+    else:
+        head = nn.Linear(state["weight"].shape[1], n_classes)
+    head.load_state_dict(state)
+    return TemporalCheckpoint(
+        name=name,
+        inputs=inputs,
+        head=head.to(context.device).eval(),
+        encoder=restored_encoder,
+        saved=saved,
+        config=config,
+        dropped_columns=dropped,
+    )
 
 
 def comparison_report(output, comparison, dataset) -> str:

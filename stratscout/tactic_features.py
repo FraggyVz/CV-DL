@@ -85,12 +85,21 @@ def save_frame_features(path, frames: dict, dataset: TacticClipDataset, weights=
 
 
 def load_frame_features(path, dataset: TacticClipDataset, weights=WEIGHTS) -> dict:
-    """Reuse a saved cache only if it was made from this manifest, clip order, sampling
-    and feature source."""
+    """Reuse a saved cache only if it was made from this manifest, clip order, sampling,
+    feature source and the same clip files.
+
+    The manifest hash alone misses a clip re-exported under the same name, so every
+    clip's current sha256 is checked against the one saved when it was encoded.
+    """
     saved = torch.load(Path(path), map_location="cpu", weights_only=True)
     for key, expected in _identity(dataset, weights).items():
         if saved.get(key) != expected:
             raise ValueError(f"{path}: cached {key} does not match this run; extract again")
     if saved["features"].shape[:2] != (len(dataset), dataset.n_frames):
         raise ValueError(f"{path}: cached features have the wrong shape; extract again")
+    for record, sample in zip(dataset.records, saved["samples"], strict=True):
+        if sample.get("clip_sha256") != file_sha256(record.path):
+            raise ValueError(
+                f"{path}: clip {record.clip_id} has changed since it was cached; extract again"
+            )
     return saved

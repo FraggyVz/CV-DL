@@ -19,11 +19,12 @@ from stratscout.context import RunContext
 from stratscout.segment_export import COLUMNS
 from stratscout.tactic_data import MatchFold, TacticClipDataset
 from stratscout.tactic_features import load_frame_features
-from stratscout.tactic_model import TacticBaseline
+from stratscout.tactic_model import TacticBaseline, file_sha256
 from stratscout.tactic_positions import TOTALS, feature_names
 from stratscout.tactic_temporal import (
     TIME_SCALE_S,
     TemporalGRU,
+    load_temporal,
     mean_inputs,
     random_thirds_inputs,
     run_temporal,
@@ -396,6 +397,93 @@ class TemporalRunTests(unittest.TestCase):
             )
         self.assertFalse(refused.exists())
 
+    def test_cache_is_refused_when_a_clip_changes_but_the_manifest_does_not(self):
+        self.run_models(self.output, models=("mean",))
+        cache = self.output / "frame-features.pt"
+        manifest_bytes = self.manifest.read_bytes()
+        clip = self.manifest.parent / "furia-2.mp4"
+        writer = cv2.VideoWriter(str(clip), cv2.VideoWriter_fourcc(*"mp4v"), 10, (32, 32))
+        try:
+            for frame in range(3):
+                writer.write(np.full((32, 32, 3), (200, 10, frame * 80), np.uint8))
+        finally:
+            writer.release()
+        self.assertEqual(self.manifest.read_bytes(), manifest_bytes)
+        dataset = TacticClipDataset(self.manifest, context=self.context, n_frames=4, size=(32, 32))
+        with self.assertRaisesRegex(ValueError, "furia-2 has changed since it was cached"):
+            load_frame_features(cache, dataset)
+        refused = self.root / "refused"
+        with self.assertRaisesRegex(ValueError, "furia-2 has changed"):
+            run_temporal(
+                self.manifest,
+                refused,
+                context=self.context,
+                config=self.config,
+                models=("thirds",),
+                features=cache,
+            )
+        self.assertFalse(refused.exists())
+
+    def assert_reload_matches_saved_predictions(self, run, frames, expected_encoder):
+        """Every saved head, reloaded from disk, repeats its saved validation predictions."""
+        rows = {}
+        index = {clip_id: i for i, clip_id in enumerate(frames["clip_ids"])}
+        for folder in sorted(p for p in run.iterdir() if p.is_dir()):
+            with (folder / "predictions.csv").open(encoding="utf-8") as stream:
+                for row in csv.DictReader(stream):
+                    rows.setdefault((folder.name, row["fold"], row["seed"]), []).append(row)
+            for checkpoint in sorted(folder.glob("fold-*-seed-*.pt")):
+                with patch("stratscout.tactic_temporal.build_baseline", side_effect=tiny_model):
+                    model = load_temporal(checkpoint, context=self.context)
+                self.assertEqual(model.name, folder.name)
+                self.assertEqual(model.encoder is not None, expected_encoder)
+                _, fold, _, seed = checkpoint.stem.split("-")
+                probabilities = model.predict(frames).softmax(1)
+                for row in rows[(folder.name, fold, seed)]:
+                    saved = torch.tensor([float(row[f"p_{c}"]) for c in TACTIC_CLASSES])
+                    torch.testing.assert_close(
+                        probabilities[index[row["clip_id"]]], saved, rtol=0, atol=1e-6
+                    )
+        return len(rows)
+
+    def test_every_temporal_checkpoint_reloads_with_identical_predictions(self):
+        self.run_models(self.output, models=("mean", "thirds", "random-thirds", "gru"))
+        frames = torch.load(self.output / "frame-features.pt", weights_only=True)
+        self.assertEqual(
+            self.assert_reload_matches_saved_predictions(self.output, frames, True), 32
+        )
+        # The encoder is found in the run folder and must be the one the heads were fitted on.
+        checkpoint = self.output / "gru" / "fold-1-seed-3.pt"
+        encoder = self.output / "encoder.pt"
+        state = torch.load(encoder, weights_only=True)
+        state["0.running_mean"] += 1
+        torch.save(state, encoder)
+        with self.assertRaisesRegex(ValueError, "does not match this checkpoint"):
+            with patch("stratscout.tactic_temporal.build_baseline", side_effect=tiny_model):
+                load_temporal(checkpoint, context=self.context)
+
+    def test_position_checkpoints_reload_with_identical_predictions(self):
+        with patch(
+            "stratscout.tactic_temporal.extract_position_features", side_effect=self.fake_positions
+        ):
+            run_temporal(
+                self.manifest,
+                self.output,
+                context=self.context,
+                config=self.config,
+                models=("mean", "thirds", "gru"),
+                inputs="positions",
+                drop_channels=("bomb_badge",),
+            )
+        frames = torch.load(self.output / "position-features.pt", weights_only=True)
+        self.assertEqual(frames["features"].shape[2], 260)  # Reload drops the channel itself.
+        self.assertEqual(
+            self.assert_reload_matches_saved_predictions(self.output, frames, False), 24
+        )
+        model = load_temporal(self.output / "mean" / "fold-1-seed-3.pt", context=self.context)
+        self.assertEqual(model.inputs, "positions")
+        self.assertEqual(model.head.in_features, 260 - 65)
+
     def fake_positions(self, dataset, *, context):
         """Deterministic stand-in for the detector: one T per frame, moving across cells."""
         self.assertIsNone(dataset.size)  # Positions are read at native size.
@@ -411,6 +499,7 @@ class TemporalRunTests(unittest.TestCase):
         samples = [
             {
                 "clip_id": r.clip_id,
+                "clip_sha256": file_sha256(r.path),
                 "timestamps_s": [0.0, 0.1, 0.2, 0.3][: dataset.n_frames],
                 "repeat_mask": [False] * dataset.n_frames,
             }
