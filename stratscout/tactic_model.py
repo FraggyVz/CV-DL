@@ -51,13 +51,16 @@ class TacticBaseline(nn.Module):
         self.encoder.eval()  # BatchNorm must not learn from either match.
         return self
 
-    def encode(self, frames: torch.Tensor) -> torch.Tensor:
+    def encode_frames(self, frames: torch.Tensor) -> torch.Tensor:
+        """Frozen features for every frame, shape (B,T,feature_dim), in time order."""
         if frames.ndim != 5 or frames.shape[2] != 3 or min(frames.shape) == 0:
             raise ValueError("Expected non-empty normalised frames with shape (B,T,3,H,W)")
         batch, time = frames.shape[:2]
         with torch.no_grad():
-            features = self.encoder(frames.flatten(0, 1))
-            return features.reshape(batch, time, -1).mean(dim=1)
+            return self.encoder(frames.flatten(0, 1)).reshape(batch, time, -1)
+
+    def encode(self, frames: torch.Tensor) -> torch.Tensor:
+        return self.encode_frames(frames).mean(dim=1)
 
     def forward(self, frames: torch.Tensor) -> torch.Tensor:
         return self.classifier(self.encode(frames))
