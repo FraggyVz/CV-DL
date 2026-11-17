@@ -149,7 +149,22 @@ def main(argv=None):
         default=["mean", "thirds", "gru"],
         choices=["mean", "thirds", "random-thirds", "gru"],
     )
-    temporal.add_argument("--features", type=Path, help="Reuse an earlier frame-features.pt")
+    temporal.add_argument(
+        "--inputs",
+        choices=["images", "positions"],
+        default="images",
+        help="Per-frame features: ResNet-18 images or detector positions",
+    )
+    temporal.add_argument(
+        "--drop-channels",
+        nargs="+",
+        default=[],
+        choices=["t_observed", "ct_observed", "t_inferred_carrier", "bomb_badge"],
+        help="Position channels to remove, for an ablation",
+    )
+    temporal.add_argument(
+        "--features", type=Path, help="Reuse an earlier frame- or position-features.pt"
+    )
     temporal.add_argument(
         "--shuffles", type=int, default=0, help="Shuffled-label refits per model (0 skips)"
     )
@@ -212,6 +227,8 @@ def main(argv=None):
                     models=tuple(args.models),
                     features=args.features,
                     shuffles=args.shuffles,
+                    inputs=args.inputs,
+                    drop_channels=tuple(args.drop_channels),
                 )
             elif args.command == "detector-check":
                 from .detector_check import CheckConfig, run_detector_check

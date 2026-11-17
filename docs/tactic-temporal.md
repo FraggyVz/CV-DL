@@ -30,7 +30,9 @@ and the same protocol as the [tactic baseline](tactic-baseline.md), so the score
 | Option | What happens |
 |---|---|
 | `--models gru` | Train only the listed models (`mean`, `thirds`, `random-thirds`, `gru`); the default is `mean thirds gru` |
-| `--features runs/tactic-temporal/frame-features.pt` | Reuse an earlier cache; it is refused if the manifest, frame count or size differ |
+| `--inputs positions` | Use detector position features instead of image features; see [position features](#position-features) |
+| `--drop-channels bomb_badge` | Position inputs only: remove a channel, for an ablation |
+| `--features runs/tactic-temporal/frame-features.pt` | Reuse an earlier cache; it is refused if the manifest, frame count, size or feature source differ |
 | `--shuffles N` | Refit each model N times on labels shuffled within each match |
 | `--fixed-epochs`, `--seeds`, `--epochs`, `--patience`, `--size`, `--frames` | Same meaning as in the baseline |
 
@@ -160,6 +162,34 @@ what holds it back: no stopping point on these runs reaches the baseline. Its tr
 loss falls to almost zero within about 20 epochs, which points to too many weights for
 the data rather than to the protocol.
 
+## Position features
+
+`--inputs positions` trains the same models on player positions from the minimap detector
+instead of image features. The detector is the one checked in the
+[detector check](detector-check.md); it passed on all four training matches.
+
+```powershell
+python -m stratscout tactic-temporal --manifest data/processed/datasets/2026-11-16/train/manifest.csv --output runs/tactic-positions --exclude-uncertain --inputs positions --shuffles 20
+```
+
+Each sampled frame becomes 260 numbers, saved in `position-features.pt`:
+
+| Part | Numbers | Meaning |
+|---|---:|---|
+| T observed | 64 | Visible T icons in each cell of an 8x8 grid over the radar crop |
+| CT observed | 64 | Visible CT icons per cell |
+| T inferred carrier | 64 | 1 where the detector infers a hidden bomb carrier under the badge |
+| Bomb badge | 64 | 1 where the bomb badge is, carried, dropped or planted |
+| Totals | 4 | T seen, CT seen, inferred carrier present, bomb badge present |
+
+- The frames, `timestamps_s` and `repeat_mask` are the loader's, so the cache lines up
+  with `frame-features.pt`. The detector reads the clips at native size, with the empty-map
+  background taken from each clip's source match video.
+- There is no tracker identity, and a missed player is not filled in: it lowers a count.
+- The inferred carrier is never added to the T counts. It can misfire on a planted bomb,
+  so it has its own channel.
+- Model settings are unchanged; only the input is narrower (260 numbers instead of 512).
+
 ## What you get
 
 | File | Contents |
@@ -168,6 +198,65 @@ the data rather than to the protocol.
 | `frame-features.pt`, `encoder.pt`, `samples.json` | The shared cache, encoder and sampled times |
 | `mean/`, `thirds/`, `gru/` | One folder per model with the [baseline's files](tactic-baseline.md#what-you-get); `random-thirds/` when run |
 | `<model>/shuffled-labels.json` | Each shuffled refit's score, when `--shuffles` is used |
+
+## Results with position features (2026-11-16)
+
+Run: `runs/tactic-positions-20261117`; bomb-badge ablation:
+`runs/tactic-positions-no-bomb-20261117` (planned before the scores were seen, no shuffles).
+Same clips, folds, epoch choice, seeds and settings as the image run. One planned run;
+nothing was changed after seeing the scores.
+
+| Model | Images: macro-F1 | Positions: macro-F1 | Images: accuracy | Positions: accuracy | Positions minus images, pairs ahead |
+|---|---:|---:|---:|---:|---:|
+| `mean` | 0.518 +/- 0.034 | 0.595 +/- 0.003 | 0.589 | 0.646 | +0.077, 10 of 12 |
+| `thirds` | 0.620 +/- 0.015 | 0.557 +/- 0.014 | 0.671 | 0.643 | -0.063, 4 of 12 |
+| `gru` | 0.345 +/- 0.008 | 0.384 +/- 0.040 | 0.439 | 0.446 | +0.039, 6 of 12 |
+
+| Validation match | `mean` images / positions | `thirds` images / positions | `gru` images / positions |
+|---|---|---|---|
+| Spirit vs Falcons | 0.578 / 0.655 | 0.643 / 0.517 | 0.376 / 0.350 |
+| Furia vs Falcons | 0.565 / 0.537 | 0.625 / 0.628 | 0.353 / 0.414 |
+| MOUZ vs BetBoom | 0.429 / 0.541 | 0.713 / 0.523 | 0.286 / 0.453 |
+| Aurora vs Vitality | 0.500 / 0.647 | 0.500 / 0.561 | 0.363 / 0.318 |
+
+| Class | Clips | `mean` images / positions | `thirds` images / positions | `gru` images / positions |
+|---|---:|---|---|---|
+| A_DIRECT | 15 | 0.451 / 0.640 | 0.627 / 0.654 | 0.478 / 0.412 |
+| B_DIRECT | 24 | 0.638 / 0.682 | 0.677 / 0.720 | 0.550 / 0.574 |
+| A_SPLIT | 14 | 0.369 / 0.564 | 0.492 / 0.452 | 0.131 / 0.254 |
+| B_SPLIT | 9 | 0.420 / 0.390 | 0.489 / 0.289 | 0.000 / 0.159 |
+| RETAKE | 20 | 0.711 / 0.698 | 0.817 / 0.671 | 0.564 / 0.521 |
+
+No shuffled refit (20 per model) reached its real score; shuffled position scores averaged
+about 0.17.
+
+**What it shows.**
+
+- **`mean` gains most:** positions beat images for the plain average, on three of four
+  matches and in 10 of 12 pairs. The gain is on A_DIRECT and A_SPLIT: A splits predicted
+  as A direct fall from 21 to 12, and the reverse from 19 to 12. B_SPLIT does not improve
+  (0.42 to 0.39), and RETAKE stays level.
+- **`thirds` loses its lead:** on positions it is below `mean`, and below its own
+  image-feature score on Spirit and MOUZ. B_SPLIT falls to 0.29. So "order helps" was
+  shown for image features only; with positions it does not hold on these runs.
+- **The GRU is still far below the others** with either input.
+- **The bomb badge adds little:**
+
+  | Model | With bomb badge | Without | Difference |
+  |---|---:|---:|---:|
+  | `mean` | 0.595 | 0.591 | +0.004 |
+  | `thirds` | 0.557 | 0.532 | +0.025 |
+  | `gru` | 0.384 | 0.370 | +0.014 |
+
+  Its clearest effect is on RETAKE (about +0.1 F1 for every model), as expected from a
+  planted badge.
+- **The linear heads did not underfit:** their final training loss is well below the
+  1.61 of a model that learned nothing (`mean` 0.35, `thirds` 0.22 on positions; 0.63
+  and 0.24 on images).
+
+With four matches and one run each, a 0.06-0.08 gap moves between matches and is only a
+sign, not a settled ranking. The detector gaps (about 1 frame in 9 misses a player; about
+1 T position in 6 is inferred) are in these inputs.
 
 ## Limits
 

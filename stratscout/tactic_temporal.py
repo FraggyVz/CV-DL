@@ -18,7 +18,13 @@ from torch.nn.utils.rnn import pack_padded_sequence
 
 from .context import RunContext
 from .storage import write_new_text
-from .tactic_features import extract_frame_features, load_frame_features, save_frame_features
+from .tactic_features import (
+    WEIGHTS,
+    extract_frame_features,
+    load_frame_features,
+    save_frame_features,
+)
+from .tactic_positions import KIND, channel_columns, extract_position_features, native_dataset
 from .tactic_training import (
     BaselineConfig,
     describe_run,
@@ -57,6 +63,12 @@ LIMITS = {
         "than training clips, so it can fit noise.",
     ),
 }
+INPUTS = ("images", "positions")
+POSITION_LIMIT = (
+    "Position features come from the colour detector: about 1 frame in 9 misses a player, "
+    "about 1 T position in 6 is an inferred carrier, and the inferred carrier can misfire "
+    "on a planted bomb. Counts have no player identity."
+)
 SHARED_LIMIT = (
     "No synthetic pretraining, detection, temporal localisation or final test evaluation."
 )
@@ -259,11 +271,16 @@ def run_temporal(
     models=DEFAULT_MODELS,
     features=None,
     shuffles=0,
+    inputs="images",
+    drop_channels=(),
 ):
-    """Train the chosen models on one shared frame-feature cache; save one folder per model.
+    """Train the chosen models on one shared per-frame cache; save one folder per model.
 
-    ``features`` reuses an earlier ``frame-features.pt`` instead of extracting again.
-    ``shuffles`` repeats each model's whole fit that many times on shuffled labels.
+    ``inputs`` picks the per-frame features: frozen ResNet-18 image features, or player
+    positions from the minimap detector (``tactic_positions``). ``features`` reuses an
+    earlier cache instead of extracting again. ``drop_channels`` removes position
+    channels, e.g. ("bomb_badge",), for an ablation. ``shuffles`` repeats each model's
+    whole fit that many times on shuffled labels.
     """
     config = config or BaselineConfig()
     output = Path(output)
@@ -272,12 +289,23 @@ def run_temporal(
         raise ValueError(f"Choose distinct models from {', '.join(MODELS)}")
     if isinstance(shuffles, bool) or not isinstance(shuffles, int) or shuffles < 0:
         raise ValueError("shuffles must be a non-negative integer")
+    if inputs not in INPUTS:
+        raise ValueError(f"inputs must be one of {', '.join(INPUTS)}")
+    drop_channels = tuple(drop_channels)
+    if drop_channels and inputs != "positions":
+        raise ValueError("drop_channels applies only to position features")
+    dropped = channel_columns(drop_channels) if drop_channels else []
     dataset, targets, folds, mode = prepare_run(
         manifest, output, context=context, config=config, exclude_uncertain=exclude_uncertain
     )
     classes = dataset.classes
+    if inputs == "positions":
+        # The detector reads the clips at native size; same clips, frames and times.
+        cache_dataset, source, cache_name = native_dataset(dataset), KIND, "position-features.pt"
+    else:
+        cache_dataset, source, cache_name = dataset, WEIGHTS, "frame-features.pt"
     if features is not None:
-        frames = load_frame_features(features, dataset)
+        frames = load_frame_features(features, cache_dataset, source)
     output.mkdir(parents=True, exist_ok=False)
     write_new_text(output / "input-manifest.csv", dataset.manifest.read_text(encoding="utf-8-sig"))
     print(
@@ -285,38 +313,63 @@ def run_temporal(
         flush=True,
     )
     if features is None:
-        frames = extract_frame_features(dataset, output, context=context)
-        save_frame_features(output / "frame-features.pt", frames, dataset)
-        frames = load_frame_features(output / "frame-features.pt", dataset)
+        if inputs == "positions":
+            frames = extract_position_features(cache_dataset, context=context)
+        else:
+            frames = extract_frame_features(dataset, output, context=context)
+        save_frame_features(output / cache_name, frames, cache_dataset, source)
+        frames = load_frame_features(output / cache_name, cache_dataset, source)
     _write_json(output / "samples.json", frames["samples"])
+    names = frames.get("feature_names")
+    if dropped:
+        keep = [i for i in range(frames["features"].shape[2]) if i not in set(dropped)]
+        frames = {**frames, "features": frames["features"][:, :, keep]}
+        names = [names[i] for i in keep]
     comparison = {
         "epoch_mode": mode,
+        "inputs": inputs,
+        "feature_source": source,
+        "feature_width": int(frames["features"].shape[2]),
+        "dropped_channels": list(drop_channels),
         "models": {},
-        "frame_features": str(features) if features is not None else "frame-features.pt",
+        "frame_features": str(features) if features is not None else cache_name,
         "repeated_frames": int(frames["repeat_mask"].sum()),
     }
+    prefix = "positions" if inputs == "positions" else "resnet18"
     for name in models:
-        inputs, build_head, description = model_inputs(name, frames, classes)
+        model_input, build_head, description = model_inputs(name, frames, classes)
         run_config = describe_run(
             dataset,
             targets,
             config=config,
             context=context,
             mode=mode,
-            model=MODEL_NAMES[name],
+            model=MODEL_NAMES[name].replace("resnet18", prefix),
             exclude_uncertain=exclude_uncertain,
         )
         run_config["temporal"] = description
+        run_config["inputs"] = {
+            "kind": inputs,
+            "source": source,
+            "width": comparison["feature_width"],
+            "dropped_channels": list(drop_channels),
+            "feature_names": names,
+        }
+        if inputs == "positions":
+            # Settings that only describe image extraction do not apply here.
+            run_config["spatial_preprocessing"] = "Native-size clips for the detector; no resize"
+            run_config["weights"] = None
+            run_config["normalisation"] = None
         if build_head:
             run_config["trainable_parameters"] = sum(p.numel() for p in build_head().parameters())
         else:
-            run_config["trainable_parameters"] = (inputs.shape[1] + 1) * len(classes)
+            run_config["trainable_parameters"] = (model_input.shape[1] + 1) * len(classes)
         folder = output / name
         folder.mkdir()
         _write_json(folder / "config.json", run_config)
         print(f"\n{name}: {run_config['trainable_parameters']} trainable weights", flush=True)
         summary = fit_and_save(
-            inputs,
+            model_input,
             targets,
             dataset,
             folds,
@@ -326,12 +379,16 @@ def run_temporal(
             run_config=run_config,
             encoder_hash=frames["encoder_sha256"],
             build_head=build_head,
-            title=TITLES[name],
-            model_limits=(*LIMITS[name], SHARED_LIMIT),
+            title=TITLES[name] if inputs == "images" else f"Position features: {TITLES[name]}",
+            model_limits=(
+                *LIMITS[name],
+                *((POSITION_LIMIT,) if inputs == "positions" else ()),
+                SHARED_LIMIT,
+            ),
         )
         entry = {
             "folder": name,
-            "model": MODEL_NAMES[name],
+            "model": run_config["model"],
             "trainable_parameters": run_config["trainable_parameters"],
             "macro_f1": summary["model"]["macro_f1"],
             "accuracy": summary["model"]["accuracy"],
@@ -344,7 +401,7 @@ def run_temporal(
         if shuffles:
             print(f"{name}: {shuffles} shuffled-label refits", flush=True)
             rows = shuffled_label_check(
-                inputs,
+                model_input,
                 targets,
                 folds,
                 classes=classes,
@@ -401,6 +458,15 @@ def comparison_report(output, comparison, dataset) -> str:
 
     lines = [
         "# Temporal tactic models: development results",
+        "",
+        f"Inputs: {comparison.get('inputs', 'images')} ({comparison.get('feature_width', '?')} numbers "
+        "per frame"
+        + (
+            f"; dropped {', '.join(comparison['dropped_channels'])}"
+            if comparison.get("dropped_channels")
+            else ""
+        )
+        + ").",
         "",
         f"All models share the frame features, {len(first)} whole-match folds, {mode} epoch choice,",
         "seeds, class weights and metrics. Values are mean +/- SD across seeds; the overall row",

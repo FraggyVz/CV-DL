@@ -20,6 +20,7 @@ from stratscout.segment_export import COLUMNS
 from stratscout.tactic_data import MatchFold, TacticClipDataset
 from stratscout.tactic_features import load_frame_features
 from stratscout.tactic_model import TacticBaseline
+from stratscout.tactic_positions import TOTALS, feature_names
 from stratscout.tactic_temporal import (
     TIME_SCALE_S,
     TemporalGRU,
@@ -394,6 +395,95 @@ class TemporalRunTests(unittest.TestCase):
                 features=cache,
             )
         self.assertFalse(refused.exists())
+
+    def fake_positions(self, dataset, *, context):
+        """Deterministic stand-in for the detector: one T per frame, moving across cells."""
+        self.assertIsNone(dataset.size)  # Positions are read at native size.
+        names = feature_names()
+        clips = len(dataset)
+        features = torch.zeros(clips, dataset.n_frames, len(names))
+        for i, record in enumerate(dataset.records):
+            label = TACTIC_CLASSES.index(record.label)
+            for k in range(dataset.n_frames):
+                features[i, k, names.index(f"t_observed[{label},{k}]")] = 1
+                features[i, k, names.index(f"bomb_badge[{k},{label}]")] = 1
+                features[i, k, len(names) - len(TOTALS)] = 1
+        samples = [
+            {
+                "clip_id": r.clip_id,
+                "timestamps_s": [0.0, 0.1, 0.2, 0.3][: dataset.n_frames],
+                "repeat_mask": [False] * dataset.n_frames,
+            }
+            for r in dataset.records
+        ]
+        return {
+            "features": features,
+            "samples": samples,
+            "encoder_sha256": None,
+            "feature_names": names,
+        }
+
+    def test_position_inputs_build_their_own_cache_and_can_drop_a_channel(self):
+        with patch(
+            "stratscout.tactic_temporal.extract_position_features", side_effect=self.fake_positions
+        ):
+            with patch("stratscout.tactic_features.build_baseline") as build:
+                summary = run_temporal(
+                    self.manifest,
+                    self.output,
+                    context=self.context,
+                    config=self.config,
+                    models=("mean", "gru"),
+                    inputs="positions",
+                )
+        build.assert_not_called()  # No ResNet for position inputs.
+        self.assertEqual(summary["inputs"], "positions")
+        self.assertEqual(summary["feature_width"], 260)
+        self.assertTrue((self.output / "position-features.pt").is_file())
+        self.assertFalse((self.output / "frame-features.pt").exists())
+        config = json.loads((self.output / "mean" / "config.json").read_text())
+        self.assertEqual(config["model"], "positions-mean-linear")
+        self.assertEqual(config["trainable_parameters"], 261 * 5)
+        self.assertEqual(config["inputs"]["width"], 260)
+        self.assertEqual(len(config["inputs"]["feature_names"]), 260)
+        self.assertIn("Inputs: positions (260 numbers", (self.output / "report.md").read_text())
+        cache = self.output / "position-features.pt"
+        ablation = self.root / "ablation"
+        with patch("stratscout.tactic_temporal.extract_position_features") as extract:
+            dropped = run_temporal(
+                self.manifest,
+                ablation,
+                context=self.context,
+                config=self.config,
+                models=("mean",),
+                inputs="positions",
+                features=cache,
+                drop_channels=("bomb_badge",),
+            )
+        extract.assert_not_called()
+        self.assertEqual(dropped["feature_width"], 260 - 65)
+        names = json.loads((ablation / "mean" / "config.json").read_text())["inputs"][
+            "feature_names"
+        ]
+        self.assertFalse(any(n.startswith("bomb_badge") for n in names))
+        # A position cache is never accepted as image features, and the reverse.
+        with self.assertRaisesRegex(ValueError, "does not match this run"):
+            run_temporal(
+                self.manifest,
+                self.root / "wrong",
+                context=self.context,
+                config=self.config,
+                models=("mean",),
+                features=cache,
+            )
+        self.assertFalse((self.root / "wrong").exists())
+        with self.assertRaisesRegex(ValueError, "only to position features"):
+            run_temporal(
+                self.manifest,
+                self.root / "wrong",
+                context=self.context,
+                drop_channels=("bomb_badge",),
+            )
 
     def test_bad_requests_fail_before_any_output(self):
         for kwargs, message in (

@@ -55,17 +55,19 @@ def extract_frame_features(dataset: TacticClipDataset, output, *, context: RunCo
     }
 
 
-def _identity(dataset: TacticClipDataset) -> dict:
+def _identity(dataset: TacticClipDataset, weights=WEIGHTS) -> dict:
+    """What a cache was made from. ``weights`` names the feature source: the ResNet
+    weights, or the position detector (see ``tactic_positions.KIND``)."""
     return {
         "clip_ids": [r.clip_id for r in dataset.records],
         "manifest_sha256": file_sha256(dataset.manifest),
         "n_frames": dataset.n_frames,
         "size": list(dataset.size) if dataset.size else None,
-        "weights": WEIGHTS,
+        "weights": weights,
     }
 
 
-def save_frame_features(path, frames: dict, dataset: TacticClipDataset) -> None:
+def save_frame_features(path, frames: dict, dataset: TacticClipDataset, weights=WEIGHTS) -> None:
     """Write the per-frame cache with the times, repeat flags and inputs it was made from."""
     samples = frames["samples"]
     save_checkpoint(
@@ -75,16 +77,18 @@ def save_frame_features(path, frames: dict, dataset: TacticClipDataset) -> None:
             "repeat_mask": torch.tensor([s["repeat_mask"] for s in samples], dtype=torch.bool),
             "samples": samples,
             "encoder_sha256": frames["encoder_sha256"],
-            **_identity(dataset),
+            **({"feature_names": frames["feature_names"]} if "feature_names" in frames else {}),
+            **_identity(dataset, weights),
         },
         path,
     )
 
 
-def load_frame_features(path, dataset: TacticClipDataset) -> dict:
-    """Reuse a saved cache only if it was made from this manifest, clip order and sampling."""
+def load_frame_features(path, dataset: TacticClipDataset, weights=WEIGHTS) -> dict:
+    """Reuse a saved cache only if it was made from this manifest, clip order, sampling
+    and feature source."""
     saved = torch.load(Path(path), map_location="cpu", weights_only=True)
-    for key, expected in _identity(dataset).items():
+    for key, expected in _identity(dataset, weights).items():
         if saved.get(key) != expected:
             raise ValueError(f"{path}: cached {key} does not match this run; extract again")
     if saved["features"].shape[:2] != (len(dataset), dataset.n_frames):
