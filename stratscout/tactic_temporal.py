@@ -45,10 +45,16 @@ MODEL_NAMES = {
     "random-thirds": "resnet18-random-thirds-linear",
     "gru": "resnet18-gru-linear",
 }
+DISPLAY_NAMES = {
+    "mean": "Mean pooling + linear",
+    "thirds": "Temporal average pooling (3 bins) + linear",
+    "random-thirds": "Random-bin average pooling + linear (control)",
+    "gru": "GRU",
+}
 TITLES = {
     "mean": "Mean pooling (Plan A) development results",
-    "thirds": "Thirds development results",
-    "random-thirds": "Random-thirds control development results",
+    "thirds": f"{DISPLAY_NAMES['thirds']} development results",
+    "random-thirds": f"{DISPLAY_NAMES['random-thirds']} development results",
     "gru": "GRU development results",
 }
 LIMITS = {
@@ -602,7 +608,8 @@ def comparison_report(output, comparison, dataset) -> str:
         entry = comparison["models"][name]
         optimistic = entry["optimistic_macro_f1"]
         lines.append(
-            f"| {name} | {entry['trainable_parameters']} | {spread_text(entry['macro_f1'])} | "
+            f"| {DISPLAY_NAMES[name]} | {entry['trainable_parameters']} | "
+            f"{spread_text(entry['macro_f1'])} | "
             f"{spread_text(entry['accuracy'])} | "
             f"{spread_text(optimistic) if optimistic else 'not run'} |"
         )
@@ -612,7 +619,9 @@ def comparison_report(output, comparison, dataset) -> str:
         "",
         "## Macro-F1 for each validation match",
         "",
-        "| Validation match | Clips | " + " | ".join(names) + " | Majority |",
+        "| Validation match | Clips | "
+        + " | ".join(DISPLAY_NAMES[name] for name in names)
+        + " | Majority |",
         "|---|---:|" + "---:|" * (len(names) + 1),
     ]
     for index, fold in enumerate(first):
@@ -632,7 +641,7 @@ def comparison_report(output, comparison, dataset) -> str:
         "",
         "Mean over validation matches and seeds. Clips are totals across matches.",
         "",
-        "| Class | Clips | " + " | ".join(names) + " |",
+        "| Class | Clips | " + " | ".join(DISPLAY_NAMES[name] for name in names) + " |",
         "|---|---:|" + "---:|" * len(names),
     ]
     for label in dataset.classes:
@@ -659,7 +668,8 @@ def comparison_report(output, comparison, dataset) -> str:
             if check:
                 f1 = check["macro_f1"]
                 lines.append(
-                    f"| {name} | {comparison['models'][name]['macro_f1']['mean']:.3f} | "
+                    f"| {DISPLAY_NAMES[name]} | "
+                    f"{comparison['models'][name]['macro_f1']['mean']:.3f} | "
                     f"{f1['mean']:.3f} ({f1['min']:.3f} to {f1['max']:.3f}) | "
                     f"{check['at_least_real']} of {check['count']} |"
                 )

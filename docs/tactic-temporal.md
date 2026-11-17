@@ -1,4 +1,4 @@
-# Temporal models: thirds and GRU
+# Temporal models: temporal average pooling and GRU
 
 Two models that look at frame order, trained on the same frozen ResNet-18 frame features
 and the same protocol as the [tactic baseline](tactic-baseline.md), so the scores can be compared.
@@ -6,9 +6,17 @@ and the same protocol as the [tactic baseline](tactic-baseline.md), so the score
 | Model | What it does | Why it is here |
 |---|---|---|
 | `mean` | Plan A: average all frames, then a linear layer | The baseline, refitted on the same cache |
-| `thirds` | Average the early, middle and late third of the frames, join them, then a linear layer | A cheap check of whether frame order helps at all |
-| `random-thirds` | Exactly like `thirds`, but each clip's frames go into the three groups at random | Control: thirds' extra inputs without its frame order |
+| Temporal average pooling (3 bins) + linear (`thirds`) | Average the early, middle and late third of the frame features, concatenate them, then apply a linear layer | A cheap check of whether frame order helps at all |
+| Random-bin average pooling + linear (`random-thirds`) | Exactly like `thirds`, but each clip's frames go into the three groups at random | Control: thirds' extra inputs without its frame order |
 | `gru` | A small GRU reads the frames in order with their times, then a linear layer | A learned temporal model |
+
+The descriptive name for `thirds` is **temporal average pooling (3 bins) + linear**.
+With image inputs, each frame has 512 frozen ResNet features. Three averages are
+concatenated into 1,536 features, and a linear classifier produces five class logits.
+It preserves early/middle/late grouping, but loses order within each bin and does not
+receive elapsed time. The ResNet feature extractor is nonlinear; only the trained head
+is linear. Command options, result keys and folder names keep `thirds` and
+`random-thirds` for compatibility with existing runs; tables below use those short keys.
 
 ## Run it
 

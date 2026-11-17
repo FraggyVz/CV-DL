@@ -329,9 +329,9 @@ class TemporalRunTests(unittest.TestCase):
         self.assertEqual(gru["model"], "resnet18-gru-linear")
         report = (self.output / "report.md").read_text(encoding="utf-8")
         for text in (
-            "| mean | 20 |",
-            "| thirds | 50 |",
-            "| gru |",
+            "| Mean pooling + linear | 20 |",
+            "| Temporal average pooling (3 bins) + linear | 50 |",
+            "| GRU |",
             "within noise",
             "Shuffled-label check",
             "Repeated frames in this run: 25.",
@@ -365,7 +365,10 @@ class TemporalRunTests(unittest.TestCase):
             for key in ("train_clip_ids", "validation_clip_ids", "majority", "train_counts"):
                 self.assertEqual(random[key], ordered[key])
         self.assertTrue((control / "random-thirds" / "shuffled-labels.json").is_file())
-        self.assertIn("| random-thirds | 50 |", (control / "report.md").read_text())
+        self.assertIn(
+            "| Random-bin average pooling + linear (control) | 50 |",
+            (control / "report.md").read_text(),
+        )
 
     def test_saved_frame_features_are_reused_only_for_the_same_inputs(self):
         self.run_models(self.output, models=("mean",))

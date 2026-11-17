@@ -136,7 +136,7 @@ def main(argv=None):
     )
     tactics.add_argument("--device", default="cpu")
     temporal = sub.add_parser(
-        "tactic-temporal", help="Train thirds and GRU models on the baseline's protocol"
+        "tactic-temporal", help="Train temporal average pooling and GRU on the baseline's protocol"
     )
     temporal.add_argument(
         "--manifest", type=Path, required=True, help="Exported train/manifest.csv"
@@ -148,6 +148,8 @@ def main(argv=None):
         nargs="+",
         default=["mean", "thirds", "gru"],
         choices=["mean", "thirds", "random-thirds", "gru"],
+        help="thirds = temporal average pooling (3 bins) + linear; "
+        "random-thirds = random-bin average pooling + linear control",
     )
     temporal.add_argument(
         "--inputs",
