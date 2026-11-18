@@ -29,6 +29,11 @@ because their fixed 32-step round sampling lost elapsed timing. That implementat
 available at commit `1a63107`. Detection results include visual reviews and label-free
 count proxies, not a measured precision/recall result on a reviewed dataset.
 
+**Web application scaffold.** A local-only web shell is now available through Docker
+Compose. It checks the Python service and describes the planned match, detection and
+segment workspaces; those workflows are not connected yet. It does not display real
+detections or tactical predictions.
+
 The agreed tactic classes are `A_DIRECT`, `B_DIRECT`, `A_SPLIT`, `B_SPLIT`, `RETAKE`.
 Direct A includes ramp and/or palace; an A split adds coordinated mid → connector
 participation. Direct B uses apartments; a B split adds mid → short. Label attack and
@@ -69,6 +74,48 @@ or `.ps1` launchers, invoke `.\.venv\Scripts\python.exe` (or `.venv-modular`) di
 changing the machine execution policy is unnecessary. Select the same interpreter in
 an editor. Development dependencies provide Ruff; the main requirements include the
 companion's pandas/demoparser2 dependencies.
+
+## Run the web application
+
+Install Docker Desktop, then from the repository root run:
+
+```powershell
+docker compose up --build
+```
+
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000). The service binds to localhost;
+it is not exposed to the network. The first build downloads the pinned frontend and
+Python web dependencies. Stop it with Ctrl+C, or run `docker compose down`.
+
+The app is currently a startup scaffold: it has a service health check and a landing
+page, but no match browser, video playback, detection overlay, label editor or
+classifier. Prepared recordings and labels are mounted from the repository's existing
+`data/` and `labels/` folders; this scaffold does not write to them. Docker is not
+required for the Python research commands elsewhere in this README.
+
+For frontend development outside Docker, use Python 3.13 and Node.js 22. In one
+PowerShell window install the web dependencies and start the API:
+
+```powershell
+python -m pip install -r requirements-web.txt
+python -m uvicorn stratscout.webapp:app --host 127.0.0.1 --port 8000
+```
+
+In another window, install the pinned frontend packages and start Vite:
+
+```powershell
+Set-Location frontend
+npm ci
+node .\node_modules\vite\bin\vite.js --host 127.0.0.1
+```
+
+Vite runs at `http://127.0.0.1:5173` and proxies API requests to the local Python
+service. To build assets from PowerShell, run:
+
+```powershell
+node .\node_modules\typescript\bin\tsc --noEmit
+if ($?) { node .\node_modules\vite\bin\vite.js build }
+```
 
 ## Where files go
 

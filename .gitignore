@@ -4,6 +4,9 @@
 data/processed/
 
 __pycache__/
+node_modules/
+frontend/node_modules/
+frontend/dist/
 
 # demos are ~300 MB each
 *.dem
