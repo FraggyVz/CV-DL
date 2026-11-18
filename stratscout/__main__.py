@@ -180,6 +180,14 @@ def main(argv=None):
         help="Use the other fold's best epoch for each seed (default)",
     )
     tactics.add_argument("--device", default="cpu")
+    check = sub.add_parser(
+        "detector-check", help="Score detector positions against demo positions (Furia/Spirit)"
+    )
+    check.add_argument("--matches", nargs="+", required=True, help="e.g. furia spirit; never navi")
+    check.add_argument("--output", type=Path, required=True, help="New folder; must not exist")
+    check.add_argument("--demos-dir", type=Path, default=Path("demos"))
+    check.add_argument("--every", type=float, default=1.0, help="Seconds between scored frames")
+    check.add_argument("--fps", type=int, default=10, help="Prepared variant to read")
     args = parser.parse_args(argv)
     if args.command not in ("prototype", "ingest"):
         try:
@@ -200,6 +208,15 @@ def main(argv=None):
                         fixed_epochs=args.fixed_epochs,
                     ),
                     exclude_uncertain=args.exclude_uncertain,
+                )
+            elif args.command == "detector-check":
+                from .detector_check import CheckConfig, run_detector_check
+
+                run_detector_check(
+                    args.matches,
+                    args.output,
+                    demos_dir=args.demos_dir,
+                    config=CheckConfig(every_s=args.every, fps=args.fps),
                 )
             elif args.command == "bomb-scan":
                 from .bomb import write_bomb_scan
