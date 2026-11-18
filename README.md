@@ -133,6 +133,7 @@ python -m stratscout label-segments --match furia --reviewer <name>
 python -m stratscout bomb-scan --video data/processed/recordings/<match>/minimap-5fps.mp4 --output runs/bomb-scan-001
 python -m stratscout icon-count-eval --train furia spirit --test navi --output runs/icon-count-eval-001
 python -m stratscout train-tactics --dataset data/processed/datasets/2026-11-01 --output runs/tactic-tcn-001 --exclude-uncertain
+python -m stratscout predict-tactics data/processed/datasets/2026-11-16/test/clips --output runs/predictions-001.csv
 python -m stratscout prototype --smoke --output runs/smoke-001
 ```
 
@@ -177,10 +178,21 @@ time-blind control (the same features pooled over the clip) and a majority-class
   F1 and a confusion matrix, pooled over the held-out matches (every training clip is
   predicted once, by a model that never saw its match). With `--evaluate-test` it also
   writes `predictions.csv`, `models/` and the same per-class tables for the test match.
+- **Predicting new clips.** `predict-tactics <clips or folders>` loads every seed in
+  `--models` (default `runs/tactic-tcn-final/models`) and prints each clip's class and
+  seed-ensemble probability. Predictions below `--min-confidence` (default 0.6) are
+  flagged as uncertain, with the runner-up class. `--output new.csv` also saves every
+  class probability. Clips must be prepared like the training clips: the spectator-radar
+  crop at 10 fps, cut from the start to the end of one tactic. The empty-map background
+  is built per match from that match's clips, grouped by the file name before the first
+  dot, as `export-segments` names them. Give at least about 5 clips per match, or pass
+  the prepared recording with `--background-from`. On the 2026-11-16 test clips it
+  reproduces `predictions.csv` exactly.
 
 Detections are unvalidated colour estimates, so the features inherit their misses
-(e.g. players standing on site letters, stacks). Results on this pilot dataset (44
-training clips, 24 test clips) show feasibility, not deployable accuracy.
+(e.g. players standing on site letters, stacks). The 2026-11-16 dataset (82 training
+clips from four matches, 45 test clips from two) shows feasibility, not deployable
+accuracy: the test matches share teams with training, and the clips are cut by hand.
 
 The smoke command trains a tiny synthetic detector and checks tracking, saving
 `detector.pt` and `summary.json`. It does not use real recordings or establish accuracy.
@@ -202,7 +214,7 @@ schema are not the current video-preparation or five-class dataset route.
 | `stratscout/media.py`, `video_profiles`, `video_preparation`, `recording_batch`, `fps_comparison`                     | Shared preparation and comparison APIs                                                                     |
 | `segmentation`, `icon_split`, `bomb`, `rounds`, `live_preview`, `count_eval`                                          | Colour/shape detection, overlap handling, estimates and review                                             |
 | `segments`, `segment_labeller`                                                                                        | Five-class segment records, validation, safe saving and the keyboard labeller                              |
-| `segment_export`, `tactic_features`, `tactic_tcn`                                                                     | Clip export, per-frame clip features and the tactic TCN experiment                                         |
+| `segment_export`, `tactic_features`, `tactic_tcn`, `tactic_predict`                                                   | Clip export, per-frame clip features, the tactic TCN experiment and prediction                             |
 | `preprocessing`, `detector`, `datasets`, `training`, `evaluation`, `synthetic`                                        | CNN icon detector and experiments                                                                          |
 | `tracking`, `annotations`, `config`, `contracts`, `context`, `workflow`, `storage`, `video`, `pilot`, `visualisation` | Tracking, legacy labels, explicit run state and orchestration                                              |
 | `stratscout/ingest/`                                                                                                  | Optional demo parsing, coordinate mapping and legacy exports                                               |
