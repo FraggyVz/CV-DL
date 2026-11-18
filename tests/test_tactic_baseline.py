@@ -32,10 +32,27 @@ from stratscout.tactic_training import (
     classification_metrics,
     fit_classifier,
     fit_folds,
+    inner_match_folds,
+    nested_epoch,
     run_baseline,
+    selection_mode,
     summarise_runs,
     training_class_weights,
 )
+
+
+def three_match_folds():
+    """Matches a, b and c with five clips each: one clip per class."""
+    matches = {name: tuple(range(start, start + 5)) for name, start in zip("abc", (0, 5, 10))}
+    return tuple(
+        MatchFold(
+            tuple(i for other, clips in matches.items() if other != name for i in clips),
+            clips,
+            tuple(other for other in matches if other != name),
+            name,
+        )
+        for name, clips in matches.items()
+    )
 
 
 def tiny_model(*, context, pretrained=True):
@@ -268,18 +285,125 @@ class TacticModelTests(unittest.TestCase):
                     torch.testing.assert_close(tensor, reference.state_dict()[key], rtol=0, atol=0)
                 np.testing.assert_array_equal(probs, reference_probs)
 
-    def test_cross_fold_rejects_ambiguous_number_of_folds_before_fitting(self):
-        with patch("stratscout.tactic_training.fit_classifier") as fit:
-            with self.assertRaisesRegex(ValueError, "exactly two folds"):
-                fit_folds(
-                    torch.eye(5),
-                    torch.arange(5),
-                    (),
+    def test_fewer_than_two_folds_are_rejected_before_fitting(self):
+        one = (MatchFold((0, 1, 2, 3, 4), (0, 1, 2, 3, 4), ("furia",), "furia"),)
+        for folds in ((), one):
+            with (
+                self.subTest(folds=len(folds)),
+                patch("stratscout.tactic_training.fit_classifier") as fit,
+            ):
+                with self.assertRaisesRegex(ValueError, "at least two folds"):
+                    fit_folds(
+                        torch.eye(5),
+                        torch.arange(5),
+                        folds,
+                        classes=TACTIC_CLASSES,
+                        config=BaselineConfig(),
+                        context=self.context,
+                    )
+                fit.assert_not_called()
+
+    def test_selection_mode_follows_fold_count_and_fixed_epochs(self):
+        self.assertEqual(selection_mode(BaselineConfig(), 2), "cross-fold")
+        for count in (3, 4):
+            self.assertEqual(selection_mode(BaselineConfig(), count), "nested")
+            self.assertEqual(selection_mode(BaselineConfig(fixed_epochs=5), count), "fixed")
+
+    def test_inner_folds_leave_out_one_training_match_and_never_the_scored_match(self):
+        folds = three_match_folds()
+        inner = inner_match_folds(folds[2], folds)  # Scored match: c, clips 10-14.
+        self.assertEqual([f.validation_match_id for f in inner], ["a", "b"])
+        self.assertEqual(inner[0].train_indices, tuple(range(5, 10)))
+        self.assertEqual(inner[0].validation_indices, tuple(range(5)))
+        self.assertEqual(inner[1].train_match_ids, ("a",))
+        for part in inner:
+            self.assertTrue(set(part.train_indices + part.validation_indices) <= set(range(10)))
+        with self.assertRaisesRegex(ValueError, "every training match"):
+            inner_match_folds(folds[2], folds[1:])
+
+    def test_nested_epoch_scores_the_mean_inner_curve_with_ties_and_patience(self):
+        folds = three_match_folds()
+        curves = {  # Per inner validation match: (macro-F1, loss) at each epoch.
+            "a": [(0.2, 1.0), (0.8, 1.0), (0.4, 0.5), (0.4, 1.0), (0.0, 1.0), (1.0, 1.0)],
+            "b": [(0.6, 1.0), (0.2, 1.0), (0.6, 0.5), (0.4, 1.0), (0.0, 1.0), (1.0, 1.0)],
+        }
+
+        def pilot(x, y, fold, *, classes, config, seed, context):
+            self.assertEqual(config.patience, config.epochs)  # Inner fits return full curves.
+            self.assertIsNone(config.fixed_epochs)
+            history = [
+                dict(epoch=i, validation_macro_f1=score, validation_loss=loss)
+                for i, (score, loss) in enumerate(curves[fold.validation_match_id], start=1)
+            ]
+            return None, {"history": history}, None
+
+        def choose(patience):
+            with patch("stratscout.tactic_training.fit_classifier", side_effect=pilot):
+                return nested_epoch(
+                    torch.eye(5).repeat(3, 1),
+                    torch.arange(5).repeat(3),
+                    folds[2],
+                    folds,
                     classes=TACTIC_CLASSES,
-                    config=BaselineConfig(),
+                    config=BaselineConfig(epochs=6, patience=patience),
+                    seed=1,
                     context=self.context,
                 )
-        fit.assert_not_called()
+
+        # Means are 0.4, 0.5, 0.5, 0.4, 0.0, 1.0: epoch 3 ties epoch 2 and wins on lower loss.
+        epoch, selection = choose(patience=2)  # Stops at epoch 5, before the late peak.
+        self.assertEqual(epoch, 3)
+        self.assertEqual(selection["epoch"], 3)
+        self.assertAlmostEqual(selection["mean_validation_macro_f1"], 0.5)
+        self.assertEqual(selection["inner_validation_match_ids"], ["a", "b"])
+        self.assertEqual(len(selection["history"]), 5)
+        self.assertEqual(selection["history"][1]["validation_macro_f1"], {"a": 0.8, "b": 0.2})
+        epoch, selection = choose(patience=3)  # A longer wait reaches epoch 6.
+        self.assertEqual(epoch, 6)
+        self.assertEqual(len(selection["history"]), 6)
+
+    def test_nested_fit_never_uses_the_scored_match_for_its_epoch_or_weights(self):
+        folds = three_match_folds()
+        generator = torch.Generator().manual_seed(0)
+        features = torch.randn(15, 6, generator=generator)
+        targets = torch.arange(5).repeat(3)
+        config = BaselineConfig(epochs=8, patience=3, seeds=(1, 4))
+
+        def fit(x, y):
+            return fit_folds(
+                x, y, folds, classes=TACTIC_CLASSES, config=config, context=self.context
+            )
+
+        results = fit(features, targets)
+        changed_features, changed_targets = features.clone(), targets.clone()
+        changed_features[10:] += 50  # Match c is fold 3's scored match.
+        changed_targets[10:] = (changed_targets[10:] + 2) % 5
+        changed = fit(changed_features, changed_targets)
+        self.assertEqual(len(results), 3)
+        for (head, run, probs), (other_head, other_run, _) in zip(
+            results[2], changed[2], strict=True
+        ):
+            self.assertEqual(run["epoch_selection"], "nested")
+            self.assertIsNone(run["epoch_source_fold"])
+            self.assertEqual(run["selection"], other_run["selection"])
+            self.assertEqual(run["evaluation_epoch"], run["selection"]["epoch"])
+            self.assertEqual(run["epochs_run"], run["selection"]["epoch"])
+            self.assertEqual(run["selection"]["inner_validation_match_ids"], ["a", "b"])
+            self.assertEqual(run["optimistic"]["epoch_selection"], "early-stopping")
+            for key, tensor in head.state_dict().items():
+                torch.testing.assert_close(tensor, other_head.state_dict()[key], rtol=0, atol=0)
+            reference, _, reference_probs = fit_classifier(
+                features,
+                targets,
+                folds[2],
+                classes=TACTIC_CLASSES,
+                config=replace(config, fixed_epochs=run["selection"]["epoch"]),
+                seed=run["seed"],
+                context=self.context,
+            )
+            for key, tensor in head.state_dict().items():
+                torch.testing.assert_close(tensor, reference.state_dict()[key], rtol=0, atol=0)
+            np.testing.assert_array_equal(probs, reference_probs)
 
     def test_cli_epoch_modes_and_conflicts(self):
         base = ["tactic-baseline", "--manifest", "unused.csv", "--output", "unused-output"]
@@ -322,8 +446,15 @@ class TacticRunTests(unittest.TestCase):
         self.context = RunContext()
         self.config = BaselineConfig(size=32, n_frames=2, epochs=3, patience=2, seeds=(3, 7))
         # Every class exists in both matches, with different majority classes.
+        self.write_manifest((("furia", [0, 0, 1, 2, 3, 4]), ("spirit", [0, 1, 1, 1, 2, 3, 4])))
+        # An invalid neighbouring test manifest must never be opened.
+        test_dir = self.root / "test"
+        test_dir.mkdir()
+        (test_dir / "manifest.csv").write_text("DO NOT READ", encoding="utf-8")
+
+    def write_manifest(self, matches):
         rows = []
-        for match, labels in (("furia", [0, 0, 1, 2, 3, 4]), ("spirit", [0, 1, 1, 1, 2, 3, 4])):
+        for match, labels in matches:
             for i, label in enumerate(labels):
                 clip_id = f"{match}-{i}"
                 path = self.manifest.parent / f"{clip_id}.mp4"
@@ -358,10 +489,6 @@ class TacticRunTests(unittest.TestCase):
             writer = csv.DictWriter(stream, fieldnames=COLUMNS)
             writer.writeheader()
             writer.writerows(rows)
-        # An invalid neighbouring test manifest must never be opened.
-        test_dir = self.root / "test"
-        test_dir.mkdir()
-        (test_dir / "manifest.csv").write_text("DO NOT READ", encoding="utf-8")
 
     def test_end_to_end_outputs_majorities_exclusions_and_offline_reload(self):
         with patch("stratscout.tactic_training.build_baseline", side_effect=tiny_model):
@@ -456,6 +583,89 @@ class TacticRunTests(unittest.TestCase):
         self.assertIn("Main result: fixed", report)
         self.assertIn("not run", report)
         self.assertFalse(list(self.output.glob("*-optimistic-history.json")))
+
+    def test_four_matches_use_nested_selection_and_keep_the_output_files(self):
+        self.write_manifest(
+            (
+                ("aurora", [0, 1, 2, 3, 3, 4]),
+                ("furia", [0, 0, 1, 2, 3, 4]),
+                ("mouz", [0, 1, 2, 3, 4, 4]),
+                ("spirit", [0, 1, 1, 1, 2, 3, 4]),
+            )
+        )
+        with patch("stratscout.tactic_training.build_baseline", side_effect=tiny_model):
+            with self.assertWarns(UserWarning):
+                summary = run_baseline(
+                    self.manifest,
+                    self.output,
+                    context=self.context,
+                    config=self.config,
+                    exclude_uncertain=True,
+                )
+        self.assertEqual(summary["epoch_mode"], "nested")
+        self.assertEqual(
+            json.loads((self.output / "config.json").read_text())["epoch_mode"], "nested"
+        )
+        self.assertIn("not an independent test score", summary["limitations"][0])
+        names = ["aurora", "furia", "mouz", "spirit"]
+        total = 0
+        for number, name in enumerate(names, start=1):
+            fold = json.loads((self.output / f"fold-{number}.json").read_text())
+            self.assertEqual(fold["validation_match_id"], name)
+            self.assertEqual(fold["train_match_ids"], [n for n in names if n != name])
+            self.assertTrue(set(fold["train_clip_ids"]).isdisjoint(fold["validation_clip_ids"]))
+            total += len(fold["validation_clip_ids"])
+            for run in fold["runs"]:
+                selection = run["selection"]
+                self.assertEqual(run["epoch_selection"], "nested")
+                self.assertEqual(run["evaluation_epoch"], selection["epoch"])
+                self.assertNotIn(name, selection["inner_validation_match_ids"])
+                self.assertEqual(len(selection["inner_validation_match_ids"]), 3)
+                self.assertNotIn("history", selection)
+                stem = f"fold-{number}-seed-{run['seed']}"
+                curve = json.loads((self.output / f"{stem}-selection-history.json").read_text())
+                self.assertEqual(set(curve[0]["validation_macro_f1"]), set(names) - {name})
+                self.assertEqual(
+                    selection["mean_validation_macro_f1"],
+                    curve[selection["epoch"] - 1]["mean_validation_macro_f1"],
+                )
+                self.assertEqual(
+                    len(json.loads((self.output / f"{stem}-history.json").read_text())),
+                    selection["epoch"],
+                )
+                self.assertTrue((self.output / f"{stem}-optimistic-history.json").is_file())
+                saved = torch.load(self.output / run["checkpoint"], weights_only=True)
+                self.assertEqual(saved["epoch_selection"], "nested")
+                self.assertIsNone(saved["epoch_source_fold"])
+        self.assertEqual(total, 25)
+        with (self.output / "predictions.csv").open(newline="") as stream:
+            self.assertEqual(len(list(csv.DictReader(stream))), 25 * 2)
+        report = (self.output / "report.md").read_text(encoding="utf-8")
+        self.assertIn("Main result: nested", report)
+        self.assertIn("| training matches |", report)
+        for name in names:
+            self.assertIn(f"## Per-class F1: {name}", report)
+
+    def test_nested_run_rejects_an_inner_fold_without_every_class_before_writing(self):
+        # Class 4 is missing from mouz: fine for the outer folds, not for an inner one.
+        self.write_manifest(
+            (
+                ("furia", [0, 1, 2, 3, 4]),
+                ("mouz", [0, 1, 2, 3, 3]),
+                ("spirit", [0, 1, 2, 3, 4]),
+            )
+        )
+        with patch("stratscout.tactic_training.build_baseline") as build:
+            with self.assertWarns(UserWarning), self.assertRaisesRegex(ValueError, "no examples"):
+                run_baseline(
+                    self.manifest,
+                    self.output,
+                    context=self.context,
+                    config=self.config,
+                    exclude_uncertain=True,
+                )
+        build.assert_not_called()
+        self.assertFalse(self.output.exists())
 
     def test_default_uncertain_rejection_does_not_create_output(self):
         with self.assertRaisesRegex(ValueError, "uncertain boundary"):

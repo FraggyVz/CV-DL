@@ -177,7 +177,8 @@ def main(argv=None):
         dest="fixed_epochs",
         action="store_const",
         const=None,
-        help="Use the other fold's best epoch for each seed (default)",
+        help="Choose each epoch without the scored match (default): the other fold with two "
+        "matches, nested with three or more",
     )
     tactics.add_argument("--device", default="cpu")
     check = sub.add_parser(
