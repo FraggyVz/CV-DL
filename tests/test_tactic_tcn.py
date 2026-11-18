@@ -206,5 +206,67 @@ class ExperimentTests(unittest.TestCase):
         self.assertEqual(np.sum(pooled["confusion"]), 30)
 
 
+class ClipDataInputTests(unittest.TestCase):
+    def test_clip_data_input_trains_with_a_per_fold_resnet_compressor(self):
+        """Each class has its own value in one detector channel; ResNet rows are noise."""
+        rng = np.random.default_rng(0)
+        rows, dets = [], {}
+        for split, matches in (("train", ("m1", "m2")), ("test", ("m3",))):
+            for match in matches:
+                for y in range(5):
+                    for k in range(3):
+                        clip_id = f"{match}.{y}.{k}"
+                        n = int(rng.integers(15, 30))
+                        x = rng.normal(0, 0.1, (n, 6)).astype(np.float32)
+                        x[:, y] += 1.0
+                        dets[clip_id] = {
+                            "detector": x,
+                            "resnet": rng.normal(size=(n, 16)).astype(np.float16),
+                        }
+                        rows.append(
+                            {
+                                "clip_id": clip_id,
+                                "split": split,
+                                "label": TACTIC_CLASSES[y],
+                                "y": y,
+                                "match": match,
+                                "duration_s": n / 5,
+                            }
+                        )
+        cfg = TacticConfig(
+            epochs=30,
+            eval_every=10,
+            seeds=(0,),
+            channels=16,
+            dilations=(1, 2),
+            input="clip-data",
+            resnet_pcs=4,
+        )
+        model, norm, _ = train_model(
+            "tcn", [(dets[r["clip_id"]], r["y"]) for r in rows[:30]], cfg, 0, epochs=2
+        )
+        self.assertEqual(len(norm.mean), 6 + 4)  # detector channels + compressed ResNet
+        self.assertEqual(norm.compressor.components.shape, (4, 16))
+        with tempfile.TemporaryDirectory() as tmp:
+            report = run_tactic_experiment(
+                "synthetic",
+                Path(tmp) / "run",
+                cfg,
+                evaluate_test=True,
+                rows=rows,
+                dets=dets,
+                log=lambda m: None,
+            )
+            saved = torch.load(Path(tmp) / "run" / "models" / "tcn-seed0.pt", weights_only=False)
+            with self.assertRaisesRegex(ValueError, "clip-data"):
+                run_tactic_experiment(
+                    "synthetic", Path(tmp) / "x", cfg, rows=rows, log=lambda m: None
+                )
+            self.assertFalse((Path(tmp) / "x").exists())
+        self.assertEqual(saved["resnet_pca"]["components"].shape, (4, 16))
+        self.assertEqual(report["input"], "clip-data")
+        self.assertGreater(report["models"]["tcn"]["cv"]["cross_fold_macro_f1"], 0.6)
+
+
 if __name__ == "__main__":
     unittest.main()

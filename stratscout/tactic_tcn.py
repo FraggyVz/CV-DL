@@ -29,7 +29,7 @@ import torch.nn.functional as F
 
 from .config import TACTIC_CLASSES, set_seed
 from .storage import save_checkpoint, write_new_text
-from .tactic_features import cached_detections, clip_features, feature_dim, load_dataset
+from .tactic_features import cached_detections, clip_features, load_dataset
 
 
 @dataclass
@@ -51,6 +51,11 @@ class TacticConfig:
     drop: float = 0.05  # fraction of detections dropped in training
     seeds: Tuple[int, ...] = (0, 1, 2, 3, 4)
     models: Tuple[str, ...] = ("tcn", "control")
+    # "detections": the original 141 features built from cached detections, augmented in
+    # training. "clip-data": the shared clip data (docs/clip-data.md), 72 detector channels
+    # plus resnet_pcs ResNet numbers per row, fitted per fold; no input augmentation.
+    input: str = "detections"
+    resnet_pcs: int = 32
 
 
 def receptive_field(kernel: int, dilations: Sequence[int]) -> int:
@@ -144,11 +149,13 @@ def pad_batch(feats: Sequence[np.ndarray]) -> Tuple[torch.Tensor, torch.Tensor]:
 class Normaliser:
     mean: np.ndarray
     std: np.ndarray
+    # With clip-data input: the ResNet compressor fitted on the same training clips.
+    compressor: Optional[object] = None
 
     @classmethod
-    def fit(cls, feats: Sequence[np.ndarray]) -> "Normaliser":
+    def fit(cls, feats: Sequence[np.ndarray], compressor=None) -> "Normaliser":
         allsteps = np.concatenate(feats, 0)
-        return cls(allsteps.mean(0), np.maximum(allsteps.std(0), 1e-3))
+        return cls(allsteps.mean(0), np.maximum(allsteps.std(0), 1e-3), compressor)
 
     def __call__(self, f: np.ndarray) -> np.ndarray:
         return ((f - self.mean) / self.std).astype(np.float32)
@@ -215,8 +222,18 @@ def train_model(
     rng = np.random.default_rng(seed)
     epochs = cfg.epochs if epochs is None else epochs
     dets, ys = [d for d, _ in train], [y for _, y in train]
-    norm = Normaliser.fit([clip_features(d, step=cfg.step, grid=cfg.grid) for d in dets])
-    model = build_model(kind, feature_dim(cfg.grid), cfg).to(device)
+    compressor = None
+    if cfg.input == "clip-data" and cfg.resnet_pcs > 0:
+        from .clip_data import ResnetCompressor
+
+        compressor = ResnetCompressor(cfg.resnet_pcs).fit([d["resnet"] for d in dets])
+    norm = Normaliser.fit([_raw_features(d, cfg, compressor) for d in dets], compressor)
+    fixed = (
+        [norm(_raw_features(d, cfg, compressor)) for d in dets]
+        if cfg.input != "detections"
+        else None
+    )
+    model = build_model(kind, len(norm.mean), cfg).to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
     # Linear warm-up, then a constant rate. The schedule must not depend on the total
     # epoch count: the epoch chosen in cross-validation (a checkpoint inside a longer run)
@@ -230,20 +247,23 @@ def train_model(
     for epoch in range(1, epochs + 1):
         model.train()
         for idx in np.array_split(rng.permutation(len(train)), math.ceil(len(train) / cfg.batch)):
-            feats = [
-                norm(
-                    clip_features(
-                        dets[i],
-                        step=cfg.step,
-                        offset=int(rng.integers(cfg.step)),
-                        grid=cfg.grid,
-                        rng=rng,
-                        jitter=cfg.jitter,
-                        drop=cfg.drop,
+            if fixed is not None:
+                feats = [fixed[i] for i in idx]
+            else:
+                feats = [
+                    norm(
+                        clip_features(
+                            dets[i],
+                            step=cfg.step,
+                            offset=int(rng.integers(cfg.step)),
+                            grid=cfg.grid,
+                            rng=rng,
+                            jitter=cfg.jitter,
+                            drop=cfg.drop,
+                        )
                     )
-                )
-                for i in idx
-            ]
+                    for i in idx
+                ]
             x, mask = pad_batch(feats)
             y = torch.tensor([ys[i] for i in idx], device=device)
             loss = loss_fn(model(x.to(device), mask.to(device)), y)
@@ -256,8 +276,21 @@ def train_model(
     return model, norm, history
 
 
+def _raw_features(det: Dict, cfg: TacticConfig, compressor=None) -> np.ndarray:
+    """One clip's unnormalised (steps, features): the original detection features, or
+    the clip data's detector channels with the fold's compressed ResNet numbers."""
+    if cfg.input == "detections":
+        return clip_features(det, step=cfg.step, grid=cfg.grid)
+    if cfg.input != "clip-data":
+        raise ValueError(f"unknown input {cfg.input!r}")
+    x = np.asarray(det["detector"], np.float32)
+    if compressor is not None:
+        x = np.concatenate([x, compressor(det["resnet"])], 1)
+    return x
+
+
 def _eval_features(dets: Sequence[Dict], norm: Normaliser, cfg: TacticConfig) -> List[np.ndarray]:
-    return [norm(clip_features(d, step=cfg.step, grid=cfg.grid)) for d in dets]
+    return [norm(_raw_features(d, cfg, norm.compressor)) for d in dets]
 
 
 def cross_validate(kind: str, rows: List[Dict], dets: Dict, cfg: TacticConfig, device="cpu"):
@@ -388,6 +421,7 @@ def run_tactic_experiment(
     evaluate_test: bool = False,
     exclude_uncertain: bool = False,
     cache_dir="runs/tactic-cache",
+    clip_data=None,
     device: str = "cpu",
     log=print,
     rows: Optional[List[Dict]] = None,
@@ -411,12 +445,17 @@ def run_tactic_experiment(
     if uncertain:
         log(f"Excluded {len(uncertain)} uncertain-boundary clips: {', '.join(uncertain)}")
         rows = [r for r in rows if not r.get("uncertain")]
+    data_info = None
+    if dets is None and cfg.input == "clip-data":
+        dets, data_info = _load_clip_inputs(clip_data, rows, cfg)
     output.mkdir(parents=True)
     if dets is None:
         log(f"Detections for {len(rows)} clips (cached in {cache_dir})")
         dets = cached_detections(rows, cache_dir, log=log)
     report = {
         "dataset": str(dataset),
+        "input": cfg.input,
+        "clip_data": data_info,
         "config": asdict(cfg),
         "receptive_field_s": receptive_field(cfg.kernel, cfg.dilations) * cfg.step / 10.0,
         "clips": {
@@ -470,6 +509,12 @@ def run_tactic_experiment(
                         "state_dict": model.state_dict(),
                         "norm_mean": norm.mean,
                         "norm_std": norm.std,
+                        "resnet_pca": None
+                        if norm.compressor is None
+                        else {
+                            "mean": norm.compressor.mean,
+                            "components": norm.compressor.components,
+                        },
                         "config": asdict(cfg),
                         "epochs": cv["final_epoch"],
                         "classes": TACTIC_CLASSES,
@@ -497,6 +542,33 @@ def run_tactic_experiment(
     return report
 
 
+def _load_clip_inputs(folder, rows: List[Dict], cfg: TacticConfig):
+    """Clip data (build-clip-data) for every dataset row, keyed by clip_id, plus the
+    versions to report. Refuses a folder that lacks a clip or ResNet features it needs."""
+    if folder is None:
+        raise ValueError("clip-data input needs --clip-data, a build-clip-data folder")
+    from .clip_data import load_clip_data
+
+    clips = {c["clip_id"]: c for c in load_clip_data(folder)}
+    missing = [r["clip_id"] for r in rows if r["clip_id"] not in clips]
+    if missing:
+        raise ValueError(
+            f"{len(missing)} dataset clips are not in {folder} (e.g. {missing[0]}); "
+            "rebuild it with build-clip-data from the same dataset"
+        )
+    if cfg.resnet_pcs > 0 and any(clips[r["clip_id"]]["resnet"] is None for r in rows):
+        raise ValueError(f"{folder} was built without ResNet; use --resnet-pcs 0 or rebuild")
+    channels = json.loads((Path(folder) / "channels.json").read_text(encoding="utf-8"))
+    info = {
+        "folder": str(folder),
+        "data_version": channels["data_version"],
+        "regions_version": channels["regions_version"],
+        "detector_channels": len(channels["detector"]),
+        "resnet_pcs": cfg.resnet_pcs,
+    }
+    return {r["clip_id"]: clips[r["clip_id"]] for r in rows}, info
+
+
 def render_report(report: Dict) -> str:
     """A short Markdown summary of report.json."""
     lines = [
@@ -504,6 +576,8 @@ def render_report(report: Dict) -> str:
         "",
         f"Dataset: `{report['dataset']}`. Receptive field of the conv stack: "
         f"{report['receptive_field_s']:.1f} s (pooling then covers the whole clip).",
+        "",
+        _input_line(report),
         "",
         "| Split | " + " | ".join(TACTIC_CLASSES) + " |",
         "|---|" + "---|" * len(TACTIC_CLASSES),
@@ -566,6 +640,18 @@ def render_report(report: Dict) -> str:
         if "test" in entry:
             lines += _class_section(kind, entry["test"])
     return "\n".join(lines) + "\n"
+
+
+def _input_line(report: Dict) -> str:
+    info = report.get("clip_data")
+    if report.get("input", "detections") == "detections" or not info:
+        return "Input: the original detection features (141 per step), augmented in training."
+    return (
+        f"Input: shared clip data `{info['folder']}` ({info['data_version']}, regions "
+        f"{info['regions_version']}): {info['detector_channels']} detector channels + "
+        f"{info['resnet_pcs']} ResNet numbers per row (compressed per fold on its training "
+        "clips); no input augmentation."
+    )
 
 
 def _class_section(kind: str, scores: Dict) -> List[str]:

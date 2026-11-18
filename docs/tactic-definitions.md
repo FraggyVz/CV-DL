@@ -10,7 +10,9 @@ on 15–20 clips before freezing a version and labelling at scale.
 **Tool status.** `label-segments`, `review-segments` and `export-segments` implement
 this specification for the pilot; the [labelling guide](labelling-guide.md) explains
 how to use them. Not yet implemented: participating approaches, approach-entry times
-and notes in the record, reviewer comparison and region polygons. The legacy
+and notes in the record, and reviewer comparison. Draft map regions for model features
+(not for labelling) are in `stratscout/mirage_regions.json`; see
+[shared clip data](clip-data.md#map-regions). The legacy
 `RoundLabeller` and the old `config.py` round labels keep the attacker/defender schema;
 do not use them for new labels or as the five-class mapping.
 
@@ -66,7 +68,9 @@ When adding region features, draw and version the regions once for the fixed rad
 layout, using normalised crop coordinates. Keep A ramp, palace, A site, mid, connector,
 short, B apartments and B site separate. Add spawn/rotation regions as context.
 Define site-approach boundaries so
-reviewers use the same positions to judge entry attempts. Polygon tooling and saved
+reviewers use the same positions to judge entry attempts. A first draft for model
+features exists (`mirage-spectator-v1`, rectangles in `stratscout/mirage_regions.json`,
+documented in [shared clip data](clip-data.md#map-regions)). Polygon tooling and saved
 region definitions remain implementation work; these names are not saved polygons.
 
 A split requires active participation from both specified approaches. The second group

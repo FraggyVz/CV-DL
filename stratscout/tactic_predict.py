@@ -48,6 +48,11 @@ def load_ensemble(models_dir, kind: str = "tcn", device: str = "cpu"):
             raise ValueError(f"{path} was trained on different classes: {ckpt['classes']}")
         raw = ckpt["config"]
         cfg = TacticConfig(**{k: tuple(v) if isinstance(v, list) else v for k, v in raw.items()})
+        if cfg.input != "detections":
+            raise ValueError(
+                f"{path} was trained on shared clip data; predict-tactics only supports "
+                "models trained on the original detection features so far"
+            )
         model = build_model(ckpt["kind"], feature_dim(cfg.grid), cfg).to(device)
         model.load_state_dict(ckpt["state_dict"])
         model.eval()

@@ -1,0 +1,20 @@
+{
+  "version": "mirage-spectator-v1",
+  "layout": "Spectator radar crop (494 x 500 px) used by every 2026-11 recording",
+  "units": "Normalised crop coordinates: x from left (0) to right (1), y from top (0) to bottom (1)",
+  "status": "Draft drawn from the empty-map image; review with the team before relying on it",
+  "rule": "A point belongs to the first region in this list whose rectangles contain it; otherwise to none",
+  "regions": [
+    {"name": "b_site", "rects": [[0.09, 0.19, 0.33, 0.42], [0.15, 0.42, 0.33, 0.48]]},
+    {"name": "a_site", "rects": [[0.44, 0.66, 0.63, 0.86]]},
+    {"name": "palace", "rects": [[0.63, 0.71, 0.86, 0.81]]},
+    {"name": "a_ramp", "rects": [[0.60, 0.53, 0.85, 0.72]]},
+    {"name": "short", "rects": [[0.33, 0.28, 0.50, 0.40]]},
+    {"name": "connector", "rects": [[0.44, 0.50, 0.55, 0.66], [0.55, 0.60, 0.60, 0.67]]},
+    {"name": "mid", "rects": [[0.42, 0.37, 0.75, 0.53], [0.65, 0.19, 0.77, 0.37]]},
+    {"name": "apartments", "rects": [[0.15, 0.14, 0.80, 0.19], [0.33, 0.19, 0.62, 0.30]]},
+    {"name": "t_spawn", "rects": [[0.77, 0.17, 0.95, 0.64]]},
+    {"name": "ct_side", "rects": [[0.20, 0.55, 0.44, 0.88], [0.28, 0.48, 0.42, 0.55], [0.28, 0.40, 0.44, 0.48], [0.33, 0.33, 0.42, 0.40]]}
+  ],
+  "site_centres": {"a": [0.54, 0.75], "b": [0.22, 0.28]}
+}

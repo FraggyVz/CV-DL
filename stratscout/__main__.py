@@ -114,6 +114,17 @@ def main(argv=None):
     tactic.add_argument("--grid", type=int, default=8, help="Occupancy grid cells per side")
     tactic.add_argument("--models", nargs="+", default=["tcn", "control"])
     tactic.add_argument("--cache", type=Path, default=Path("runs/tactic-cache"))
+    tactic.add_argument(
+        "--clip-data",
+        type=Path,
+        help="Train on shared clip data from build-clip-data instead of the original features",
+    )
+    tactic.add_argument(
+        "--resnet-pcs",
+        type=int,
+        default=32,
+        help="With --clip-data: ResNet numbers per row, compressed per fold (0 = detector only)",
+    )
     tactic.add_argument("--device", default="cpu", help="PyTorch device, e.g. cpu or cuda")
     tactic.add_argument(
         "--exclude-uncertain",
@@ -125,6 +136,15 @@ def main(argv=None):
         action="store_true",
         help="Also train on all training matches and score the test match (do this once)",
     )
+    shared = sub.add_parser(
+        "build-clip-data",
+        help="Build the shared model-ready data (detector channels + ResNet) for every clip",
+    )
+    shared.add_argument("--dataset", type=Path, required=True, help="export-segments folder")
+    shared.add_argument("--output", type=Path, required=True, help="New folder; must not exist")
+    shared.add_argument("--cache", type=Path, default=Path("runs/tactic-cache"))
+    shared.add_argument("--no-resnet", action="store_true", help="Detector channels only")
+    shared.add_argument("--device", default="cpu")
     guess = sub.add_parser(
         "predict-tactics", help="Classify new prepared clips with saved tactic models"
     )
@@ -352,6 +372,8 @@ def main(argv=None):
                     seeds=tuple(range(args.seeds)),
                     grid=args.grid,
                     models=tuple(args.models),
+                    input="clip-data" if args.clip_data else "detections",
+                    resnet_pcs=args.resnet_pcs,
                 )
                 run_tactic_experiment(
                     args.dataset,
@@ -360,6 +382,18 @@ def main(argv=None):
                     evaluate_test=args.evaluate_test,
                     exclude_uncertain=args.exclude_uncertain,
                     cache_dir=args.cache,
+                    clip_data=args.clip_data,
+                    device=args.device,
+                )
+                print(f"Report: {args.output / 'report.md'}")
+            elif args.command == "build-clip-data":
+                from .clip_data import build_clip_data
+
+                build_clip_data(
+                    args.dataset,
+                    args.output,
+                    cache_dir=args.cache,
+                    with_resnet=not args.no_resnet,
                     device=args.device,
                 )
                 print(f"Report: {args.output / 'report.md'}")
