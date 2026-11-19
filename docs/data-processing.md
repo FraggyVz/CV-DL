@@ -151,6 +151,6 @@ Training on the shared data is not wired into the models yet. Until then,
 | Prepared recordings | `data/processed/recordings/<match>/` | No |
 | Label files | `labels/` | **Yes:** commit them so everyone exports the same dataset |
 | Exported datasets | `data/processed/datasets/<date>/` | No |
-| Detection cache | `runs/tactic-cache/` | No |
-| Shared clip data | `runs/clip-data-<date>/` | No |
-| Model runs | `runs/<run name>/` | No |
+| Detection cache | `runs/tactic-cache/` | **Yes** |
+| Shared clip data | `runs/clip-data-<date>/` | **Yes** |
+| Model runs | `runs/<run name>/` | **Yes:** commit the runs worth keeping, not scratch runs |

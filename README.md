@@ -176,7 +176,7 @@ data/
             test/   manifest.csv, clips/<class>/*.mp4
 labels/                            segment label files (*.segments.json): committed to Git
 configs/                           local settings, e.g. recording-video.json (not committed)
-runs/                              experiment, scan and smoke-test outputs (not committed)
+runs/                              experiment outputs, the shared clip data and the detection cache: committed to Git
 ```
 
 - **Your own recording:** see [Process a recording](#process-a-recording). The batch
@@ -190,8 +190,10 @@ runs/                              experiment, scan and smoke-test outputs (not 
   directly inside. If train and test arrive as separate ZIPs carrying the same
   `export.json`, keep one copy at the top. Make a new dated folder for each export;
   never mix clips from two exports.
-- Do not commit videos, datasets or checkpoints. Only `labels/` and code are shared
-  through Git.
+- Do not commit videos or datasets. `labels/`, code and `runs/` (model runs with their
+  checkpoints, the shared clip data and the detection cache) are shared through Git, so
+  everyone can open the same results. Commit only runs worth keeping, and delete scratch
+  runs before committing.
 
 ## Process a recording
 
