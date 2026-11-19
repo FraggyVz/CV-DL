@@ -6,8 +6,8 @@ from pathlib import Path
 import numpy as np
 
 from stratscout.config import TACTIC_CLASSES
-from stratscout.tactic_predict import find_clips, prediction_rows, run_predict
 from stratscout.tactic_tcn import TacticConfig, run_tactic_experiment
+from stratscout.tcn_predict import find_clips, prediction_rows, run_predict
 
 
 def detections(n_frames, team_points, fps=10.0):
@@ -65,6 +65,56 @@ class PredictTests(unittest.TestCase):
                 run_predict([], out / "models", output=csv_out, dets=test, log=lambda m: None)
             with self.assertRaisesRegex(ValueError, "control-seed"):
                 run_predict([], Path(tmp), kind="control", dets=test, log=lambda m: None)
+
+    def test_clip_data_models_reproduce_their_reported_test_predictions(self):
+        """A clip-data ensemble restores each seed's ResNet compression and scaling."""
+        rng = np.random.default_rng(1)
+        rows, dets = [], {}
+        for split, match in (("train", "m1"), ("train", "m2"), ("test", "m3")):
+            for y in range(5):
+                for k in range(2):
+                    clip_id = f"{match}.{y}.{k}"
+                    n = int(rng.integers(12, 20))
+                    x = rng.normal(0, 0.1, (n, 6)).astype(np.float32)
+                    x[:, y] += 1.0
+                    dets[clip_id] = {
+                        "detector": x,
+                        "resnet": rng.normal(size=(n, 16)).astype(np.float16),
+                    }
+                    rows.append(
+                        {
+                            "clip_id": clip_id,
+                            "split": split,
+                            "label": TACTIC_CLASSES[y],
+                            "y": y,
+                            "match": match,
+                            "duration_s": n / 5,
+                        }
+                    )
+        cfg = TacticConfig(
+            epochs=10,
+            eval_every=10,
+            seeds=(0, 1),
+            channels=8,
+            dilations=(1, 2),
+            input="clip-data",
+            resnet_pcs=3,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "run"
+            run_tactic_experiment(
+                "synthetic", out, cfg, evaluate_test=True, rows=rows, dets=dets, log=lambda m: None
+            )
+            saved = {
+                r["clip_id"]: r
+                for r in csv.DictReader((out / "predictions.csv").read_text().splitlines())
+                if r["model"] == "tcn"
+            }
+            test = {k: v for k, v in dets.items() if k.startswith("m3.")}
+            got = run_predict([], out / "models", dets=test, log=lambda m: None)
+        for r in got:
+            for c in TACTIC_CLASSES:
+                self.assertAlmostEqual(r[f"p_{c}"], float(saved[r["clip"]][f"p_{c}"]), 4)
 
     def test_low_confidence_is_flagged_with_the_runner_up(self):
         probs = np.array([[0.5, 0.1, 0.3, 0.05, 0.05], [0.05, 0.9, 0.02, 0.02, 0.01]])
