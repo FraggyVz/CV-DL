@@ -200,6 +200,13 @@ def main(argv=None):
         help="Choose each epoch without the scored match (default): the other fold with two "
         "matches, nested with three or more",
     )
+    tactics.add_argument(
+        "--epoch-mode",
+        choices=["nested", "other-folds"],
+        default="nested",
+        help="nested (default): each match's epoch from its training matches only; "
+        "other-folds: the TCN's rule, the epoch best on the other folds (slightly optimistic)",
+    )
     tactics.add_argument("--device", default="cpu")
     temporal = sub.add_parser(
         "tactic-temporal", help="Train temporal average pooling and GRU on the baseline's protocol"
@@ -244,6 +251,13 @@ def main(argv=None):
     temporal.add_argument(
         "--fixed-epochs", type=int, metavar="N", help="Train exactly N epochs; no early stopping"
     )
+    temporal.add_argument(
+        "--epoch-mode",
+        choices=["nested", "other-folds"],
+        default="nested",
+        help="nested (default): each match's epoch from its training matches only; "
+        "other-folds: the TCN's rule, the epoch best on the other folds (slightly optimistic)",
+    )
     temporal.add_argument("--device", default="cpu")
     check = sub.add_parser(
         "detector-check", help="Score detector positions against demo positions (Furia/Spirit)"
@@ -273,6 +287,7 @@ def main(argv=None):
                         fixed_epochs=args.fixed_epochs,
                     ),
                     exclude_uncertain=args.exclude_uncertain,
+                    epoch_mode=args.epoch_mode,
                 )
             elif args.command == "tactic-temporal":
                 from .context import RunContext
@@ -297,6 +312,7 @@ def main(argv=None):
                     shuffles=args.shuffles,
                     inputs=args.inputs,
                     drop_channels=tuple(args.drop_channels),
+                    epoch_mode=args.epoch_mode,
                 )
             elif args.command == "detector-check":
                 from .detector_check import CheckConfig, run_detector_check

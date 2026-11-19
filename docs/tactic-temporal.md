@@ -25,7 +25,7 @@ is linear. Command options, result keys and folder names keep `thirds` and
    ```powershell
    python -m stratscout tactic-temporal --manifest data/processed/datasets/2026-11-16/train/manifest.csv --output runs/tactic-temporal --exclude-uncertain --shuffles 20
    ```
-3. Open `report.md` in the output folder, or `notebooks/tactic-gru-results.ipynb` for figures.
+3. Open `report.md` in the output folder, or `notebooks/tactic-model-comparison.ipynb` for figures.
 4. Optionally run the control on the same features, into its own folder:
    ```powershell
    python -m stratscout tactic-temporal --manifest data/processed/datasets/2026-11-16/train/manifest.csv --output runs/tactic-temporal-random-thirds --exclude-uncertain --models random-thirds --features runs/tactic-temporal/frame-features.pt --shuffles 20
@@ -40,6 +40,7 @@ is linear. Command options, result keys and folder names keep `thirds` and
 | `--models gru` | Train only the listed models (`mean`, `thirds`, `random-thirds`, `gru`); the default is `mean thirds gru` |
 | `--inputs positions` | Use detector position features instead of image features; see [position features](#position-features) |
 | `--drop-channels bomb_badge` | Position inputs only: remove a channel, for an ablation |
+| `--epoch-mode other-folds` | Use the TCN's epoch rule instead of nested selection; see [the TCN's protocol](#all-four-models-under-the-tcns-epoch-rule-2026-11-19). Also accepted by `tactic-baseline` |
 | `--features runs/tactic-temporal/frame-features.pt` | Reuse an earlier cache; it is refused if the manifest, frame count, size or feature source differ |
 | `--shuffles N` | Refit each model N times on labels shuffled within each match |
 | `--fixed-epochs`, `--seeds`, `--epochs`, `--patience`, `--size`, `--frames` | Same meaning as in the baseline |
@@ -281,6 +282,85 @@ With four matches and one run each, a 0.06-0.08 gap moves between matches and is
 sign, not a settled ranking. The +/- values are seed spreads: a rough guide, not a
 significance test, because the seeds rerun the same four matches. The detector gaps (about 1 frame in 9 misses a player; about
 1 T position in 6 is inferred) are in these inputs.
+
+## All four models under the TCN's epoch rule (2026-11-19)
+
+The TCN (`train-tactics`) chooses its epoch differently, so its score could not be set
+beside the models above. `--epoch-mode other-folds` copies its rule
+(`tactic_tcn.cross_validate`) for the ResNet models; nothing else changes:
+
+- every validation match is fitted for all epochs, and each match's curve is averaged over
+  seeds;
+- a match is scored at the epoch that is best on the mean curve of the **other** matches,
+  earliest on ties, the same epoch for every seed; the model is refitted to exactly that
+  epoch.
+
+**This rule is slightly optimistic**: the other matches' models, which choose the epoch,
+were trained on the scored match. Nested selection keeps the scored match out completely,
+so the nested numbers are the stricter estimate. Each run also reports the TCN's **seed
+ensemble**: every clip's class probabilities averaged over the seeds, then scored once over
+all 82 clips pooled together.
+
+```powershell
+python -m stratscout tactic-temporal --manifest data/processed/datasets/2026-11-16/train/manifest.csv --output runs/tactic-temporal-other-folds --exclude-uncertain --features runs/tactic-temporal/frame-features.pt --shuffles 20 --epoch-mode other-folds
+```
+
+Runs: `runs/tactic-temporal-other-folds-20261119` (from the saved `frame-features.pt`) and
+the TCN's cross-validation, rerun as `runs/tactic-tcn-repro-20261119` with
+`train-tactics --exclude-uncertain --seeds 3`. The TCN was run on a copy of the dataset
+with an empty test manifest, so its loader did not read, detect or score any test clip;
+cross-validation uses only the training clips either way. Both use the same 82 clips and
+four validation matches. The rerun did not reproduce the README's earlier TCN numbers
+exactly (0.679 against 0.667; ensemble 0.693 against 0.735); the numbers below are from
+the rerun.
+
+| Model | TCN rule: macro-F1, mean over seeds | Seed ensemble macro-F1 | Seed ensemble accuracy | Nested macro-F1 (stricter) |
+|---|---:|---:|---:|---:|
+| Baseline (mean) | 0.584 +/- 0.016 | 0.627 | 0.646 | 0.518 |
+| Thirds | 0.650 +/- 0.013 | 0.691 | 0.707 | 0.620 |
+| GRU | 0.338 +/- 0.011 | 0.353 | 0.439 | 0.345 |
+| TCN | 0.679 +/- 0.016 | 0.693 | 0.707 | not run |
+
+The TCN's time-blind control scores 0.645 under the same rule.
+
+| Validation match | Baseline | Thirds | GRU | TCN |
+|---|---:|---:|---:|---:|
+| Spirit vs Falcons | 0.531 | 0.563 | 0.330 | 0.620 |
+| Furia vs Falcons | 0.655 | 0.709 | 0.349 | 0.871 |
+| MOUZ vs BetBoom | 0.583 | 0.740 | 0.314 | 0.674 |
+| Aurora vs Vitality | 0.566 | 0.587 | 0.360 | 0.550 |
+
+Per class and the breakdown use the seed ensemble, pooled over the 82 clips, for every
+model. "Site right" puts a clip in the right group (A, B or RETAKE); "split or direct
+right" is for A and B clips whose site was right.
+
+| Class | Clips | Baseline | Thirds | GRU | TCN |
+|---|---:|---:|---:|---:|---:|
+| A_DIRECT | 15 | 0.571 | 0.625 | 0.457 | 0.710 |
+| B_DIRECT | 24 | 0.711 | 0.711 | 0.588 | 0.727 |
+| A_SPLIT | 14 | 0.462 | 0.667 | 0.182 | 0.714 |
+| B_SPLIT | 9 | 0.600 | 0.600 | 0.000 | 0.545 |
+| RETAKE | 20 | 0.789 | 0.850 | 0.537 | 0.769 |
+
+| Model | Site right | Split or direct right, given the site |
+|---|---:|---:|
+| Baseline | 0.902 | 0.644 |
+| Thirds | 0.915 | 0.707 |
+| GRU | 0.768 | 0.481 |
+| TCN | 0.866 | 0.768 |
+
+No shuffled refit (20 per ResNet model) reached its real score; shuffled scores averaged
+about 0.17-0.18. The TCN run has no shuffled-label check.
+
+**What it shows.** On the same rule, thirds (0.650) is 0.029 below the TCN (0.679) and
+level with it as a seed ensemble (0.691 against 0.693). The TCN is clearly ahead on Furia
+and on A_DIRECT/A_SPLIT, and the best at split against direct once the site is right; thirds
+is best at the site itself and on RETAKE. The GRU stays far behind. Every ResNet model
+gains about 0.03-0.07 from the looser rule, which shows how much the epoch rule alone moves
+these scores. Remaining differences: the TCN reads detector features, trains in
+mini-batches with jittered and dropped detections and scores every 10th epoch; the ResNet
+models train full-batch with no augmentation and score every epoch. With four matches the
+gaps are a rough guide, not a significance test.
 
 ## Limits
 

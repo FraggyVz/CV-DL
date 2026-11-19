@@ -594,6 +594,32 @@ class TemporalRunTests(unittest.TestCase):
         build.assert_not_called()
         self.assertFalse(self.output.exists())
 
+    def test_other_folds_run_writes_the_tcn_rule_and_a_seed_ensemble(self):
+        summary = self.run_models(self.output, models=("mean", "gru"), epoch_mode="other-folds")
+        self.assertEqual(summary["epoch_mode"], "other-folds")
+        for name in ("mean", "gru"):
+            config = json.loads((self.output / name / "config.json").read_text())
+            self.assertEqual(config["epoch_mode"], "other-folds")
+            self.assertIn("TCN", config["selection"])
+            epochs = {}
+            for number in range(1, 5):
+                fold = json.loads((self.output / name / f"fold-{number}.json").read_text())
+                for run in fold["runs"]:
+                    self.assertEqual(run["epoch_selection"], "other-folds")
+                    self.assertNotIn(
+                        fold["validation_match_id"], run["selection"]["source_validation_match_ids"]
+                    )
+                    epochs.setdefault(number, set()).add(run["evaluation_epoch"])
+            self.assertTrue(all(len(e) == 1 for e in epochs.values()))  # One epoch per fold.
+            model_summary = json.loads((self.output / name / "summary.json").read_text())
+            self.assertEqual(model_summary["seed_ensemble"]["clips"], 25)
+            self.assertIn("slightly optimistic", " ".join(model_summary["limitations"]))
+            self.assertIn("Seed ensemble", (self.output / name / "report.md").read_text())
+            self.assertEqual(
+                summary["models"][name]["seed_ensemble"]["macro_f1"],
+                model_summary["seed_ensemble"]["macro_f1"],
+            )
+
     def test_cli_passes_models_features_and_shuffles(self):
         base = ["tactic-temporal", "--manifest", "unused.csv", "--output", "unused-output"]
         with patch("stratscout.tactic_temporal.run_temporal") as run:
@@ -602,6 +628,9 @@ class TemporalRunTests(unittest.TestCase):
             self.assertEqual(run.call_args.kwargs["shuffles"], 0)
             self.assertIsNone(run.call_args.kwargs["features"])
             self.assertEqual(run.call_args.kwargs["config"].seeds, (0, 1, 2))
+            self.assertEqual(run.call_args.kwargs["epoch_mode"], "nested")
+            main(base + ["--epoch-mode", "other-folds"])
+            self.assertEqual(run.call_args.kwargs["epoch_mode"], "other-folds")
             main(base + ["--models", "gru", "--shuffles", "5", "--features", "cache.pt"])
             self.assertEqual(run.call_args.kwargs["models"], ("gru",))
             self.assertEqual(run.call_args.kwargs["shuffles"], 5)

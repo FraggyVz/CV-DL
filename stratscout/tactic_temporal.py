@@ -234,7 +234,9 @@ def average_scores(fitted, seeds) -> dict:
     return {"macro_f1": float(np.mean(per_seed[0])), "accuracy": float(np.mean(per_seed[1]))}
 
 
-def shuffled_label_check(inputs, targets, folds, *, classes, config, context, build_head, count):
+def shuffled_label_check(
+    inputs, targets, folds, *, classes, config, context, build_head, count, epoch_mode="nested"
+):
     """Refit the whole protocol on labels shuffled within each match; return the scores.
 
     Every match keeps its class counts, so the folds and class weights stay valid.
@@ -250,7 +252,14 @@ def shuffled_label_check(inputs, targets, folds, *, classes, config, context, bu
             index = np.array(fold.validation_indices)
             labels[index] = targets[generator.permutation(index)]
         fitted = fit_folds(
-            inputs, labels, folds, classes=classes, config=config, context=context, **extra
+            inputs,
+            labels,
+            folds,
+            classes=classes,
+            config=config,
+            context=context,
+            **extra,
+            **({"epoch_mode": epoch_mode} if epoch_mode != "nested" else {}),
         )
         rows.append({"permutation": permutation, **average_scores(fitted, config.seeds)})
         print(f"  shuffle {permutation}: macro-F1 {rows[-1]['macro_f1']:.3f}", flush=True)
@@ -282,6 +291,7 @@ def run_temporal(
     shuffles=0,
     inputs="images",
     drop_channels=(),
+    epoch_mode="nested",
 ):
     """Train the chosen models on one shared per-frame cache; save one folder per model.
 
@@ -289,7 +299,8 @@ def run_temporal(
     positions from the minimap detector (``tactic_positions``). ``features`` reuses an
     earlier cache instead of extracting again. ``drop_channels`` removes position
     channels, e.g. ("bomb_badge",), for an ablation. ``shuffles`` repeats each model's
-    whole fit that many times on shuffled labels.
+    whole fit that many times on shuffled labels. ``epoch_mode="other-folds"`` uses
+    the TCN's epoch rule instead of nested selection (see ``fit_folds``).
     """
     config = config or BaselineConfig()
     output = Path(output)
@@ -305,7 +316,12 @@ def run_temporal(
         raise ValueError("drop_channels applies only to position features")
     dropped = channel_columns(drop_channels) if drop_channels else []
     dataset, targets, folds, mode = prepare_run(
-        manifest, output, context=context, config=config, exclude_uncertain=exclude_uncertain
+        manifest,
+        output,
+        context=context,
+        config=config,
+        exclude_uncertain=exclude_uncertain,
+        epoch_mode=epoch_mode,
     )
     classes = dataset.classes
     if inputs == "positions":
@@ -405,6 +421,9 @@ def run_temporal(
             if summary["optimistic"]
             else None,
             "majority": summary["majority"],
+            "seed_ensemble": {
+                key: summary["seed_ensemble"][key] for key in ("macro_f1", "accuracy", "clips")
+            },
             "shuffled": None,
         }
         if shuffles:
@@ -418,6 +437,7 @@ def run_temporal(
                 context=context,
                 build_head=build_head,
                 count=shuffles,
+                epoch_mode=epoch_mode,
             )
             real = summary["model"]["macro_f1"]["mean"]
             entry["shuffled"] = {
