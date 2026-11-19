@@ -2,7 +2,7 @@
 
 Two independent feature sources live here; each model uses one of them.
 
-**Detector features (TCN, clip-data, predict-tactics).** Reads a clip dataset written by
+**Detector features (TCN, clip-data, predict-tcn).** Reads a clip dataset written by
 export-segments (<dataset>/<split>/manifest.csv and clips/<class>/*.mp4), runs the
 spectator-radar detector on every frame and caches the detections, then turns them into
 fixed-size per-frame feature vectors for a sequence model.

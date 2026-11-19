@@ -146,13 +146,13 @@ def main(argv=None):
     shared.add_argument("--no-resnet", action="store_true", help="Detector channels only")
     shared.add_argument("--device", default="cpu")
     guess = sub.add_parser(
-        "predict-tactics", help="Classify new prepared clips with saved tactic models"
+        "predict-tcn", help="Classify new prepared clips with the saved TCN seeds"
     )
     guess.add_argument("clips", nargs="+", type=Path, help="Clip files or folders of .mp4 clips")
     guess.add_argument(
         "--models",
         type=Path,
-        default=Path("runs/tactic-tcn-final/models"),
+        default=Path("runs/tactic-tcn-clipdata-final/models"),
         help="models/ folder written by train-tactics --evaluate-test",
     )
     guess.add_argument("--kind", default="tcn", choices=["tcn", "control"])
@@ -168,6 +168,11 @@ def main(argv=None):
         type=float,
         default=0.6,
         help="Flag predictions whose top probability is below this",
+    )
+    guess.add_argument(
+        "--regions",
+        type=Path,
+        help="Map-regions JSON for clip-data models (default: stratscout/mirage_regions.json)",
     )
     guess.add_argument("--device", default="cpu")
     counts = sub.add_parser(
@@ -481,8 +486,8 @@ def main(argv=None):
                     device=args.device,
                 )
                 print(f"Report: {args.output / 'report.md'}")
-            elif args.command == "predict-tactics":
-                from .tactic_predict import run_predict
+            elif args.command == "predict-tcn":
+                from .tcn_predict import run_predict
 
                 run_predict(
                     args.clips,
@@ -492,6 +497,7 @@ def main(argv=None):
                     background_from=args.background_from,
                     min_confidence=args.min_confidence,
                     device=args.device,
+                    regions_path=args.regions,
                 )
             elif args.command == "process-recordings":
                 from .recording_batch import process_recordings

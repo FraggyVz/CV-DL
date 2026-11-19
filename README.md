@@ -36,7 +36,7 @@ recording ─► prepare (crop radar, fix 2× speed, 5/10/30 fps) ─► label +
 | Detector check | Working: measured against demo positions on the training matches | jx | `detector-check`, [doc](docs/detector-check.md) |
 | ResNet-18 frame features | Working: frozen ImageNet weights | jx | `tactic_model`, [tactic baseline](docs/tactic-baseline.md) |
 | Shared clip data | Working: detector channels per named map region, bomb state and plant estimate, ResNet features on one timeline. Draft regions (`mirage-spectator-v1`). | ri3n | `build-clip-data`, [doc](docs/clip-data.md) |
-| TCN strategy model | Working, with cross-validation and a scored test set | ri3n | `train-tactics`, `predict-tactics`, [Tactic model](#tactic-model) |
+| TCN strategy model | Working, with cross-validation and a scored test set | ri3n | `train-tactics`, `predict-tcn`, [Tactic model](#tactic-model) |
 | Tactic baseline (ResNet mean + linear) | Working, development scores only | jx | `tactic-baseline` |
 | Temporal models (thirds, GRU) | Working, development scores only | jx | `tactic-temporal`, [doc](docs/tactic-temporal.md) |
 | CNN icon detector | Exists; not used by the strategy models | Gin | `detector`, `training` |
@@ -185,7 +185,7 @@ data/
             test/   manifest.csv, clips/<class>/*.mp4
 labels/                            segment label files (*.segments.json): committed to Git
 configs/                           local settings, e.g. recording-video.json (not committed)
-runs/                              experiment, scan and smoke-test outputs (not committed)
+runs/                              experiment outputs, the shared clip data and the detection cache: committed to Git
 ```
 
 - **Your own recording:** see [Process a recording](#process-a-recording). The batch
@@ -199,8 +199,10 @@ runs/                              experiment, scan and smoke-test outputs (not 
   directly inside. If train and test arrive as separate ZIPs carrying the same
   `export.json`, keep one copy at the top. Make a new dated folder for each export;
   never mix clips from two exports.
-- Do not commit videos, datasets or checkpoints. Only `labels/` and code are shared
-  through Git.
+- Do not commit videos or datasets. `labels/`, code and `runs/` (model runs with their
+  checkpoints, the shared clip data and the detection cache) are shared through Git, so
+  everyone can open the same results. Commit only runs worth keeping, and delete scratch
+  runs before committing.
 
 ## Process a recording
 
@@ -233,7 +235,7 @@ python -m stratscout bomb-scan --video data/processed/recordings/<match>/minimap
 python -m stratscout icon-count-eval --train furia spirit --test navi --output runs/icon-count-eval-001
 python -m stratscout train-tactics --dataset data/processed/datasets/2026-11-16 --output runs/tactic-tcn-<new> --exclude-uncertain --seeds 3
 python -m stratscout train-tactics --dataset data/processed/datasets/2026-11-16 --clip-data runs/clip-data-2026-11-16 --output runs/tactic-tcn-clipdata-<new> --exclude-uncertain --seeds 3
-python -m stratscout predict-tactics data/processed/datasets/2026-11-16/test/clips --output runs/predictions-001.csv
+python -m stratscout predict-tcn data/processed/datasets/2026-11-16/test/clips --output runs/predictions-001.csv
 python -m stratscout build-clip-data --dataset data/processed/datasets/2026-11-16 --output runs/clip-data-2026-11-16
 python -m stratscout prototype --smoke --output runs/smoke-001
 ```
@@ -279,23 +281,31 @@ time-blind control (the same features pooled over the clip) and a majority-class
   detections in every training batch. With `--clip-data <build-clip-data folder>`, the
   model reads the [shared clip data](docs/clip-data.md) instead: 72 detector channels
   plus `--resnet-pcs` (default 32) ResNet numbers per row. The ResNet compression is
-  fitted per fold on its training clips, with no input augmentation. `predict-tactics`
-  supports only models trained on the default input so far.
+  fitted per fold on its training clips, with no input augmentation. The current model,
+  `runs/tactic-tcn-clipdata-final`, uses this input.
 - **Outputs.** `report.md`, `report.json`, `config.json` and `cv_predictions.csv`.
   The report gives macro-F1 per held-out match, then per-class precision, recall and
   F1 and a confusion matrix, pooled over the held-out matches (every training clip is
   predicted once, by a model that never saw its match). With `--evaluate-test` it also
   writes `predictions.csv`, `models/` and the same per-class tables for the test match.
-- **Predicting new clips.** `predict-tactics <clips or folders>` loads every seed in
-  `--models` (default `runs/tactic-tcn-final/models`) and prints each clip's class and
-  seed-ensemble probability. Predictions below `--min-confidence` (default 0.6) are
-  flagged as uncertain, with the runner-up class. `--output new.csv` also saves every
-  class probability. Clips must be prepared like the training clips: the spectator-radar
-  crop at 10 fps, cut from the start to the end of one tactic. The empty-map background
-  is built per match from that match's clips, grouped by the file name before the first
-  dot, as `export-segments` names them. Give at least about 5 clips per match, or pass
-  the prepared recording with `--background-from`. On the 2026-11-16 test clips it
-  reproduces `predictions.csv` exactly.
+- **Predicting new clips (`predict-tcn`).** TCN only; the GRU and temporal models load
+  through `tactic_temporal.py`. `predict-tcn <clips or folders>` loads every TCN seed in
+  `--models` (default `runs/tactic-tcn-clipdata-final/models`, the current model) and
+  prints each clip's class and seed-ensemble probability. Predictions below
+  `--min-confidence` (default 0.6) are flagged as uncertain, with the runner-up class.
+  `--output new.csv` also saves every class probability. For a clip-data model, each
+  clip goes through the same detector, map regions and ResNet-18 as `build-clip-data`,
+  and each seed applies its own saved scaling and ResNet compression. It refuses a
+  regions file whose version differs from the one the model was trained with
+  (`--regions` points at another file).
+
+  **What to give it:** prepared clips (.mp4), each covering one tactic. Prepare them like
+  the training clips: the spectator-radar crop from `process-recordings` at 10 fps, cut
+  from the start to the end of one tactic (`export-segments` clips are ready to use).
+  The empty-map background is built per match from that match's clips, grouped by the
+  file name before the first dot, as `export-segments` names them. Give at least about
+  5 clips per match, or pass the prepared match video (`minimap-10fps.mp4`) with
+  `--background-from`. It needs no labels.
 
 Detections are unvalidated colour estimates, so the features inherit their misses
 (e.g. players standing on site letters, stacks). The 2026-11-16 dataset (82 training
@@ -322,7 +332,7 @@ schema are not the current video-preparation or five-class dataset route.
 | `stratscout/media.py`, `video_profiles`, `video_preparation`, `recording_batch`, `fps_comparison`                     | Shared preparation and comparison APIs                                                                     |
 | `segmentation`, `icon_split`, `bomb`, `rounds`, `live_preview`, `count_eval`                                          | Colour/shape detection, overlap handling, estimates and review                                             |
 | `segments`, `segment_labeller`                                                                                        | Five-class segment records, validation, safe saving and the keyboard labeller                              |
-| `segment_export`, `tactic_features`, `tactic_tcn`, `tactic_predict`                                                   | Clip export, per-frame clip features, the tactic TCN experiment and prediction                             |
+| `segment_export`, `tactic_features`, `tactic_tcn`, `tcn_predict`                                                      | Clip export, per-frame clip features, the tactic TCN experiment and TCN prediction                         |
 | `clip_data`, `mirage_regions.json`                                                                                    | Shared model-ready clip data: detector channels per map region, bomb state and ResNet features             |
 | `preprocessing`, `detector`, `datasets`, `training`, `evaluation`, `synthetic`                                        | CNN icon detector and experiments                                                                          |
 | `tracking`, `annotations`, `config`, `contracts`, `context`, `workflow`, `storage`, `video`, `pilot`, `visualisation` | Tracking, legacy labels, explicit run state and orchestration                                              |
