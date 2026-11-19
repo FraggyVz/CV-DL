@@ -23,7 +23,9 @@ import numpy as np
 
 from .storage import write_new_text
 
-HELD_OUT = ("navi", "natus")
+# Test matches. Use the full Vitality-Falcons names: plain "vitality" would also block the
+# Aurora-Vitality training match. The demo file is called vitality-vs-falcons-....
+HELD_OUT = ("navi", "natus", "vitality-falcons", "vitality-vs-falcons")
 TEAMS = ("T", "CT")  # detector team 0 = T (yellow), 1 = CT (cyan)
 DEMO_TEAM = {2: 0, 3: 1}  # demo team_num -> detector team
 TICKRATE = 64
@@ -60,9 +62,7 @@ class CheckConfig:
 def refuse_held_out(*names) -> None:
     for name in names:
         if any(h in str(name).lower() for h in HELD_OUT):
-            raise ValueError(
-                f"{name} is the held-out test match; the detector check never reads it"
-            )
+            raise ValueError(f"{name} is a held-out test match; the detector check never reads it")
 
 
 def demo_rounds(freeze_ends, round_ends) -> List[tuple]:
@@ -307,29 +307,51 @@ def calibrate(frames, positions, time_map, config: CheckConfig, mark: PassMark) 
     """Fit the radar mapping and a time offset on calibration frames (odd rounds only).
 
     Freeze-time frames (players still in spawn) start the mapping without depending on
-    time; live frames then refine the offset and mapping in turn."""
+    time; live frames then refine the offset and mapping in turn. The start needs frames
+    where all ten players are detected. Stacked spawns can hide one icon in every freeze
+    frame (MOUZ-BetBoom); then live frames start the mapping instead, at offset zero."""
     freeze = [f for f in frames if f["phase"] == "freeze"]
     live = [f for f in frames if f["phase"] == "live"]
-    starts = []
-    for frame in freeze:
-        a, b = time_map
-        players = positions.at((frame["video_s"] - a) / b)
-        if players is None or len(players["team"]) != 10:
-            continue
-        dets = frame["dets"]
-        if len(dets[0]) == 5 and len(dets[1]) == 5:
-            starts.append((players["uv"], np.concatenate(dets)))
+
+    def full_frames(candidates):
+        starts = []
+        for frame in candidates:
+            a, b = time_map
+            players = positions.at((frame["video_s"] - a) / b)
+            if players is None or len(players["team"]) != 10:
+                continue
+            dets = frame["dets"]
+            if len(dets[0]) == 5 and len(dets[1]) == 5:
+                starts.append((players["uv"], np.concatenate(dets)))
+        return starts
+
+    start, seed = "freeze", freeze
+    starts = full_frames(freeze)
+    if not starts:
+        start, seed = "live", live
+        starts = full_frames(live)
     radar = initial_radar_map(starts)
     for gate in (mark.error_gate_px, config.pair_px, config.pair_px):
-        uv, px, _ = collect_pairs(freeze, positions, time_map, 0.0, radar, gate)
+        uv, px, _ = collect_pairs(seed, positions, time_map, 0.0, radar, gate)
         radar = fit_radar_map(uv, px)
     offset, curve = 0.0, []
-    for _ in range(2):
+    # A live start fits the map at offset zero, so part of the true offset leaks into it;
+    # keep alternating until the offset settles. The freeze start keeps its two rounds.
+    for step in range(2 if start == "freeze" else 10):
+        previous = offset
         offset, curve = search_offset(live, positions, time_map, radar, config, mark.error_gate_px)
         uv, px, _ = collect_pairs(live + freeze, positions, time_map, offset, radar, config.pair_px)
         radar = fit_radar_map(uv, px)
+        if start == "live" and step and abs(offset - previous) < config.offset_step_s / 2:
+            break
     _, _, dist = collect_pairs(live, positions, time_map, offset, radar, mark.error_gate_px)
-    return {"radar": radar, "offset_s": offset, "offset_curve": curve, "pairs": len(dist)}
+    return {
+        "radar": radar,
+        "offset_s": offset,
+        "offset_curve": curve,
+        "pairs": len(dist),
+        "mapping_start": start,
+    }
 
 
 def score_frames(frames, positions, time_map, offset, radar, rounds, timeline, config, mark):
@@ -653,6 +675,7 @@ def check_match(folder: Path, demo: Path, config: CheckConfig, mark: PassMark) -
         "offset_curve": fit["offset_curve"],
         "radar_map": asdict(radar),
         "pairs": fit["pairs"],
+        "mapping_start": fit["mapping_start"],
         "calibration_median_px": float(np.median(calib_errors))
         if len(calib_errors)
         else float("nan"),

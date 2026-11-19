@@ -38,7 +38,7 @@ recording ─► prepare (crop radar, fix 2× speed, 5/10/30 fps) ─► label +
 | Shared clip data | Working: detector channels per named map region, bomb state and plant estimate, ResNet features on one timeline. Draft regions (`mirage-spectator-v1`). | ri3n | `build-clip-data`, [doc](docs/clip-data.md) |
 | TCN strategy model | Working, with cross-validation and a scored test set | ri3n | `train-tactics`, `predict-tactics`, [Tactic model](#tactic-model) |
 | Tactic baseline (ResNet mean + linear) | Working, development scores only | jx | `tactic-baseline` |
-| GRU and temporal models | On branch `feat/tactic-gru`, not merged yet | jx | `docs/tactic-temporal.md` on that branch |
+| Temporal models (thirds, GRU) | Working, development scores only | jx | `tactic-temporal`, [doc](docs/tactic-temporal.md) |
 | CNN icon detector | Exists; not used by the strategy models | Gin | `detector`, `training` |
 | Web app | Scaffold only (FastAPI + React in Docker): no predictions shown yet | violetdisp2408 | [Run the web application](#run-the-web-application) |
 
@@ -54,18 +54,35 @@ in `labels/` yet. Open label questions are in [labels/review-notes.md](labels/re
 
 ### Results so far (2026-11-16, macro-F1)
 
-| Model | Input | Cross-validation (unseen training match) | Test (scored once) |
-|---|---|---|---|
-| Majority class | – | 0.065 | 0.047 |
-| Time-blind control | original detector features | 0.625 | 0.862 |
-| **TCN** | original detector features | **0.667** (seed ensemble 0.735) | **0.919** |
-| TCN | shared clip data | running (`runs/tactic-tcn-clipdata-001`) | – |
+| Model | Input | Cross-validation (unseen training match) | Test (scored once) | Details |
+|---|---|---|---|---|
+| Baseline: mean pooling + linear | frozen ResNet-18 frame features | 0.518 | not run | [tactic baseline](docs/tactic-baseline.md) |
+| Thirds: temporal average pooling (3 bins) + linear | frozen ResNet-18 frame features | 0.620 | not run | [temporal models](docs/tactic-temporal.md) |
+| GRU | frozen ResNet-18 frame features | 0.345 | not run | [temporal models](docs/tactic-temporal.md) |
+| **TCN** | original detector features | **0.667** (seed ensemble 0.735) | **0.919** | [Tactic model](#tactic-model) |
+
+**These four rows are not yet on the same protocol**, so don't rank them on these
+numbers alone. All four use the 82 training clips (Spirit #5 excluded) with one training
+match held out at a time. The ResNet rows choose the epoch by nested leave-one-match-out
+inside the training matches (seeds 0–2, full-batch training, no augmentation) and have
+not been scored on the test matches. The TCN chooses each held-out match's epoch from the
+other held-out matches (cross-fold, 3 seeds), trains in mini-batches with jittered and
+dropped detections, and has been scored once on the test matches.
+
+- Controls for the TCN: majority class 0.065 (test 0.047); time-blind control (the same
+  detector features pooled over the clip) 0.625 (test 0.862). TCN on the shared clip data:
+  running (`runs/tactic-tcn-clipdata-001`).
+- Random-thirds control: thirds' groups with the frames assigned at random, 0.526;
+  evidence that frame order helps on these development matches
+  ([details](docs/tactic-temporal.md#the-random-thirds-control)).
+- Position features: the ResNet-row models on detector positions (8×8 grid) instead of
+  image features: mean 0.595, thirds 0.557, GRU 0.384
+  ([details](docs/tactic-temporal.md#position-features)).
 
 Report cross-validation as the estimate for new matches. The test score is optimistic:
 the test teams also appear in training, and some classes have only 5–6 test clips. Most
-remaining errors are direct vs split on the same site. jx's ResNet and GRU results are
-in their docs and are not on exactly the same protocol yet. Compare models only on the
-same dataset, exclusions, folds and seeds.
+remaining errors are direct vs split on the same site. Compare models only on the same
+dataset, exclusions, folds and seeds.
 
 ### Known gaps
 

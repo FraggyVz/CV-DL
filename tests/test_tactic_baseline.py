@@ -491,7 +491,7 @@ class TacticRunTests(unittest.TestCase):
             writer.writerows(rows)
 
     def test_end_to_end_outputs_majorities_exclusions_and_offline_reload(self):
-        with patch("stratscout.tactic_training.build_baseline", side_effect=tiny_model):
+        with patch("stratscout.tactic_features.build_baseline", side_effect=tiny_model):
             with self.assertWarns(UserWarning):
                 summary = run_baseline(
                     self.manifest,
@@ -553,7 +553,7 @@ class TacticRunTests(unittest.TestCase):
 
     def test_fixed_run_skips_pilots_and_saves_final_epoch(self):
         config = replace(self.config, fixed_epochs=4)
-        with patch("stratscout.tactic_training.build_baseline", side_effect=tiny_model):
+        with patch("stratscout.tactic_features.build_baseline", side_effect=tiny_model):
             with patch("stratscout.tactic_training.fit_classifier", wraps=fit_classifier) as fit:
                 with self.assertWarns(UserWarning):
                     summary = run_baseline(
@@ -593,7 +593,7 @@ class TacticRunTests(unittest.TestCase):
                 ("spirit", [0, 1, 1, 1, 2, 3, 4]),
             )
         )
-        with patch("stratscout.tactic_training.build_baseline", side_effect=tiny_model):
+        with patch("stratscout.tactic_features.build_baseline", side_effect=tiny_model):
             with self.assertWarns(UserWarning):
                 summary = run_baseline(
                     self.manifest,
@@ -655,7 +655,7 @@ class TacticRunTests(unittest.TestCase):
                 ("spirit", [0, 1, 2, 3, 4]),
             )
         )
-        with patch("stratscout.tactic_training.build_baseline") as build:
+        with patch("stratscout.tactic_features.build_baseline") as build:
             with self.assertWarns(UserWarning), self.assertRaisesRegex(ValueError, "no examples"):
                 run_baseline(
                     self.manifest,
@@ -685,7 +685,7 @@ class TacticRunTests(unittest.TestCase):
     def test_test_split_is_rejected_before_building_model(self):
         text = self.manifest.read_text(encoding="utf-8").replace(",train,", ",test,")
         self.manifest.write_text(text, encoding="utf-8")
-        with patch("stratscout.tactic_training.build_baseline") as build:
+        with patch("stratscout.tactic_features.build_baseline") as build:
             with self.assertRaisesRegex(ValueError, "expected split 'train'"):
                 run_baseline(self.manifest, self.output, context=self.context, config=self.config)
         build.assert_not_called()

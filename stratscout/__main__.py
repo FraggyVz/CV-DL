@@ -201,6 +201,50 @@ def main(argv=None):
         "matches, nested with three or more",
     )
     tactics.add_argument("--device", default="cpu")
+    temporal = sub.add_parser(
+        "tactic-temporal", help="Train temporal average pooling and GRU on the baseline's protocol"
+    )
+    temporal.add_argument(
+        "--manifest", type=Path, required=True, help="Exported train/manifest.csv"
+    )
+    temporal.add_argument("--output", type=Path, required=True, help="New run directory")
+    temporal.add_argument("--exclude-uncertain", action="store_true")
+    temporal.add_argument(
+        "--models",
+        nargs="+",
+        default=["mean", "thirds", "gru"],
+        choices=["mean", "thirds", "random-thirds", "gru"],
+        help="thirds = temporal average pooling (3 bins) + linear; "
+        "random-thirds = random-bin average pooling + linear control",
+    )
+    temporal.add_argument(
+        "--inputs",
+        choices=["images", "positions"],
+        default="images",
+        help="Per-frame features: ResNet-18 images or detector positions",
+    )
+    temporal.add_argument(
+        "--drop-channels",
+        nargs="+",
+        default=[],
+        choices=["t_observed", "ct_observed", "t_inferred_carrier", "bomb_badge"],
+        help="Position channels to remove, for an ablation",
+    )
+    temporal.add_argument(
+        "--features", type=Path, help="Reuse an earlier frame- or position-features.pt"
+    )
+    temporal.add_argument(
+        "--shuffles", type=int, default=0, help="Shuffled-label refits per model (0 skips)"
+    )
+    temporal.add_argument("--size", type=int, default=224)
+    temporal.add_argument("--frames", type=int, default=16)
+    temporal.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2])
+    temporal.add_argument("--epochs", type=int, default=200)
+    temporal.add_argument("--patience", type=int, default=30)
+    temporal.add_argument(
+        "--fixed-epochs", type=int, metavar="N", help="Train exactly N epochs; no early stopping"
+    )
+    temporal.add_argument("--device", default="cpu")
     check = sub.add_parser(
         "detector-check", help="Score detector positions against demo positions (Furia/Spirit)"
     )
@@ -229,6 +273,30 @@ def main(argv=None):
                         fixed_epochs=args.fixed_epochs,
                     ),
                     exclude_uncertain=args.exclude_uncertain,
+                )
+            elif args.command == "tactic-temporal":
+                from .context import RunContext
+                from .tactic_temporal import run_temporal
+                from .tactic_training import BaselineConfig
+
+                run_temporal(
+                    args.manifest,
+                    args.output,
+                    context=RunContext(device=args.device),
+                    config=BaselineConfig(
+                        size=args.size,
+                        n_frames=args.frames,
+                        seeds=tuple(args.seeds),
+                        epochs=args.epochs,
+                        patience=args.patience,
+                        fixed_epochs=args.fixed_epochs,
+                    ),
+                    exclude_uncertain=args.exclude_uncertain,
+                    models=tuple(args.models),
+                    features=args.features,
+                    shuffles=args.shuffles,
+                    inputs=args.inputs,
+                    drop_channels=tuple(args.drop_channels),
                 )
             elif args.command == "detector-check":
                 from .detector_check import CheckConfig, run_detector_check
