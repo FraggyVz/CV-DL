@@ -22,6 +22,9 @@ from stratscout.tactic_features import load_frame_features
 from stratscout.tactic_model import TacticBaseline, file_sha256
 from stratscout.tactic_positions import TOTALS, feature_names
 from stratscout.tactic_temporal import (
+    FIRST_GRU,
+    GRU_DEFAULTS,
+    SMALL_GRU,
     TIME_SCALE_S,
     TemporalGRU,
     load_temporal,
@@ -32,7 +35,7 @@ from stratscout.tactic_temporal import (
     shuffled_label_check,
     thirds_inputs,
 )
-from stratscout.tactic_training import BaselineConfig, run_baseline
+from stratscout.tactic_training import BaselineConfig, fit_classifier, run_baseline
 
 MATCHES = (
     ("aurora", [0, 1, 2, 3, 3, 4]),
@@ -175,6 +178,120 @@ class TemporalGRUTests(unittest.TestCase):
         before = self.logits(self.packed)[:3]
         torch.testing.assert_close(self.logits(shifted)[:3], before, rtol=0, atol=0)
         torch.testing.assert_close(self.model.standardise.running_mean, mean, rtol=0, atol=0)
+
+
+class SmallGRUTests(unittest.TestCase):
+    def test_defaults_are_the_final_gru_and_the_earlier_ones_stay_available(self):
+        self.assertEqual(
+            GRU_DEFAULTS, {"projection": 8, "hidden": 16, "dropout": 0.3, "readout": "mean-max"}
+        )
+        self.assertEqual(SMALL_GRU, {**GRU_DEFAULTS, "readout": "last"})
+        self.assertEqual(
+            FIRST_GRU, {"projection": 32, "hidden": 32, "dropout": 0.0, "readout": "last"}
+        )
+
+        def weights(model):
+            return sum(p.numel() for p in model.parameters())
+
+        def build(settings):
+            return TemporalGRU(
+                512,
+                settings["projection"],
+                settings["hidden"],
+                5,
+                settings["dropout"],
+                settings["readout"],
+            )
+
+        final = TemporalGRU(512)
+        self.assertEqual((final.project.out_features, final.gru.hidden_size), (8, 16))
+        self.assertEqual(final.classifier.in_features, 32)  # Mean and max of 16 joined.
+        recurrent = 512 * 8 + 8 + 3 * (16 * 10 + 16 * 16 + 32)
+        self.assertEqual(weights(final), recurrent + 32 * 5 + 5)
+        self.assertEqual(weights(final), 5613)
+        self.assertEqual(weights(build(SMALL_GRU)), 5533)
+        self.assertEqual(weights(build(FIRST_GRU)), 23109)
+        with self.assertRaisesRegex(ValueError, "readout must be"):
+            TemporalGRU(512, readout="attention")
+
+    def test_mean_max_readout_pools_every_real_frame_and_ignores_padding(self):
+        generator = torch.Generator().manual_seed(2)
+        features = torch.randn(3, 6, 4, generator=generator)
+        times = torch.arange(6, dtype=torch.float64).repeat(3, 1)
+        mask = torch.zeros(3, 6, dtype=torch.bool)
+        mask[0, 3:] = True  # Clip 0 has three real frames, then padding.
+        packed = sequence_inputs(features, times, mask)
+        torch.manual_seed(0)
+        model = TemporalGRU(4, 3, 5, 5, dropout=0.3)
+        model.train()
+        model(packed)  # Sets the standardisation statistics.
+        model.eval()
+        with torch.no_grad():
+            reference = model(packed)
+            padded = packed.clone()
+            padded[0, 3:, :6] = 99.0  # Padding rows; their real-frame flag stays 0.
+            torch.testing.assert_close(model(padded), reference, rtol=0, atol=0)
+            # The pooled readout is the mean and max of the GRU outputs at real frames only.
+            seen = {}
+            model.classifier.register_forward_hook(lambda m, i, o: seen.update(x=i[0]))
+            model(packed)
+            single = packed[:1, :3]  # Clip 0 alone, without its padding.
+            projected = model.project(model.standardise(single[0, :, :4]))
+            steps = torch.cat([projected, single[0, :, 4:6]], 1)[None]
+            outputs, _ = model.gru(steps)
+            expected = torch.cat([outputs[0].mean(0), outputs[0].amax(0)])
+            torch.testing.assert_close(seen["x"][0], expected)
+            # An early frame changes the readout even though the last state sees it only
+            # through the recurrence: every real frame reaches the classifier directly.
+            earlier = packed.clone()
+            earlier[1, 0, :4] += 3.0
+            self.assertFalse(torch.allclose(model(earlier)[1], reference[1]))
+
+    def test_dropout_acts_only_in_training(self):
+        generator = torch.Generator().manual_seed(0)
+        packed = sequence_inputs(
+            torch.randn(4, 5, 6, generator=generator),
+            torch.arange(5, dtype=torch.float64).repeat(4, 1),
+            torch.zeros(4, 5, dtype=torch.bool),
+        )
+        torch.manual_seed(0)
+        model = TemporalGRU(6, 4, 5, 5, dropout=0.5)
+        model.train()
+        first, second = model(packed), model(packed)
+        self.assertFalse(torch.allclose(first, second))  # Different dropout masks.
+        model.eval()
+        with torch.no_grad():
+            torch.testing.assert_close(model(packed), model(packed), rtol=0, atol=0)
+
+    def test_dropout_training_is_seeded_so_a_refit_repeats_a_longer_fit(self):
+        generator = torch.Generator().manual_seed(1)
+        packed = sequence_inputs(
+            torch.randn(10, 4, 3, generator=generator),
+            torch.arange(4, dtype=torch.float64).repeat(10, 1),
+            torch.zeros(10, 4, dtype=torch.bool),
+        )
+        targets = torch.arange(5).repeat(2)
+        fold = MatchFold(tuple(range(5)), tuple(range(5, 10)), ("a",), "b")
+
+        def fit(epochs, seed=4):
+            torch.manual_seed(99 + epochs)  # Outside state must not matter.
+            return fit_classifier(
+                packed,
+                targets,
+                fold,
+                classes=TACTIC_CLASSES,
+                config=BaselineConfig(epochs=8, patience=8, seeds=(seed,), fixed_epochs=epochs),
+                seed=seed,
+                context=RunContext(),
+                build_head=lambda: TemporalGRU(3, 4, 5, 5, dropout=0.3),
+            )
+
+        short, long = fit(3), fit(6)
+        losses = [row["train_loss"] for row in long[1]["history"]]
+        self.assertEqual([row["train_loss"] for row in short[1]["history"]], losses[:3])
+        again = fit(6)
+        np.testing.assert_array_equal(again[2], long[2])
+        self.assertNotEqual([r["train_loss"] for r in fit(6, seed=5)[1]["history"]], losses)
 
 
 class ShuffledLabelTests(unittest.TestCase):
@@ -330,7 +447,7 @@ class TemporalRunTests(unittest.TestCase):
         report = (self.output / "report.md").read_text(encoding="utf-8")
         for text in (
             "| Mean pooling + linear | 20 |",
-            "| Temporal average pooling (3 bins) + linear | 50 |",
+            "| Temporal average pooling (3 segments) + linear classifier | 50 |",
             "| GRU |",
             "within noise",
             "Shuffled-label check",
@@ -366,7 +483,7 @@ class TemporalRunTests(unittest.TestCase):
                 self.assertEqual(random[key], ordered[key])
         self.assertTrue((control / "random-thirds" / "shuffled-labels.json").is_file())
         self.assertIn(
-            "| Random-bin average pooling + linear (control) | 50 |",
+            "| Random-segment average pooling + linear classifier (control) | 50 |",
             (control / "report.md").read_text(),
         )
 
@@ -594,6 +711,53 @@ class TemporalRunTests(unittest.TestCase):
         build.assert_not_called()
         self.assertFalse(self.output.exists())
 
+    def test_other_folds_run_writes_the_tcn_rule_and_a_seed_ensemble(self):
+        summary = self.run_models(self.output, models=("mean", "gru"), epoch_mode="other-folds")
+        self.assertEqual(summary["epoch_mode"], "other-folds")
+        for name in ("mean", "gru"):
+            config = json.loads((self.output / name / "config.json").read_text())
+            self.assertEqual(config["epoch_mode"], "other-folds")
+            self.assertIn("TCN", config["selection"])
+            epochs = {}
+            for number in range(1, 5):
+                fold = json.loads((self.output / name / f"fold-{number}.json").read_text())
+                for run in fold["runs"]:
+                    self.assertEqual(run["epoch_selection"], "other-folds")
+                    self.assertNotIn(
+                        fold["validation_match_id"], run["selection"]["source_validation_match_ids"]
+                    )
+                    epochs.setdefault(number, set()).add(run["evaluation_epoch"])
+            self.assertTrue(all(len(e) == 1 for e in epochs.values()))  # One epoch per fold.
+            model_summary = json.loads((self.output / name / "summary.json").read_text())
+            self.assertEqual(model_summary["seed_ensemble"]["clips"], 25)
+            self.assertIn("slightly optimistic", " ".join(model_summary["limitations"]))
+            self.assertIn("Seed ensemble", (self.output / name / "report.md").read_text())
+            self.assertEqual(
+                summary["models"][name]["seed_ensemble"]["macro_f1"],
+                model_summary["seed_ensemble"]["macro_f1"],
+            )
+
+    def test_first_gru_run_reloads_from_a_config_saved_before_these_options_existed(self):
+        summary = self.run_models(self.output, models=("gru",), gru=FIRST_GRU)
+        config_path = self.output / "gru" / "config.json"
+        config = json.loads(config_path.read_text())
+        self.assertEqual(
+            {k: config["temporal"][k] for k in FIRST_GRU}, FIRST_GRU
+        )  # Each run saves its sizes.
+        self.assertGreater(summary["models"]["gru"]["trainable_parameters"], 0)
+        del config["temporal"]["dropout"]  # As in runs saved before these options existed.
+        del config["temporal"]["readout"]
+        config_path.write_text(json.dumps(config))
+        frames = torch.load(self.output / "frame-features.pt", weights_only=True)
+        self.assertEqual(self.assert_reload_matches_saved_predictions(self.output, frames, True), 8)
+        default = self.run_models(self.root / "small", models=("gru",))
+        small = json.loads((self.root / "small" / "gru" / "config.json").read_text())
+        self.assertEqual({k: small["temporal"][k] for k in GRU_DEFAULTS}, GRU_DEFAULTS)
+        self.assertLess(
+            default["models"]["gru"]["trainable_parameters"],
+            summary["models"]["gru"]["trainable_parameters"],
+        )
+
     def test_cli_passes_models_features_and_shuffles(self):
         base = ["tactic-temporal", "--manifest", "unused.csv", "--output", "unused-output"]
         with patch("stratscout.tactic_temporal.run_temporal") as run:
@@ -602,6 +766,16 @@ class TemporalRunTests(unittest.TestCase):
             self.assertEqual(run.call_args.kwargs["shuffles"], 0)
             self.assertIsNone(run.call_args.kwargs["features"])
             self.assertEqual(run.call_args.kwargs["config"].seeds, (0, 1, 2))
+            self.assertEqual(run.call_args.kwargs["epoch_mode"], "nested")
+            self.assertEqual(run.call_args.kwargs["gru"], GRU_DEFAULTS)
+            main(
+                base
+                + ["--gru-projection", "32", "--gru-hidden", "32", "--gru-dropout", "0"]
+                + ["--gru-readout", "last"]
+            )
+            self.assertEqual(run.call_args.kwargs["gru"], FIRST_GRU)
+            main(base + ["--epoch-mode", "other-folds"])
+            self.assertEqual(run.call_args.kwargs["epoch_mode"], "other-folds")
             main(base + ["--models", "gru", "--shuffles", "5", "--features", "cache.pt"])
             self.assertEqual(run.call_args.kwargs["models"], ("gru",))
             self.assertEqual(run.call_args.kwargs["shuffles"], 5)

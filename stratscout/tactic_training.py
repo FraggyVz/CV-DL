@@ -54,13 +54,39 @@ class BaselineConfig:
             raise ValueError("fixed_epochs must be a positive integer")
 
 
-def selection_mode(config, n_folds) -> str:
-    """Name the epoch choice: fixed N, the two-match swap, or nested for three or more."""
+EPOCH_MODES = ("nested", "other-folds")
+
+
+def selection_mode(config, n_folds, epoch_mode="nested") -> str:
+    """Name the epoch choice: fixed N, the two-match swap, nested for three or more, or
+    ``other-folds``, the TCN's rule (``tactic_tcn.cross_fold_choice``), on request."""
     if n_folds < 2:
         raise ValueError("Whole-match validation needs at least two folds")
+    if epoch_mode not in EPOCH_MODES:
+        raise ValueError(f"epoch_mode must be one of {', '.join(EPOCH_MODES)}")
     if config.fixed_epochs is not None:
+        if epoch_mode != "nested":
+            raise ValueError("fixed_epochs and the other-folds epoch mode cannot be combined")
         return "fixed"
+    if epoch_mode == "other-folds":
+        return "other-folds"
     return "cross-fold" if n_folds == 2 else "nested"
+
+
+def other_folds_epochs(curves) -> list[int]:
+    """For each fold, the 1-based epoch that is best on the mean validation curve of the
+    OTHER folds, earliest on ties; a fold's own curve is never used for its epoch.
+
+    ``curves`` holds one curve per fold, already averaged over seeds. This copies
+    ``tactic_tcn.cross_fold_choice``: no loss tie-break and no patience.
+    """
+    curves = np.asarray(curves, dtype=np.float64)
+    if curves.ndim != 2 or len(curves) < 2:
+        raise ValueError("Need one full validation curve per fold, at least two folds")
+    return [
+        int(np.argmax(np.mean(np.delete(curves, index, axis=0), axis=0))) + 1
+        for index in range(len(curves))
+    ]
 
 
 def inner_match_folds(fold, folds) -> tuple[MatchFold, ...]:
@@ -145,11 +171,15 @@ def fit_classifier(features, targets, fold, *, classes, config, seed, context, b
     validation = torch.tensor(fold.validation_indices, device=context.device)
     x, y = features.to(context.device), targets.to(context.device)
     weights = training_class_weights(y[train], classes)
-    # Initialisation is the only random operation: full-batch fitting has no shuffle.
+    # Full-batch fitting has no shuffle. Random numbers are drawn only for initialisation
+    # and, in heads with dropout, for the training passes; both come from a stream seeded
+    # here, so a refit to N epochs repeats the first N epochs of a longer fit exactly.
+    # Heads without dropout draw nothing while training, so their results are unchanged.
     with torch.random.fork_rng(devices=[]):
         torch.random.default_generator.manual_seed(seed)
         head = build_head() if build_head else nn.Linear(x.shape[1], len(classes))
         head = head.to(context.device)
+        training_rng = torch.random.get_rng_state()
     optimiser = torch.optim.AdamW(
         head.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay
     )
@@ -160,7 +190,10 @@ def fit_classifier(features, targets, fold, *, classes, config, seed, context, b
     for epoch in range(1, epoch_limit + 1):
         head.train()
         optimiser.zero_grad(set_to_none=True)
-        loss = criterion(head(x[train]), y[train])
+        with torch.random.fork_rng(devices=[]):
+            torch.random.set_rng_state(training_rng)
+            loss = criterion(head(x[train]), y[train])
+            training_rng = torch.random.get_rng_state()
         loss.backward()
         optimiser.step()
         if not math.isfinite(loss.item()):
@@ -270,7 +303,17 @@ def nested_epoch(
     )
 
 
-def fit_folds(features, targets, folds, *, classes, config, context, build_head=None):
+def fit_folds(
+    features,
+    targets,
+    folds,
+    *,
+    classes,
+    config,
+    context,
+    build_head=None,
+    epoch_mode="nested",
+):
     """Return one list of (head, run, probabilities) per fold, in seed order.
 
     No fold's epoch is chosen on its own validation match. With two folds each seed
@@ -278,9 +321,16 @@ def fit_folds(features, targets, folds, *, classes, config, context, build_head=
     the recipient validation match trained the donor model. With three or more folds
     the epoch comes from ``nested_epoch``, so the validation match is scored once and
     takes no part in its own model. Both then refit to exactly the chosen epoch.
+
+    ``epoch_mode="other-folds"`` uses the TCN's rule instead: every fold is fitted for
+    all epochs, each fold's curve is averaged over seeds, and a fold is scored at the
+    epoch best on the mean curve of the other folds, the same epoch for every seed.
+    It is slightly optimistic: the other folds' models trained on the scored match.
     """
-    mode = selection_mode(config, len(folds))
+    mode = selection_mode(config, len(folds), epoch_mode)
     extra = {"build_head": build_head} if build_head else {}
+    # Other-folds needs every fold's full curve, so nothing stops early there.
+    first = replace(config, patience=config.epochs) if mode == "other-folds" else config
     initial = [
         [
             fit_classifier(
@@ -288,7 +338,7 @@ def fit_folds(features, targets, folds, *, classes, config, context, build_head=
                 targets,
                 fold,
                 classes=classes,
-                config=config,
+                config=first,
                 seed=seed,
                 context=context,
                 **extra,
@@ -302,12 +352,51 @@ def fit_folds(features, targets, folds, *, classes, config, context, build_head=
             for _, run, _ in runs:
                 run.update(epoch_source_fold=None, optimistic=None)
         return initial
+    if mode == "other-folds":
+        curves = [
+            np.mean(
+                [[row["validation_macro_f1"] for row in run["history"]] for _, run, _ in runs],
+                axis=0,
+            )
+            for runs in initial
+        ]
+        chosen = other_folds_epochs(curves)
     results = []
     for index, fold in enumerate(folds):
         other = 1 - index
         runs = []
         for position, seed in enumerate(config.seeds):
-            if mode == "cross-fold":
+            if mode == "other-folds":
+                epoch = chosen[index]
+                others = [i for i in range(len(folds)) if i != index]
+                source = dict(
+                    epoch_selection="other-folds",
+                    epoch_source_fold=None,
+                    selection=dict(
+                        epoch=epoch,
+                        mean_other_folds_macro_f1=float(
+                            np.mean([curves[i][epoch - 1] for i in others])
+                        ),
+                        source_validation_match_ids=[folds[i].validation_match_id for i in others],
+                        history=[
+                            dict(
+                                epoch=e,
+                                mean_other_folds_macro_f1=float(
+                                    np.mean([curves[i][e - 1] for i in others])
+                                ),
+                                seed_mean_macro_f1=dict(
+                                    zip(
+                                        (folds[i].validation_match_id for i in others),
+                                        (float(curves[i][e - 1]) for i in others),
+                                        strict=True,
+                                    )
+                                ),
+                            )
+                            for e in range(1, len(curves[index]) + 1)
+                        ],
+                    ),
+                )
+            elif mode == "cross-fold":
                 epoch = initial[other][position][1]["best_epoch"]
                 source = dict(
                     epoch_selection="cross-fold",
@@ -380,7 +469,9 @@ def summarise_runs(fold_results, seeds):
     }
 
 
-def prepare_run(manifest, output, *, context: RunContext, config, exclude_uncertain=False):
+def prepare_run(
+    manifest, output, *, context: RunContext, config, exclude_uncertain=False, epoch_mode="nested"
+):
     """Open the training split and its whole-match folds; refuse bad inputs before writing.
 
     Returns (dataset, targets, folds, mode). Shared by every model on this protocol.
@@ -398,7 +489,7 @@ def prepare_run(manifest, output, *, context: RunContext, config, exclude_uncert
     classes = dataset.classes
     targets = torch.tensor([classes.index(r.label) for r in dataset.records])
     folds = whole_match_folds(dataset)
-    mode = selection_mode(config, len(folds))
+    mode = selection_mode(config, len(folds), epoch_mode)
     for fold in folds:
         # Fail before writing anything if a fold, or a nested inner fold, lacks a class.
         for part in (fold, *(inner_match_folds(fold, folds) if mode == "nested" else ())):
@@ -424,6 +515,9 @@ def describe_run(dataset, targets, *, config, context, mode, model, exclude_unce
             "nested": "Best mean macro-F1 over leave-one-match-out fits on the training matches "
             "only, matched by seed; refit on all of them to that exact epoch",
             "fixed": "Exactly fixed_epochs updates; no early stopping",
+            "other-folds": "The TCN's rule: every fold fitted for all epochs; each fold scored "
+            "at the epoch best on the other folds' seed-mean macro-F1 curve (earliest on ties), "
+            "the same epoch for every seed; refit to that exact epoch",
         }[mode],
         "optimistic_selection": (
             "Own validation macro-F1; loss breaks ties" if config.fixed_epochs is None else None
@@ -444,7 +538,15 @@ def describe_run(dataset, targets, *, config, context, mode, model, exclude_unce
     }
 
 
-def run_baseline(manifest, output, *, context: RunContext, config=None, exclude_uncertain=False):
+def run_baseline(
+    manifest,
+    output,
+    *,
+    context: RunContext,
+    config=None,
+    exclude_uncertain=False,
+    epoch_mode="nested",
+):
     """Extract fixed features once, run match folds, and save to a fresh directory.
 
     No statistics are fitted during feature extraction, so all development clips
@@ -453,7 +555,12 @@ def run_baseline(manifest, output, *, context: RunContext, config=None, exclude_
     config = config or BaselineConfig()
     output = Path(output)
     dataset, targets, folds, mode = prepare_run(
-        manifest, output, context=context, config=config, exclude_uncertain=exclude_uncertain
+        manifest,
+        output,
+        context=context,
+        config=config,
+        exclude_uncertain=exclude_uncertain,
+        epoch_mode=epoch_mode,
     )
     output.mkdir(parents=True, exist_ok=False)
     run_config = describe_run(
@@ -533,6 +640,7 @@ def fit_and_save(
         config=config,
         context=context,
         **({"build_head": build_head} if build_head else {}),
+        **({"epoch_mode": "other-folds"} if mode == "other-folds" else {}),
     )
     fold_results, predictions = [], []
     for number, fold in enumerate(folds, start=1):
@@ -627,6 +735,7 @@ def fit_and_save(
         _write_json(output / f"fold-{number}.json", result)
     summary = summarise_runs(fold_results, config.seeds)
     summary["epoch_mode"] = mode
+    summary["seed_ensemble"] = seed_ensemble(predictions, classes, config.seeds)
     summary["optimistic"] = (
         summarise_runs(
             [
@@ -648,6 +757,9 @@ def fit_and_save(
             "This is not an independent test score.",
             "fixed": "Fixed epochs avoid validation-based stopping only if N is chosen before "
             "seeing these scores. Repeated tuning still uses the development matches.",
+            "other-folds": "Other-folds is slightly optimistic: the epoch for a match comes "
+            "from the other folds' models, and each of those trained on the scored match. "
+            "Nested selection is the stricter estimate. This is not an independent test score.",
         }[mode],
         "The optimistic column selects and scores the epoch on the same validation match."
         if config.fixed_epochs is None
@@ -668,6 +780,33 @@ def fit_and_save(
     return summary
 
 
+def seed_ensemble(predictions, classes, seeds) -> dict:
+    """The TCN's seed ensemble: each clip's class probabilities averaged over seeds, then
+    scored once over all held-out clips pooled together (not averaged per fold)."""
+    by_clip = {}
+    for row in predictions:
+        by_clip.setdefault(row["clip_id"], {"truth": row["truth"], "probs": {}})
+        by_clip[row["clip_id"]]["probs"][row["seed"]] = [row[f"p_{name}"] for name in classes]
+    if any(sorted(clip["probs"]) != sorted(seeds) for clip in by_clip.values()):
+        raise ValueError("Every clip needs one prediction per seed for the seed ensemble")
+    truth = [classes.index(clip["truth"]) for clip in by_clip.values()]
+    mean = np.array([np.mean(list(clip["probs"].values()), axis=0) for clip in by_clip.values()])
+    per_seed = [
+        classification_metrics(
+            truth,
+            np.array([np.argmax(clip["probs"][seed]) for clip in by_clip.values()]),
+            classes,
+        )["macro_f1"]
+        for seed in seeds
+    ]
+    return {
+        "method": "mean probability over seeds per clip; metrics pooled over all held-out clips",
+        "clips": len(by_clip),
+        **classification_metrics(truth, mean.argmax(1), classes),
+        "pooled_seed_macro_f1": per_seed,
+    }
+
+
 def baseline_report(fold_results, summary, dataset, title="Plan A development results"):
     """Build a plain Markdown report; all spread values describe variation across seeds."""
     mode = summary["epoch_mode"]
@@ -680,6 +819,8 @@ def baseline_report(fold_results, summary, dataset, title="Plan A development re
             "nested": "Nested picks each epoch by leave-one-match-out on the training matches "
             "only, for the same seed, then refits on all of them.",
             "fixed": "Fixed mode trains exactly N epochs and scores only epoch N.",
+            "other-folds": "Other-folds (the TCN's rule) scores each match at the epoch best on "
+            "the other folds' seed-mean curve; slightly optimistic.",
         }[mode],
         "",
         f"| Validation match | {mode} macro-F1 | optimistic (selected on validation) macro-F1 | {mode} accuracy | Majority macro-F1 | Majority accuracy |",
@@ -708,13 +849,24 @@ def baseline_report(fold_results, summary, dataset, title="Plan A development re
         f"{summary['majority']['macro_f1']:.3f} | {summary['majority']['accuracy']:.3f} |",
         "",
         "The overall row averages folds per seed before calculating the spread.",
+        *(
+            [
+                "",
+                f"Seed ensemble (mean probability over seeds, pooled over all "
+                f"{summary['seed_ensemble']['clips']} held-out clips): macro-F1 "
+                f"{summary['seed_ensemble']['macro_f1']:.3f}, accuracy "
+                f"{summary['seed_ensemble']['accuracy']:.3f}.",
+            ]
+            if summary.get("seed_ensemble")
+            else []
+        ),
         "",
         "## Epochs used",
         "",
         "| Validation match | Seed | Scored epoch | Epoch from fold | Own optimistic epoch |",
         "|---|---:|---:|---:|---:|",
     ]
-    source_text = "training matches" if mode == "nested" else "fixed N"
+    source_text = {"nested": "training matches", "other-folds": "other folds"}.get(mode, "fixed N")
     for fold in fold_results:
         name = next(
             r.match_folder for r in dataset.records if r.match_id == fold["validation_match_id"]

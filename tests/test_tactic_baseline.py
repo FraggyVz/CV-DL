@@ -34,7 +34,9 @@ from stratscout.tactic_training import (
     fit_folds,
     inner_match_folds,
     nested_epoch,
+    other_folds_epochs,
     run_baseline,
+    seed_ensemble,
     selection_mode,
     summarise_runs,
     training_class_weights,
@@ -405,12 +407,129 @@ class TacticModelTests(unittest.TestCase):
                 torch.testing.assert_close(tensor, reference.state_dict()[key], rtol=0, atol=0)
             np.testing.assert_array_equal(probs, reference_probs)
 
+    def test_other_folds_epoch_ignores_its_own_curve_and_takes_the_earliest_tie(self):
+        curves = np.array(
+            [
+                [0.1, 0.9, 0.2, 0.2],  # a's own peak is epoch 2 ...
+                [0.5, 0.1, 0.5, 0.1],
+                [0.3, 0.1, 0.3, 0.9],
+            ]
+        )
+        # ... but a uses mean(b, c) = [0.4, 0.1, 0.4, 0.5] -> epoch 4.
+        # b uses mean(a, c) = [0.2, 0.5, 0.25, 0.55] -> 4; c uses mean(a, b) -> 2.
+        self.assertEqual(other_folds_epochs(curves), [4, 4, 2])
+        for own in (np.zeros(4), np.ones(4), np.array([9.0, 0, 0, 0])):
+            changed = curves.copy()
+            changed[0] = own
+            self.assertEqual(other_folds_epochs(changed)[0], 4)  # Own curve never matters.
+        tied = np.array([[0.0, 0.0, 0.0], [0.2, 0.7, 0.7], [0.4, 0.4, 0.4]])
+        self.assertEqual(other_folds_epochs(tied)[2], 2)  # Earliest of the tied epochs 2 and 3.
+        with self.assertRaisesRegex(ValueError, "at least two folds"):
+            other_folds_epochs(np.ones((1, 3)))
+
+    def test_other_folds_fit_scores_each_fold_at_the_other_folds_seed_mean_epoch(self):
+        folds = three_match_folds()
+        generator = torch.Generator().manual_seed(0)
+        features = torch.randn(15, 6, generator=generator)
+        targets = torch.arange(5).repeat(3)
+        config = BaselineConfig(epochs=5, patience=1, seeds=(3, 7))
+        # Validation macro-F1 per epoch for each (fold, seed). Seed-mean curves:
+        # a [0.2, 0.2, 0.9, 0.2, 0.2]; b [0.6, 0.1, 0.1, 0.1, 0.6]; c [0.1, 0.5, 0.1, 0.5, 0.1].
+        curves = {
+            ("a", 3): [0.2, 0.1, 0.8, 0.3, 0.2],
+            ("a", 7): [0.2, 0.3, 1.0, 0.1, 0.2],
+            ("b", 3): [0.7, 0.1, 0.1, 0.1, 0.5],
+            ("b", 7): [0.5, 0.1, 0.1, 0.1, 0.7],
+            ("c", 3): [0.1, 0.4, 0.1, 0.6, 0.1],
+            ("c", 7): [0.1, 0.6, 0.1, 0.4, 0.1],
+        }
+        expected = {"a": 1, "b": 3, "c": 3}  # mean(b,c): ties at 1 and 5 -> 1; others -> 3.
+
+        def full_curve_or_refit(x, y, fold, *, classes, config, seed, context):
+            if config.fixed_epochs is None:
+                self.assertEqual(config.patience, config.epochs)  # Full curves, no stopping.
+                history = [
+                    {"epoch": e, "train_loss": 1.0, "validation_macro_f1": score}
+                    for e, score in enumerate(curves[(fold.validation_match_id, seed)], start=1)
+                ]
+                return None, {"seed": seed, "best_epoch": 1, "history": history}, None
+            return fit_classifier(
+                x, y, fold, classes=classes, config=config, seed=seed, context=context
+            )
+
+        with patch(
+            "stratscout.tactic_training.fit_classifier", side_effect=full_curve_or_refit
+        ) as fit:
+            results = fit_folds(
+                features,
+                targets,
+                folds,
+                classes=TACTIC_CLASSES,
+                config=config,
+                context=self.context,
+                epoch_mode="other-folds",
+            )
+        self.assertEqual(fit.call_count, 12)  # Six full curves, six exact-epoch refits.
+        for fold, runs in zip(folds, results, strict=True):
+            match = fold.validation_match_id
+            for head, run, probs in runs:
+                self.assertEqual(run["epoch_selection"], "other-folds")
+                self.assertEqual(run["evaluation_epoch"], expected[match])  # Same for every seed.
+                self.assertEqual(run["epochs_run"], expected[match])
+                self.assertNotIn(match, run["selection"]["source_validation_match_ids"])
+                reference, _, reference_probs = fit_classifier(
+                    features,
+                    targets,
+                    fold,
+                    classes=TACTIC_CLASSES,
+                    config=replace(config, fixed_epochs=expected[match]),
+                    seed=run["seed"],
+                    context=self.context,
+                )
+                for key, tensor in head.state_dict().items():
+                    torch.testing.assert_close(tensor, reference.state_dict()[key], rtol=0, atol=0)
+                np.testing.assert_array_equal(probs, reference_probs)
+
+    def test_other_folds_mode_is_named_and_refuses_fixed_epochs(self):
+        config = BaselineConfig(seeds=(0,))
+        self.assertEqual(selection_mode(config, 4), "nested")
+        self.assertEqual(selection_mode(config, 4, "other-folds"), "other-folds")
+        self.assertEqual(selection_mode(config, 2, "other-folds"), "other-folds")
+        with self.assertRaisesRegex(ValueError, "cannot be combined"):
+            selection_mode(replace(config, fixed_epochs=5), 4, "other-folds")
+        with self.assertRaisesRegex(ValueError, "epoch_mode must be one of"):
+            selection_mode(config, 4, "cross")
+
+    def test_seed_ensemble_averages_probabilities_then_pools_the_clips(self):
+        classes = ("X", "Y")
+
+        def row(clip, seed, truth, p):
+            return {"clip_id": clip, "seed": seed, "truth": truth, "p_X": p, "p_Y": 1 - p}
+
+        predictions = [
+            row("one", 0, "X", 0.9),
+            row("one", 1, "X", 0.2),  # Seed 1 alone is wrong; the mean 0.55 is right.
+            row("two", 0, "Y", 0.4),
+            row("two", 1, "Y", 0.45),
+        ]
+        result = seed_ensemble(predictions, classes, (0, 1))
+        self.assertEqual(result["clips"], 2)
+        self.assertEqual(result["accuracy"], 1.0)
+        self.assertEqual(result["pooled_seed_macro_f1"][0], 1.0)
+        self.assertLess(result["pooled_seed_macro_f1"][1], 1.0)
+        with self.assertRaisesRegex(ValueError, "one prediction per seed"):
+            seed_ensemble(predictions[:3], classes, (0, 1))
+
     def test_cli_epoch_modes_and_conflicts(self):
         base = ["tactic-baseline", "--manifest", "unused.csv", "--output", "unused-output"]
         for flags, expected in (([], None), (["--cross-fold"], None), (["--fixed-epochs", "5"], 5)):
             with self.subTest(flags=flags), patch("stratscout.tactic_training.run_baseline") as run:
                 main(base + flags)
                 self.assertEqual(run.call_args.kwargs["config"].fixed_epochs, expected)
+                self.assertEqual(run.call_args.kwargs["epoch_mode"], "nested")
+        with patch("stratscout.tactic_training.run_baseline") as run:
+            main(base + ["--epoch-mode", "other-folds"])
+            self.assertEqual(run.call_args.kwargs["epoch_mode"], "other-folds")
         for flags in (["--cross-fold", "--fixed-epochs", "5"], ["--fixed-epochs", "0"]):
             with (
                 patch("stratscout.tactic_training.run_baseline") as run,
