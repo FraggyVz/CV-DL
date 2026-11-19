@@ -34,6 +34,28 @@ class HeldOutTests(unittest.TestCase):
                 refuse_held_out(name)
         refuse_held_out("furia", "spirit-vs-falcons-m2-mirage.dem")
 
+    def test_vitality_falcons_is_refused_but_aurora_vitality_is_not(self):
+        for name in (
+            "vitality-falcons",
+            "vitality-falcons-mirage-esl-pro-league-season-24",
+            "vitality-vs-falcons-m3-mirage.dem",
+        ):
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                refuse_held_out(name)
+        refuse_held_out(
+            "aurora",
+            "aurora-vitality-mirage-esl-pro-league-season-24",
+            "aurora-vs-vitality-m3-mirage.dem",
+            "mouz-betboom-mirage-iem-bejing-2026",
+            "mouz-vs-betboom-m2-mirage.dem",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaisesRegex(ValueError, "held-out"):
+                run_detector_check(
+                    ["vitality-falcons"], Path(tmp) / "out", demos_dir=Path(tmp) / "none"
+                )
+            self.assertFalse((Path(tmp) / "out").exists())
+
     def test_run_refuses_navi_before_reading_anything(self):
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaisesRegex(ValueError, "held-out"):
@@ -187,6 +209,21 @@ def synthetic_match(true_offset=0.4, radar=RadarMap(480.0, 470.0, 10.0, -5.0), n
 
 
 class CalibrationTests(unittest.TestCase):
+    def test_live_frames_start_the_mapping_when_spawn_hides_an_icon(self):
+        radar = RadarMap(480.0, 470.0, 10.0, -5.0)
+        positions, time_map, frames = synthetic_match(0.4, radar)
+        odd = [f for f in frames if f["round"] == 1]
+        with_freeze = calibrate(odd, positions, time_map, CheckConfig(), PassMark())
+        self.assertEqual(with_freeze["mapping_start"], "freeze")
+        for frame in odd:
+            if frame["phase"] == "freeze":  # One stacked CT icon is never separated.
+                frame["dets"] = [frame["dets"][0], frame["dets"][1][:4]]
+        fit = calibrate(odd, positions, time_map, CheckConfig(), PassMark())
+        self.assertEqual(fit["mapping_start"], "live")
+        self.assertAlmostEqual(fit["offset_s"], 0.4, delta=0.051)
+        self.assertAlmostEqual(fit["radar"].sx, radar.sx, delta=2.0)
+        self.assertAlmostEqual(fit["radar"].tx, radar.tx, delta=1.0)
+
     def test_calibration_recovers_known_offset_and_mapping(self):
         radar = RadarMap(480.0, 470.0, 10.0, -5.0)
         positions, time_map, frames = synthetic_match(0.4, radar)

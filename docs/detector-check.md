@@ -2,8 +2,9 @@
 
 The check compares the colour detector's player positions (the detector `bomb-preview`
 draws) with the true positions recorded in the demo files. It answers one question: can a
-later position-based tactic model trust these positions? It uses Furia and Spirit only;
-NaVi stays held out and is refused by name.
+later position-based tactic model trust these positions? It was first run on Furia and
+Spirit, then on Aurora-Vitality and MOUZ-BetBoom. The test matches, NaVi and
+Vitality-Falcons, are refused by name.
 
 Demo positions are **evaluation evidence only**. They never become detector or model input.
 
@@ -58,7 +59,8 @@ error left over from the mapping, not from the detector.
 
 - It does **not** check the tracker (keeping player identity over time), which the README
   lists as unrepaired. A position-based model still needs that fixed or avoided.
-- The CNN detector, NaVi, freeze time and post-round frames are not scored.
+- The CNN detector, the test matches (NaVi, Vitality-Falcons), freeze time and post-round
+  frames are not scored.
 - Hidden carriers inferred from the C4 badge count as T detections. In the 2026-11-11 run
   they were 21% of T detections; counting observed icons only, T found falls to about 76%.
   A position-based model must take the inferred carrier too, marked as inferred.
