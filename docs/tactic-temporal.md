@@ -6,17 +6,17 @@ and the same protocol as the [tactic baseline](tactic-baseline.md), so the score
 | Model | What it does | Why it is here |
 |---|---|---|
 | `mean` | Plan A: average all frames, then a linear layer | The baseline, refitted on the same cache |
-| Temporal average pooling (3 bins) + linear (`thirds`) | Average the early, middle and late third of the frame features, concatenate them, then apply a linear layer | A cheap check of whether frame order helps at all |
-| Random-bin average pooling + linear (`random-thirds`) | Exactly like `thirds`, but each clip's frames go into the three groups at random | Control: thirds' extra inputs without its frame order |
+| Temporal average pooling (3 segments) + linear classifier | Average the frame features in the early, middle and late segment of the clip, concatenate the three averages, then apply a linear classifier | A cheap check of whether frame order helps at all |
+| Random-segment average pooling + linear classifier (control) | Exactly like temporal average pooling (3 segments), but each clip's frames go into the three segments at random | Control: the same extra inputs without the frame order |
 | `gru` | A small GRU reads the frames in order with their times, then a linear layer | A learned temporal model |
 
-The descriptive name for `thirds` is **temporal average pooling (3 bins) + linear**.
-With image inputs, each frame has 512 frozen ResNet features. Three averages are
-concatenated into 1,536 features, and a linear classifier produces five class logits.
-It preserves early/middle/late grouping, but loses order within each bin and does not
-receive elapsed time. The ResNet feature extractor is nonlinear; only the trained head
-is linear. Command options, result keys and folder names keep `thirds` and
-`random-thirds` for compatibility with existing runs; tables below use those short keys.
+**Temporal average pooling (3 segments) + linear classifier** (short: Temporal avg. pooling (3 seg.)): with image inputs, each frame has 512 frozen ResNet
+features. The three segment averages are concatenated into 1,536 features, and a linear
+classifier produces five class logits. It preserves early/middle/late grouping, but loses
+order within each segment and does not receive elapsed time. The ResNet feature extractor
+is nonlinear; only the trained head is linear. In the code and run folders this model is
+called `thirds`, and its control `random-thirds`; command options (`--models thirds`),
+result keys and folder names keep those names so existing runs still work.
 
 ## Run it
 
@@ -37,7 +37,7 @@ is linear. Command options, result keys and folder names keep `thirds` and
 
 | Option | What happens |
 |---|---|
-| `--models gru` | Train only the listed models (`mean`, `thirds`, `random-thirds`, `gru`); the default is `mean thirds gru` |
+| `--models gru` | Train only the listed models (`mean`, `thirds` for temporal average pooling, `random-thirds` for its control, `gru`); the default is `mean thirds gru` |
 | `--inputs positions` | Use detector position features instead of image features; see [position features](#position-features) |
 | `--drop-channels bomb_badge` | Position inputs only: remove a channel, for an ablation |
 | `--epoch-mode other-folds` | Use the TCN's epoch rule instead of nested selection; see [the TCN's protocol](#all-four-models-under-the-tcns-epoch-rule-2026-11-19). Also accepted by `tactic-baseline` |
@@ -84,22 +84,23 @@ could no longer be compared with the baseline on identical features. It would al
 long clips into long sequences, which is harder to learn from 83 clips.
 
 **Repeated frames.** A clip shorter than 16 frames repeats some frames; the loader marks
-them in `repeat_mask`. The GRU and thirds drop the repeats, so no time step is counted
+them in `repeat_mask`. The GRU and temporal average pooling drop the repeats, so no time step is counted
 twice, and the GRU stops at each clip's last real frame. `mean` keeps them, to match the
 baseline exactly. The 2026-11-16 clips are all long enough to have no repeats.
 
-`thirds` does not get the times. It only tests order.
+Temporal average pooling (3 segments) does not get the times. It only tests order.
 
-## The random-thirds control
+## The random-segment control
 
-`thirds` has three times as many inputs as `mean`. A gain could therefore come from the
-extra inputs rather than from frame order. `random-thirds` separates the two:
+Temporal average pooling (3 segments) has three times as many inputs as `mean`. A gain
+could therefore come from the extra inputs rather than from frame order. The
+random-segment control separates the two:
 
-- it drops repeats and cuts each clip into three groups of the same sizes as `thirds`;
+- it drops repeats and cuts each clip into three segments of the same sizes;
 - but the frames are shuffled first, so each group holds frames from any time in the clip;
 - the shuffle uses a fixed seed made from the clip ID, so every run gives the same groups.
 
-It has the same input size and head as `thirds`; only the time order is removed.
+It has the same input size and head as temporal average pooling; only the time order is removed.
 
 ## The GRU
 
@@ -112,7 +113,7 @@ The final GRU (the default since 2026-11-19):
 | GRU | One layer, 10 inputs (8 + 2 time inputs), 16 hidden units |
 | Readout | Mean and maximum of the GRU outputs over each clip's real frames, joined (32 numbers); padding never enters; dropout 0.3 in training |
 | Output | Linear layer, 32 to 5 classes |
-| Size | 5,613 trainable weights; `thirds` has 7,685 and `mean` 2,565 |
+| Size | 5,613 trainable weights; temporal avg. pooling (3 seg.) has 7,685 and `mean` 2,565 |
 
 Dropout draws random numbers while training, so `fit_classifier` draws them from a stream
 seeded with the run's seed: a refit to N epochs repeats the first N epochs of a longer fit
@@ -139,7 +140,7 @@ name `gru` show the first GRU, as run then.
 below the baseline. Its training loss had barely moved when the stopping rule ended the
 search, because clips differ by much less than the features' shared level. Standardising
 fixed the training. That change was made after seeing development scores, so the GRU has
-had more design rounds than `thirds`; read its score with that in mind.
+had more design rounds than temporal average pooling; read its score with that in mind.
 
 Apart from these choices, the GRU uses the baseline's learning rate and weight decay.
 
@@ -148,24 +149,24 @@ Apart from these choices, the GRU uses the baseline's learning rate and weight d
 82 clips from four training matches (Spirit #5 left out as uncertain); four whole-match
 folds, nested epoch choice, seeds 0, 1, 2. Runs: `runs/tactic-temporal-20261116` and, for
 the control, `runs/tactic-temporal-random-thirds-20261117`. Each model was run once with
-these settings; random-thirds was planned before its score was seen and not tuned after.
+these settings; the random-segment control was planned before its score was seen and not tuned after.
 
 | Model | Macro-F1 (mean +/- SD over seeds) | Accuracy | Optimistic macro-F1 | Shuffled labels: macro-F1, mean |
 |---|---:|---:|---:|---:|
 | `mean` (baseline) | 0.518 +/- 0.034 | 0.589 | 0.676 | 0.146 |
-| `thirds` | 0.620 +/- 0.015 | 0.671 | 0.763 | 0.155 |
-| `random-thirds` | 0.526 +/- 0.012 | 0.602 | 0.666 | 0.142 |
+| Temporal avg. pooling (3 seg.) | 0.620 +/- 0.015 | 0.671 | 0.763 | 0.155 |
+| Random-segment control | 0.526 +/- 0.012 | 0.602 | 0.666 | 0.142 |
 | `gru` (first GRU) | 0.345 +/- 0.008 | 0.439 | 0.400 | 0.171 |
 | Majority guess | 0.065 | 0.195 | - | - |
 
-| Validation match | Clips | `mean` | `thirds` | `random-thirds` | `gru` (first GRU) |
+| Validation match | Clips | `mean` | Temporal avg. pooling (3 seg.) | Random-segment control | `gru` (first GRU) |
 |---|---:|---:|---:|---:|---:|
 | Spirit vs Falcons | 21 | 0.578 | 0.643 | 0.577 | 0.376 |
 | Furia vs Falcons | 22 | 0.565 | 0.625 | 0.535 | 0.353 |
 | MOUZ vs BetBoom | 20 | 0.429 | 0.713 | 0.534 | 0.286 |
 | Aurora vs Vitality | 19 | 0.500 | 0.500 | 0.460 | 0.363 |
 
-| Class | Clips | `mean` | `thirds` | `random-thirds` | `gru` (first GRU) |
+| Class | Clips | `mean` | Temporal avg. pooling (3 seg.) | Random-segment control | `gru` (first GRU) |
 |---|---:|---:|---:|---:|---:|
 | A_DIRECT | 15 | 0.451 | 0.627 | 0.474 | 0.478 |
 | B_DIRECT | 24 | 0.638 | 0.677 | 0.632 | 0.550 |
@@ -179,15 +180,15 @@ the shuffled-label check found no sign of leakage. It cannot rule out every leak
 does not show how a model will do on a new match.
 
 **This is evidence that time order helps on these development matches, not proof.**
-`random-thirds`
-has the same inputs and head as `thirds` and scores like `mean` (0.526 against 0.518;
-ahead in only 6 of 12 match-and-seed pairs). `thirds` beats `random-thirds` on all four
-matches and in 11 of 12 pairs, by 0.094 on average.
+The random-segment control has the same inputs and head as temporal average pooling and
+scores like `mean` (0.526 against 0.518; ahead in only 6 of 12 match-and-seed pairs).
+Temporal average pooling beats the control on all four matches and in 11 of 12 pairs, by
+0.094 on average.
 
-**Most of the gain over the baseline comes from one match.** `thirds` is 0.102 ahead of
+**Most of the gain over the baseline comes from one match.** Temporal average pooling is 0.102 ahead of
 `mean` on average, but 0.285 of that is on MOUZ vs BetBoom, whose seed spread is the
 largest (+/- 0.150). Without MOUZ the gain is 0.042, and on Aurora vs Vitality there is
-none. Against `random-thirds`, the gain without MOUZ is 0.065. With four matches this is
+none. Against the random-segment control, the gain without MOUZ is 0.065. With four matches this is
 evidence that time order helps on these development matches, not a settled size of the
 gain or proof that it holds on other matches.
 
@@ -255,17 +256,17 @@ nothing was changed after seeing the scores.
 | Model | Images: macro-F1 | Positions: macro-F1 | Images: accuracy | Positions: accuracy | Positions minus images, pairs ahead |
 |---|---:|---:|---:|---:|---:|
 | `mean` | 0.518 +/- 0.034 | 0.595 +/- 0.003 | 0.589 | 0.646 | +0.077, 10 of 12 |
-| `thirds` | 0.620 +/- 0.015 | 0.557 +/- 0.014 | 0.671 | 0.643 | -0.063, 4 of 12 |
+| Temporal avg. pooling (3 seg.) | 0.620 +/- 0.015 | 0.557 +/- 0.014 | 0.671 | 0.643 | -0.063, 4 of 12 |
 | `gru` (first GRU) | 0.345 +/- 0.008 | 0.384 +/- 0.040 | 0.439 | 0.446 | +0.039, 6 of 12 |
 
-| Validation match | `mean` images / positions | `thirds` images / positions | first GRU images / positions |
+| Validation match | `mean` images / positions | Temporal avg. pooling (3 seg.) images / positions | first GRU images / positions |
 |---|---|---|---|
 | Spirit vs Falcons | 0.578 / 0.655 | 0.643 / 0.517 | 0.376 / 0.350 |
 | Furia vs Falcons | 0.565 / 0.537 | 0.625 / 0.628 | 0.353 / 0.414 |
 | MOUZ vs BetBoom | 0.429 / 0.541 | 0.713 / 0.523 | 0.286 / 0.453 |
 | Aurora vs Vitality | 0.500 / 0.647 | 0.500 / 0.561 | 0.363 / 0.318 |
 
-| Class | Clips | `mean` images / positions | `thirds` images / positions | first GRU images / positions |
+| Class | Clips | `mean` images / positions | Temporal avg. pooling (3 seg.) images / positions | first GRU images / positions |
 |---|---:|---|---|---|
 | A_DIRECT | 15 | 0.451 / 0.640 | 0.627 / 0.654 | 0.478 / 0.412 |
 | B_DIRECT | 24 | 0.638 / 0.682 | 0.677 / 0.720 | 0.550 / 0.574 |
@@ -282,7 +283,7 @@ about 0.17. As above, the check found no sign of leakage.
   matches and in 10 of 12 pairs. The gain is on A_DIRECT and A_SPLIT: A splits predicted
   as A direct fall from 21 to 12, and the reverse from 19 to 12. B_SPLIT does not improve
   (0.42 to 0.39), and RETAKE stays level.
-- **`thirds` loses its lead:** on positions it is below `mean`, and below its own
+- **Temporal average pooling loses its lead:** on positions it is below `mean`, and below its own
   image-feature score on Spirit and MOUZ. B_SPLIT falls to 0.29. So the evidence that time
   order helps on these development matches comes from image features only; with
   positions it does not hold on these runs.
@@ -292,13 +293,13 @@ about 0.17. As above, the check found no sign of leakage.
   | Model | With bomb badge | Without | Difference |
   |---|---:|---:|---:|
   | `mean` | 0.595 | 0.591 | +0.004 |
-  | `thirds` | 0.557 | 0.532 | +0.025 |
+  | Temporal avg. pooling (3 seg.) | 0.557 | 0.532 | +0.025 |
   | `gru` (first GRU) | 0.384 | 0.370 | +0.014 |
 
   Its clearest effect is on RETAKE (about +0.1 F1 for every model), as expected from a
   planted badge.
 - **The linear heads did not underfit:** their final training loss is well below the
-  1.61 of a model that learned nothing (`mean` 0.35, `thirds` 0.22 on positions; 0.63
+  1.61 of a model that learned nothing (`mean` 0.35, temporal average pooling 0.22 on positions; 0.63
   and 0.24 on images).
 
 With four matches and one run each, a 0.06-0.08 gap moves between matches and is only a
@@ -340,13 +341,13 @@ the rerun.
 | Model | TCN rule: macro-F1, mean over seeds | Seed ensemble macro-F1 | Seed ensemble accuracy | Nested macro-F1 (stricter) |
 |---|---:|---:|---:|---:|
 | Baseline (mean) | 0.584 +/- 0.016 | 0.627 | 0.646 | 0.518 |
-| Thirds | 0.650 +/- 0.013 | 0.691 | 0.707 | 0.620 |
+| Temporal avg. pooling (3 seg.) | 0.650 +/- 0.013 | 0.691 | 0.707 | 0.620 |
 | First GRU | 0.338 +/- 0.011 | 0.353 | 0.439 | 0.345 |
 | TCN | 0.679 +/- 0.016 | 0.693 | 0.707 | not run |
 
 The TCN's time-blind control scores 0.645 under the same rule.
 
-| Validation match | Baseline | Thirds | First GRU | TCN |
+| Validation match | Baseline | Temporal avg. pooling (3 seg.) | First GRU | TCN |
 |---|---:|---:|---:|---:|
 | Spirit vs Falcons | 0.531 | 0.563 | 0.330 | 0.620 |
 | Furia vs Falcons | 0.655 | 0.709 | 0.349 | 0.871 |
@@ -357,7 +358,7 @@ Per class and the breakdown use the seed ensemble, pooled over the 82 clips, for
 model. "Site right" puts a clip in the right group (A, B or RETAKE); "split or direct
 right" is for A and B clips whose site was right.
 
-| Class | Clips | Baseline | Thirds | First GRU | TCN |
+| Class | Clips | Baseline | Temporal avg. pooling (3 seg.) | First GRU | TCN |
 |---|---:|---:|---:|---:|---:|
 | A_DIRECT | 15 | 0.571 | 0.625 | 0.457 | 0.710 |
 | B_DIRECT | 24 | 0.711 | 0.711 | 0.588 | 0.727 |
@@ -368,16 +369,16 @@ right" is for A and B clips whose site was right.
 | Model | Site right | Split or direct right, given the site |
 |---|---:|---:|
 | Baseline | 0.902 | 0.644 |
-| Thirds | 0.915 | 0.707 |
+| Temporal avg. pooling (3 seg.) | 0.915 | 0.707 |
 | First GRU | 0.768 | 0.481 |
 | TCN | 0.866 | 0.768 |
 
 No shuffled refit (20 per ResNet model) reached its real score; shuffled scores averaged
 about 0.17-0.18. The TCN run has no shuffled-label check.
 
-**What it shows.** On the same rule, thirds (0.650) is 0.029 below the TCN (0.679) and
+**What it shows.** On the same rule, temporal average pooling (0.650) is 0.029 below the TCN (0.679) and
 level with it as a seed ensemble (0.691 against 0.693). The TCN is clearly ahead on Furia
-and on A_DIRECT/A_SPLIT, and the best at split against direct once the site is right; thirds
+and on A_DIRECT/A_SPLIT, and the best at split against direct once the site is right; temporal average pooling
 is best at the site itself and on RETAKE. The first GRU stays far behind; the final GRU (0.681) is level with the TCN (see [the GRU](#the-gru)). Every ResNet model
 gains about 0.03-0.07 from the looser rule, which shows how much the epoch rule alone moves
 these scores. Remaining differences: the TCN reads detector features, trains in

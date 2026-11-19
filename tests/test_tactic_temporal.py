@@ -447,7 +447,7 @@ class TemporalRunTests(unittest.TestCase):
         report = (self.output / "report.md").read_text(encoding="utf-8")
         for text in (
             "| Mean pooling + linear | 20 |",
-            "| Temporal average pooling (3 bins) + linear | 50 |",
+            "| Temporal average pooling (3 segments) + linear classifier | 50 |",
             "| GRU |",
             "within noise",
             "Shuffled-label check",
@@ -483,7 +483,7 @@ class TemporalRunTests(unittest.TestCase):
                 self.assertEqual(random[key], ordered[key])
         self.assertTrue((control / "random-thirds" / "shuffled-labels.json").is_file())
         self.assertIn(
-            "| Random-bin average pooling + linear (control) | 50 |",
+            "| Random-segment average pooling + linear classifier (control) | 50 |",
             (control / "report.md").read_text(),
         )
 

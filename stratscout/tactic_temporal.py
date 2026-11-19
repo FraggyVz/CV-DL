@@ -55,8 +55,8 @@ MODEL_NAMES = {
 }
 DISPLAY_NAMES = {
     "mean": "Mean pooling + linear",
-    "thirds": "Temporal average pooling (3 bins) + linear",
-    "random-thirds": "Random-bin average pooling + linear (control)",
+    "thirds": "Temporal average pooling (3 segments) + linear classifier",
+    "random-thirds": "Random-segment average pooling + linear classifier (control)",
     "gru": "GRU",
 }
 TITLES = {
@@ -68,12 +68,13 @@ TITLES = {
 LIMITS = {
     "mean": ("Temporal mean pooling ignores movement order and elapsed time.",),
     "thirds": (
-        "Thirds keeps only coarse order: early, middle and late averages. "
-        "It does not see elapsed time, so a short and a long clip look alike.",
+        "Temporal average pooling (3 segments) keeps only coarse order: early, middle and "
+        "late averages. It does not see elapsed time, so a short and a long clip look alike.",
     ),
     "random-thirds": (
-        "Control: the same three averages and head as thirds, but frames are assigned to the "
-        "groups at random, so it has thirds' extra inputs without its frame order.",
+        "Control: the same three segment averages and head as temporal average pooling, but "
+        "frames are assigned to the segments at random, so it has the same extra inputs "
+        "without the frame order.",
     ),
     "gru": (
         "The GRU reads frames in order with their elapsed time, but has far more weights "
@@ -235,7 +236,9 @@ def model_inputs(name, frames: dict, classes, gru=None):
         return (
             thirds_inputs(features, frames["repeat_mask"]),
             None,
-            {"pooling": "mean of each time-ordered third, concatenated; repeats dropped"},
+            {
+                "pooling": "mean of each of three time-ordered segments, concatenated; repeats dropped"
+            },
         )
     if name == "gru":
         width = features.shape[2]
@@ -265,8 +268,8 @@ def model_inputs(name, frames: dict, classes, gru=None):
             random_thirds_inputs(features, frames["repeat_mask"], frames["clip_ids"]),
             None,
             {
-                "pooling": "thirds' three averages, but distinct frames assigned to the groups "
-                "at random; same group sizes",
+                "pooling": "the three segment averages, but distinct frames assigned to the "
+                "segments at random; same segment sizes",
                 "assignment_seed": "zlib.crc32(clip_id), numpy default_rng permutation",
             },
         )

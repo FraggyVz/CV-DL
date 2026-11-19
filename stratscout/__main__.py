@@ -226,8 +226,8 @@ def main(argv=None):
         nargs="+",
         default=["mean", "thirds", "gru"],
         choices=["mean", "thirds", "random-thirds", "gru"],
-        help="thirds = temporal average pooling (3 bins) + linear; "
-        "random-thirds = random-bin average pooling + linear control",
+        help="thirds = temporal average pooling (3 segments) + linear classifier; "
+        "random-thirds = random-segment average pooling + linear classifier (control)",
     )
     temporal.add_argument(
         "--inputs",

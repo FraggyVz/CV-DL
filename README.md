@@ -38,7 +38,7 @@ recording ─► prepare (crop radar, fix 2× speed, 5/10/30 fps) ─► label +
 | Shared clip data | Working: detector channels per named map region, bomb state and plant estimate, ResNet features on one timeline. Draft regions (`mirage-spectator-v1`). | ri3n | `build-clip-data`, [doc](docs/clip-data.md) |
 | TCN strategy model | Working, with cross-validation and a scored test set | ri3n | `train-tactics`, `predict-tcn`, [Tactic model](#tactic-model) |
 | Tactic baseline (ResNet mean + linear) | Working, development scores only | jx | `tactic-baseline` |
-| Temporal models (thirds, GRU) | Working, development scores only | jx | `tactic-temporal`, [doc](docs/tactic-temporal.md) |
+| Temporal models (temporal average pooling, GRU) | Working, development scores only | jx | `tactic-temporal`, [doc](docs/tactic-temporal.md) |
 | CNN icon detector | Exists; not used by the strategy models | Gin | `detector`, `training` |
 | Web app | Scaffold only (FastAPI + React in Docker): no predictions shown yet | violetdisp2408 | [Run the web application](#run-the-web-application) |
 
@@ -64,7 +64,7 @@ is the **stricter estimate**.
 | Model | Input | TCN rule: mean over seeds | TCN rule: seed ensemble | Nested (stricter) | Test (scored once) | Details |
 |---|---|---|---|---|---|---|
 | Baseline: mean pooling + linear | frozen ResNet-18 frame features | 0.584 | 0.627 | 0.518 | not run | [tactic baseline](docs/tactic-baseline.md) |
-| Thirds: temporal average pooling (3 bins) + linear | frozen ResNet-18 frame features | 0.650 | 0.691 | 0.620 | not run | [temporal models](docs/tactic-temporal.md) |
+| Temporal average pooling (3 segments) + linear classifier | frozen ResNet-18 frame features | 0.650 | 0.691 | 0.620 | not run | [temporal models](docs/tactic-temporal.md) |
 | GRU: 8/16, dropout 0.3, mean+max over all frames | frozen ResNet-18 frame features | 0.681 | 0.736 | not run | not run | [temporal models](docs/tactic-temporal.md) |
 | **TCN** | original detector features | **0.679** | **0.693** | not run | **0.919** | [Tactic model](#tactic-model) |
 
@@ -81,11 +81,11 @@ and `notebooks/tactic-model-comparison.ipynb`.
   detector features pooled over the clip) 0.625 (test 0.862); 0.645 in the 2026-11-19
   rerun. TCN on the shared clip data:
   running (`runs/tactic-tcn-clipdata-001`).
-- Random-thirds control: thirds' groups with the frames assigned at random, 0.526 (nested);
+- Random-segment average pooling + linear classifier (control): the same three segments with the frames assigned at random, 0.526 (nested);
   evidence that frame order helps on these development matches
-  ([details](docs/tactic-temporal.md#the-random-thirds-control)).
+  ([details](docs/tactic-temporal.md#the-random-segment-control)).
 - Position features: the ResNet-row models on detector positions (8×8 grid) instead of
-  image features: mean 0.595, thirds 0.557, first GRU 0.384 (nested)
+  image features: mean 0.595, temporal average pooling 0.557, first GRU 0.384 (nested)
   ([details](docs/tactic-temporal.md#position-features)).
 
 Report cross-validation as the estimate for new matches. The test score is optimistic:
