@@ -18,7 +18,8 @@ from torch import nn
 from .context import RunContext
 from .storage import save_checkpoint, write_new_text
 from .tactic_data import MatchFold, TacticClipDataset, whole_match_folds
-from .tactic_model import RGB_MEAN, RGB_STD, WEIGHTS, build_baseline, file_sha256, normalise_frames
+from .tactic_features import extract_frame_features
+from .tactic_model import RGB_MEAN, RGB_STD, WEIGHTS, file_sha256
 
 
 @dataclass(frozen=True)
@@ -130,8 +131,11 @@ def classification_metrics(targets, predictions, classes) -> dict:
     }
 
 
-def fit_classifier(features, targets, fold, *, classes, config, seed, context):
+def fit_classifier(features, targets, fold, *, classes, config, seed, context, build_head=None):
     """Fit one head, either for exactly N epochs or with optimistic early stopping.
+
+    The head is a linear layer on (clips, features) unless ``build_head`` returns
+    another module for the same ``features`` tensor, whatever its shape.
 
     Fixed fitting scores validation only after the final update. Otherwise highest
     validation macro-F1 wins, with unweighted loss breaking ties. ``fit_folds`` uses
@@ -144,7 +148,8 @@ def fit_classifier(features, targets, fold, *, classes, config, seed, context):
     # Initialisation is the only random operation: full-batch fitting has no shuffle.
     with torch.random.fork_rng(devices=[]):
         torch.random.default_generator.manual_seed(seed)
-        head = nn.Linear(x.shape[1], len(classes)).to(context.device)
+        head = build_head() if build_head else nn.Linear(x.shape[1], len(classes))
+        head = head.to(context.device)
     optimiser = torch.optim.AdamW(
         head.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay
     )
@@ -212,7 +217,9 @@ def fit_classifier(features, targets, fold, *, classes, config, seed, context):
     )
 
 
-def nested_epoch(features, targets, fold, folds, *, classes, config, seed, context):
+def nested_epoch(
+    features, targets, fold, folds, *, classes, config, seed, context, build_head=None
+):
     """Choose ``fold``'s epoch from its training matches only; return (epoch, selection).
 
     Each inner fit trains on all but one training match and scores that match at
@@ -222,9 +229,17 @@ def nested_epoch(features, targets, fold, folds, *, classes, config, seed, conte
     """
     search = replace(config, patience=config.epochs)  # Full curves; patience applies to the mean.
     inner = inner_match_folds(fold, folds)
+    extra = {"build_head": build_head} if build_head else {}
     histories = [
         fit_classifier(
-            features, targets, f, classes=classes, config=search, seed=seed, context=context
+            features,
+            targets,
+            f,
+            classes=classes,
+            config=search,
+            seed=seed,
+            context=context,
+            **extra,
         )[1]["history"]
         for f in inner
     ]
@@ -255,7 +270,7 @@ def nested_epoch(features, targets, fold, folds, *, classes, config, seed, conte
     )
 
 
-def fit_folds(features, targets, folds, *, classes, config, context):
+def fit_folds(features, targets, folds, *, classes, config, context, build_head=None):
     """Return one list of (head, run, probabilities) per fold, in seed order.
 
     No fold's epoch is chosen on its own validation match. With two folds each seed
@@ -265,10 +280,18 @@ def fit_folds(features, targets, folds, *, classes, config, context):
     takes no part in its own model. Both then refit to exactly the chosen epoch.
     """
     mode = selection_mode(config, len(folds))
+    extra = {"build_head": build_head} if build_head else {}
     initial = [
         [
             fit_classifier(
-                features, targets, fold, classes=classes, config=config, seed=seed, context=context
+                features,
+                targets,
+                fold,
+                classes=classes,
+                config=config,
+                seed=seed,
+                context=context,
+                **extra,
             )
             for seed in config.seeds
         ]
@@ -301,6 +324,7 @@ def fit_folds(features, targets, folds, *, classes, config, context):
                     config=config,
                     seed=seed,
                     context=context,
+                    **extra,
                 )
                 source = dict(epoch_selection="nested", epoch_source_fold=None, selection=selection)
             head, run, probabilities = fit_classifier(
@@ -311,6 +335,7 @@ def fit_folds(features, targets, folds, *, classes, config, context):
                 config=replace(config, fixed_epochs=epoch),
                 seed=seed,
                 context=context,
+                **extra,
             )
             run.update(**source, optimistic=initial[index][position][1])
             runs.append((head, run, probabilities))
@@ -355,15 +380,12 @@ def summarise_runs(fold_results, seeds):
     }
 
 
-def run_baseline(manifest, output, *, context: RunContext, config=None, exclude_uncertain=False):
-    """Extract fixed features once, run match folds, and save to a fresh directory.
+def prepare_run(manifest, output, *, context: RunContext, config, exclude_uncertain=False):
+    """Open the training split and its whole-match folds; refuse bad inputs before writing.
 
-    No statistics are fitted during feature extraction, so all development clips
-    can share that pass. Fitting and class weighting use only the training indices.
+    Returns (dataset, targets, folds, mode). Shared by every model on this protocol.
     """
-    config = config or BaselineConfig()
-    output = Path(output)
-    if output.exists():
+    if Path(output).exists():
         raise FileExistsError(f"Choose a new output directory: {output}")
     dataset = TacticClipDataset(
         manifest,
@@ -381,9 +403,14 @@ def run_baseline(manifest, output, *, context: RunContext, config=None, exclude_
         # Fail before writing anything if a fold, or a nested inner fold, lacks a class.
         for part in (fold, *(inner_match_folds(fold, folds) if mode == "nested" else ())):
             training_class_weights(targets[list(part.train_indices)], classes)
-    output.mkdir(parents=True, exist_ok=False)
-    run_config = {
-        "model": "resnet18-mean-linear",
+    return dataset, targets, folds, mode
+
+
+def describe_run(dataset, targets, *, config, context, mode, model, exclude_uncertain):
+    """Settings, versions and inputs saved as config.json beside a run's results."""
+    classes = dataset.classes
+    return {
+        "model": model,
         "settings": asdict(config),
         "classes": list(classes),
         "weights": WEIGHTS,
@@ -415,6 +442,29 @@ def run_baseline(manifest, output, *, context: RunContext, config=None, exclude_
         "class_counts": class_counts(targets.numpy(), classes),
         "definition_version": dataset.records[0].definition_version,
     }
+
+
+def run_baseline(manifest, output, *, context: RunContext, config=None, exclude_uncertain=False):
+    """Extract fixed features once, run match folds, and save to a fresh directory.
+
+    No statistics are fitted during feature extraction, so all development clips
+    can share that pass. Fitting and class weighting use only the training indices.
+    """
+    config = config or BaselineConfig()
+    output = Path(output)
+    dataset, targets, folds, mode = prepare_run(
+        manifest, output, context=context, config=config, exclude_uncertain=exclude_uncertain
+    )
+    output.mkdir(parents=True, exist_ok=False)
+    run_config = describe_run(
+        dataset,
+        targets,
+        config=config,
+        context=context,
+        mode=mode,
+        model="resnet18-mean-linear",
+        exclude_uncertain=exclude_uncertain,
+    )
     _write_json(output / "config.json", run_config)
     write_new_text(output / "input-manifest.csv", dataset.manifest.read_text(encoding="utf-8-sig"))
     print(
@@ -422,33 +472,9 @@ def run_baseline(manifest, output, *, context: RunContext, config=None, exclude_
         flush=True,
     )
     print(f"Class counts: {run_config['class_counts']}", flush=True)
-    model = build_baseline(context=context).eval()
-    save_checkpoint(
-        {k: v.cpu() for k, v in model.encoder.state_dict().items()}, output / "encoder.pt"
-    )
-    encoder_hash = file_sha256(output / "encoder.pt")
-    features, samples = [], []
-    for index, record in enumerate(dataset.records):
-        sample = dataset[index]
-        tensor = normalise_frames(sample["frames"], context=context)
-        features.append(model.encode(tensor.unsqueeze(0)).cpu())
-        samples.append(
-            {
-                **sample["metadata"],
-                "label": record.label,
-                "target": sample["target"],
-                "clip_sha256": file_sha256(record.path),
-                "fps": sample["fps"],
-                "duration_s": sample["duration_s"],
-                "frame_indices": sample["frame_indices"].tolist(),
-                "timestamps_s": sample["timestamps_s"].tolist(),
-                "repeat_mask": sample["repeat_mask"].tolist(),
-            }
-        )
-        if (index + 1) % 10 == 0 or index + 1 == len(dataset):
-            print(f"Extracted features: {index + 1}/{len(dataset)}", flush=True)
-    features = torch.cat(features)
-    _write_json(output / "samples.json", samples)
+    frames = extract_frame_features(dataset, output, context=context)
+    features = frames["features"].mean(dim=1)  # Plan A ignores frame order and elapsed time.
+    _write_json(output / "samples.json", frames["samples"])
     save_checkpoint(
         {
             "features": features,
@@ -457,8 +483,57 @@ def run_baseline(manifest, output, *, context: RunContext, config=None, exclude_
         },
         output / "features.pt",
     )
+    return fit_and_save(
+        features,
+        targets,
+        dataset,
+        folds,
+        output,
+        config=config,
+        context=context,
+        run_config=run_config,
+        encoder_hash=frames["encoder_sha256"],
+    )
+
+
+BASELINE_LIMITS = (
+    "Temporal mean pooling ignores movement order and elapsed time.",
+    "No synthetic pretraining, detection, temporal localisation or final test evaluation.",
+)
+
+
+def fit_and_save(
+    features,
+    targets,
+    dataset,
+    folds,
+    output,
+    *,
+    config,
+    context,
+    run_config,
+    encoder_hash,
+    build_head=None,
+    title="Plan A development results",
+    model_limits=BASELINE_LIMITS,
+):
+    """Fit every fold and seed on ready-made inputs, then write the run's result files.
+
+    ``features`` is whatever the head consumes, one row per dataset record. This is the
+    shared protocol: other models pass their own inputs, ``build_head`` and wording.
+    """
+    classes = dataset.classes
+    mode = run_config["epoch_mode"]
     print(f"Fitting classifiers with {mode} epochs", flush=True)
-    fitted = fit_folds(features, targets, folds, classes=classes, config=config, context=context)
+    fitted = fit_folds(
+        features,
+        targets,
+        folds,
+        classes=classes,
+        config=config,
+        context=context,
+        **({"build_head": build_head} if build_head else {}),
+    )
     fold_results, predictions = [], []
     for number, fold in enumerate(folds, start=1):
         train_targets = targets[list(fold.train_indices)].numpy()
@@ -578,8 +653,7 @@ def run_baseline(manifest, output, *, context: RunContext, config=None, exclude_
         if config.fixed_epochs is None
         else "Optimistic selection is not run in fixed-epoch mode.",
         "Seed spread describes initialisation variability, not uncertainty across unseen matches.",
-        "Temporal mean pooling ignores movement order and elapsed time.",
-        "No synthetic pretraining, detection, temporal localisation or final test evaluation.",
+        *model_limits,
     ]
     _write_json(output / "summary.json", summary)
     buffer = io.StringIO(newline="")
@@ -587,16 +661,18 @@ def run_baseline(manifest, output, *, context: RunContext, config=None, exclude_
     writer.writeheader()
     writer.writerows(predictions)
     write_new_text(output / "predictions.csv", buffer.getvalue())
-    write_new_text(output / "report.md", baseline_report(fold_results, summary, dataset))
+    write_new_text(
+        output / "report.md", baseline_report(fold_results, summary, dataset, title=title)
+    )
     print(f"Saved development results: {output / 'report.md'}", flush=True)
     return summary
 
 
-def baseline_report(fold_results, summary, dataset):
+def baseline_report(fold_results, summary, dataset, title="Plan A development results"):
     """Build a plain Markdown report; all spread values describe variation across seeds."""
     mode = summary["epoch_mode"]
     lines = [
-        "# Plan A development results",
+        f"# {title}",
         "",
         f"Main result: {mode}. Macro-F1 includes all five classes; values are mean +/- SD across seeds.",
         {
