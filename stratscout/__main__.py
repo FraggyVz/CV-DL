@@ -145,31 +145,6 @@ def main(argv=None):
     shared.add_argument("--cache", type=Path, default=Path("runs/tactic-cache"))
     shared.add_argument("--no-resnet", action="store_true", help="Detector channels only")
     shared.add_argument("--device", default="cpu")
-    guess = sub.add_parser(
-        "predict-tactics", help="Classify new prepared clips with saved tactic models"
-    )
-    guess.add_argument("clips", nargs="+", type=Path, help="Clip files or folders of .mp4 clips")
-    guess.add_argument(
-        "--models",
-        type=Path,
-        default=Path("runs/tactic-tcn-final/models"),
-        help="models/ folder written by train-tactics --evaluate-test",
-    )
-    guess.add_argument("--kind", default="tcn", choices=["tcn", "control"])
-    guess.add_argument("--output", type=Path, help="Also write a new CSV of predictions")
-    guess.add_argument(
-        "--background-from",
-        nargs="+",
-        type=Path,
-        help="Videos of the same match for the empty-map background (default: the clips)",
-    )
-    guess.add_argument(
-        "--min-confidence",
-        type=float,
-        default=0.6,
-        help="Flag predictions whose top probability is below this",
-    )
-    guess.add_argument("--device", default="cpu")
     counts = sub.add_parser(
         "icon-count-eval", help="Fit icon splitting on some matches; score team counts on others"
     )
@@ -397,18 +372,6 @@ def main(argv=None):
                     device=args.device,
                 )
                 print(f"Report: {args.output / 'report.md'}")
-            elif args.command == "predict-tactics":
-                from .tactic_predict import run_predict
-
-                run_predict(
-                    args.clips,
-                    args.models,
-                    kind=args.kind,
-                    output=args.output,
-                    background_from=args.background_from,
-                    min_confidence=args.min_confidence,
-                    device=args.device,
-                )
             elif args.command == "process-recordings":
                 from .recording_batch import process_recordings
 

@@ -14,7 +14,8 @@ Demo files are used for evaluation, never as model input.
 | Label a match | [Labelling guide](docs/labelling-guide.md), with the class rules in the [tactic guide](docs/tactic-definitions.md) |
 | Turn new labels into model-ready data | [Data processing](docs/data-processing.md) |
 | Understand the shared model data | [Shared clip data](docs/clip-data.md) and [its walkthrough notebook](notebooks/clip-data-walkthrough.ipynb) |
-| Understand how the TCN is trained and judged | [TCN walkthrough notebook](notebooks/tactic-tcn-walkthrough.ipynb) and [Tactic model](#tactic-model) |
+| Use or cite the latest TCN | [Latest model](#latest-model) |
+| Understand how the TCN is trained and judged | [Tactic model](#tactic-model) |
 | See how accurate the detector is | [Detector check](docs/detector-check.md) |
 | Work on the ResNet models | [Tactic baseline](docs/tactic-baseline.md), [clip loader](docs/clip-loader.md) |
 | Contribute code | [Contributor rules](AGENTS.md) and [Development checks](#development-checks-and-historical-references) |
@@ -36,7 +37,7 @@ recording ─► prepare (crop radar, fix 2× speed, 5/10/30 fps) ─► label +
 | Detector check | Working: measured against demo positions on the training matches | jx | `detector-check`, [doc](docs/detector-check.md) |
 | ResNet-18 frame features | Working: frozen ImageNet weights | jx | `tactic_model`, [tactic baseline](docs/tactic-baseline.md) |
 | Shared clip data | Working: detector channels per named map region, bomb state and plant estimate, ResNet features on one timeline. Draft regions (`mirage-spectator-v1`). | ri3n | `build-clip-data`, [doc](docs/clip-data.md) |
-| TCN strategy model | Working, with cross-validation and a scored test set | ri3n | `train-tactics`, `predict-tactics`, [Tactic model](#tactic-model) |
+| TCN strategy model | Working, with cross-validation and a scored test set | ri3n | `train-tactics`, [Latest model](#latest-model) |
 | Tactic baseline (ResNet mean + linear) | Working, development scores only | jx | `tactic-baseline` |
 | GRU and temporal models | On branch `feat/tactic-gru`, not merged yet | jx | `docs/tactic-temporal.md` on that branch |
 | CNN icon detector | Exists; not used by the strategy models | Gin | `detector`, `training` |
@@ -52,20 +53,53 @@ with `--exclude-uncertain`. It contains every clip of the older `2026-11-01` exp
 so don't combine the two. Label files for Aurora, MOUZ and Vitality–Falcons are not
 in `labels/` yet. Open label questions are in [labels/review-notes.md](labels/review-notes.md).
 
-### Results so far (2026-11-16, macro-F1)
+### Latest model
 
-| Model | Input | Cross-validation (unseen training match) | Test (scored once) |
-|---|---|---|---|
-| Majority class | – | 0.065 | 0.047 |
-| Time-blind control | original detector features | 0.625 | 0.862 |
-| **TCN** | original detector features | **0.667** (seed ensemble 0.735) | **0.919** |
-| TCN | shared clip data | running (`runs/tactic-tcn-clipdata-001`) | – |
+**TCN on the shared clip data**, run folder `runs/tactic-tcn-clipdata-final/`
+(not in Git; ask ri3n for a copy).
 
-Report cross-validation as the estimate for new matches. The test score is optimistic:
-the test teams also appear in training, and some classes have only 5–6 test clips. Most
-remaining errors are direct vs split on the same site. jx's ResNet and GRU results are
-in their docs and are not on exactly the same protocol yet. Compare models only on the
-same dataset, exclusions, folds and seeds.
+**Scores (2026-11-16, macro-F1).** Compare models on the cross-validation column.
+
+| Model | Cross-validation (each training match held out) | Test (NaVi–Falcons, Vitality–Falcons) |
+|---|---|---|
+| **TCN, 3 seeds** | **0.836** (seed ensemble 0.833, accuracy 0.841) | **0.927** (accuracy 0.933) |
+| Time-blind control, same input | 0.823 | 0.832 |
+| Majority class | 0.065 | 0.047 |
+
+Training accuracy is 1.00. Per-class precision, recall and confusion matrices are in the
+run's `report.md`.
+
+**Reproduce it** (about 1–1.5 h on CPU):
+
+```powershell
+python -m stratscout build-clip-data --dataset data/processed/datasets/2026-11-16 --output runs/clip-data-2026-11-16
+python -m stratscout train-tactics --dataset data/processed/datasets/2026-11-16 --clip-data runs/clip-data-2026-11-16 --output runs/tactic-tcn-clipdata-final --exclude-uncertain --seeds 3 --evaluate-test
+```
+
+**What's in the run folder:**
+
+| File | Contents |
+|---|---|
+| `report.md` | Everything to cite: scores per held-out match, per class, confusion matrices, test results |
+| `report.json` | The same, machine-readable, plus the data and regions versions |
+| `config.json` | Model and training settings |
+| `cv_predictions.csv` | Per-clip predictions on the training clips while each match was held out |
+| `predictions.csv` | Per-clip predictions on the test clips (`p_<class>` probabilities) |
+| `models/tcn-seed0/1/2.pt` | The three trained TCN seeds; the result is their averaged prediction |
+| `models/control-seed0/1/2.pt` | The time-blind control, for comparison only |
+
+**How to describe it:** a residual dilated TCN, trained from scratch, on hybrid features
+every 0.2 s: 72 map-region features from the rule-based detector, plus 32 PCA-reduced
+features from a frozen ImageNet ResNet-18 (early fusion, 104 per row). Compared with the
+earlier TCN on plain position features (cross-validation 0.667, test 0.919), the region
+features gave the gain. ResNet added little for the TCN (0.824 without it).
+
+**Caveats.** Report cross-validation as the estimate for new matches. The test score is
+optimistic: the test teams also appear in training, and some classes have only 5–6 test
+clips. This was the test set's second use; the first was the earlier TCN. The map
+regions were adjusted using training clips. Most remaining errors are A_DIRECT vs
+A_SPLIT. Compare other models only on the same dataset, exclusion (Spirit #5), folds and
+seeds; jx's ResNet and GRU results are not on this protocol yet.
 
 ### Known gaps
 
@@ -205,9 +239,7 @@ python -m stratscout bomb-preview --match navi --round 7
 python -m stratscout label-segments --match furia --reviewer <name>
 python -m stratscout bomb-scan --video data/processed/recordings/<match>/minimap-5fps.mp4 --output runs/bomb-scan-001
 python -m stratscout icon-count-eval --train furia spirit --test navi --output runs/icon-count-eval-001
-python -m stratscout train-tactics --dataset data/processed/datasets/2026-11-16 --output runs/tactic-tcn-<new> --exclude-uncertain --seeds 3
 python -m stratscout train-tactics --dataset data/processed/datasets/2026-11-16 --clip-data runs/clip-data-2026-11-16 --output runs/tactic-tcn-clipdata-<new> --exclude-uncertain --seeds 3
-python -m stratscout predict-tactics data/processed/datasets/2026-11-16/test/clips --output runs/predictions-001.csv
 python -m stratscout build-clip-data --dataset data/processed/datasets/2026-11-16 --output runs/clip-data-2026-11-16
 python -m stratscout prototype --smoke --output runs/smoke-001
 ```
@@ -253,23 +285,14 @@ time-blind control (the same features pooled over the clip) and a majority-class
   detections in every training batch. With `--clip-data <build-clip-data folder>`, the
   model reads the [shared clip data](docs/clip-data.md) instead: 72 detector channels
   plus `--resnet-pcs` (default 32) ResNet numbers per row. The ResNet compression is
-  fitted per fold on its training clips, with no input augmentation. `predict-tactics`
-  supports only models trained on the default input so far.
+  fitted per fold on its training clips, with no input augmentation. The
+  [latest model](#latest-model) uses this input.
 - **Outputs.** `report.md`, `report.json`, `config.json` and `cv_predictions.csv`.
   The report gives macro-F1 per held-out match, then per-class precision, recall and
   F1 and a confusion matrix, pooled over the held-out matches (every training clip is
   predicted once, by a model that never saw its match). With `--evaluate-test` it also
   writes `predictions.csv`, `models/` and the same per-class tables for the test match.
-- **Predicting new clips.** `predict-tactics <clips or folders>` loads every seed in
-  `--models` (default `runs/tactic-tcn-final/models`) and prints each clip's class and
-  seed-ensemble probability. Predictions below `--min-confidence` (default 0.6) are
-  flagged as uncertain, with the runner-up class. `--output new.csv` also saves every
-  class probability. Clips must be prepared like the training clips: the spectator-radar
-  crop at 10 fps, cut from the start to the end of one tactic. The empty-map background
-  is built per match from that match's clips, grouped by the file name before the first
-  dot, as `export-segments` names them. Give at least about 5 clips per match, or pass
-  the prepared recording with `--background-from`. On the 2026-11-16 test clips it
-  reproduces `predictions.csv` exactly.
+  There is no command to classify new clips with saved models.
 
 Detections are unvalidated colour estimates, so the features inherit their misses
 (e.g. players standing on site letters, stacks). The 2026-11-16 dataset (82 training
@@ -296,7 +319,7 @@ schema are not the current video-preparation or five-class dataset route.
 | `stratscout/media.py`, `video_profiles`, `video_preparation`, `recording_batch`, `fps_comparison`                     | Shared preparation and comparison APIs                                                                     |
 | `segmentation`, `icon_split`, `bomb`, `rounds`, `live_preview`, `count_eval`                                          | Colour/shape detection, overlap handling, estimates and review                                             |
 | `segments`, `segment_labeller`                                                                                        | Five-class segment records, validation, safe saving and the keyboard labeller                              |
-| `segment_export`, `tactic_features`, `tactic_tcn`, `tactic_predict`                                                   | Clip export, per-frame clip features, the tactic TCN experiment and prediction                             |
+| `segment_export`, `tactic_features`, `tactic_tcn`                                                                     | Clip export, per-frame clip features and the tactic TCN experiment                                         |
 | `clip_data`, `mirage_regions.json`                                                                                    | Shared model-ready clip data: detector channels per map region, bomb state and ResNet features             |
 | `preprocessing`, `detector`, `datasets`, `training`, `evaluation`, `synthetic`                                        | CNN icon detector and experiments                                                                          |
 | `tracking`, `annotations`, `config`, `contracts`, `context`, `workflow`, `storage`, `video`, `pilot`, `visualisation` | Tracking, legacy labels, explicit run state and orchestration                                              |
