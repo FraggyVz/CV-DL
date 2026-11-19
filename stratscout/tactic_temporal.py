@@ -15,7 +15,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from torch import nn
-from torch.nn.utils.rnn import pack_padded_sequence
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 from .config import TACTIC_CLASSES
 from .context import RunContext
@@ -39,6 +39,14 @@ from .tactic_training import (
 MODELS = ("mean", "thirds", "random-thirds", "gru")
 DEFAULT_MODELS = ("mean", "thirds", "gru")  # random-thirds is a control, run on request.
 TIME_SCALE_S = 30.0  # Fixed, not fitted: seconds are divided by this before entering the GRU.
+# The GRU's settings. Three configurations were tried, each fixed before its score was
+# seen: the first (32/32, no dropout, last-state readout) overfitted; then smaller with
+# dropout; then the same with mean+max pooling over all real frames, the final default.
+# Pass the old values to reproduce old runs; each run saves its own in config.json.
+GRU_READOUTS = ("mean-max", "last")
+GRU_DEFAULTS = {"projection": 8, "hidden": 16, "dropout": 0.3, "readout": "mean-max"}
+SMALL_GRU = {"projection": 8, "hidden": 16, "dropout": 0.3, "readout": "last"}
+FIRST_GRU = {"projection": 32, "hidden": 32, "dropout": 0.0, "readout": "last"}
 MODEL_NAMES = {
     "mean": "resnet18-mean-linear",
     "thirds": "resnet18-thirds-linear",
@@ -152,22 +160,41 @@ def sequence_inputs(
 
 
 class TemporalGRU(nn.Module):
-    """A small GRU over ``sequence_inputs`` rows, then a linear layer on its last state.
+    """A small GRU over ``sequence_inputs`` rows, then a linear layer on a pooled readout.
 
     Frame features are standardised first. The statistics have no weights and come
     only from the frames this head is trained on: full-batch training sees the same
     batch every step, so the running average used at validation equals the training
     fold's own mean and variance. Without this the GRU barely learns in the epoch
     budget, because clips differ by much less than the features' shared level.
+
+    ``readout="mean-max"`` (default) joins the mean and the maximum of the GRU outputs over
+    each clip's real frames, so every frame reaches the classifier, not only the last;
+    padding never enters either. ``readout="last"`` uses the last real state, as the
+    earlier GRUs did. ``dropout`` applies to the projected frame inputs and to the readout
+    before the classifier, in training only; it has no weights.
     """
 
-    def __init__(self, feature_dim=512, projection=32, hidden=32, n_classes=5):
+    def __init__(
+        self,
+        feature_dim=512,
+        projection=GRU_DEFAULTS["projection"],
+        hidden=GRU_DEFAULTS["hidden"],
+        n_classes=5,
+        dropout=GRU_DEFAULTS["dropout"],
+        readout=GRU_DEFAULTS["readout"],
+    ):
         super().__init__()
+        if readout not in GRU_READOUTS:
+            raise ValueError(f"readout must be one of {', '.join(GRU_READOUTS)}")
         self.feature_dim = feature_dim
+        self.readout = readout
         self.standardise = nn.BatchNorm1d(feature_dim, affine=False, momentum=None)
         self.project = nn.Linear(feature_dim, projection)  # Shared by every frame.
+        self.input_dropout = nn.Dropout(dropout)
         self.gru = nn.GRU(projection + 2, hidden, batch_first=True)
-        self.classifier = nn.Linear(hidden, n_classes)
+        self.state_dropout = nn.Dropout(dropout)
+        self.classifier = nn.Linear(hidden * (2 if readout == "mean-max" else 1), n_classes)
 
     def forward(self, packed: torch.Tensor) -> torch.Tensor:
         width = self.feature_dim
@@ -179,17 +206,28 @@ class TemporalGRU(nn.Module):
         real = packed[:, :, width + 2] > 0
         features = torch.zeros_like(packed[:, :, :width])
         features[real] = self.standardise(packed[:, :, :width][real])  # Padding stays zero.
-        steps = torch.cat([self.project(features), packed[:, :, width : width + 2]], 2)
+        projected = self.input_dropout(self.project(features))
+        steps = torch.cat([projected, packed[:, :, width : width + 2]], 2)
         # Packing stops each clip at its last real frame, so padding never reaches the state.
         sequence = pack_padded_sequence(
             steps, lengths.cpu(), batch_first=True, enforce_sorted=False
         )
-        _, last = self.gru(sequence)
-        return self.classifier(last[-1])
+        outputs, last = self.gru(sequence)
+        if self.readout == "last":
+            return self.classifier(self.state_dropout(last[-1]))
+        # Unpacked outputs keep the clip order; padded steps are zeros, masked out below.
+        outputs, _ = pad_packed_sequence(outputs, batch_first=True, total_length=packed.shape[1])
+        mask = (torch.arange(packed.shape[1], device=lengths.device) < lengths[:, None])[..., None]
+        mean = (outputs * mask).sum(dim=1) / lengths[:, None].to(outputs.dtype)
+        peak = outputs.masked_fill(~mask, float("-inf")).amax(dim=1)
+        return self.classifier(self.state_dropout(torch.cat([mean, peak], dim=1)))
 
 
-def model_inputs(name, frames: dict, classes):
-    """Return (inputs, build_head, description) for one model name."""
+def model_inputs(name, frames: dict, classes, gru=None):
+    """Return (inputs, build_head, description) for one model name.
+
+    ``gru`` overrides the GRU's settings (``GRU_DEFAULTS``), e.g. ``FIRST_GRU``.
+    """
     features = frames["features"]
     if name == "mean":
         return mean_inputs(features), None, {"pooling": "mean over all sampled frames"}
@@ -201,10 +239,20 @@ def model_inputs(name, frames: dict, classes):
         )
     if name == "gru":
         width = features.shape[2]
-        settings = {"projection": 32, "hidden": 32, "time_scale_s": TIME_SCALE_S}
+        sizes = {**GRU_DEFAULTS, **(gru or {})}
+        if set(sizes) != set(GRU_DEFAULTS):
+            raise ValueError(f"gru settings must be {', '.join(GRU_DEFAULTS)}")
+        settings = {**sizes, "time_scale_s": TIME_SCALE_S}
         return (
             sequence_inputs(features, frames["timestamps_s"], frames["repeat_mask"]),
-            lambda: TemporalGRU(width, settings["projection"], settings["hidden"], len(classes)),
+            lambda: TemporalGRU(
+                width,
+                sizes["projection"],
+                sizes["hidden"],
+                len(classes),
+                sizes["dropout"],
+                sizes["readout"],
+            ),
             {
                 **settings,
                 "standardisation": "per feature, from the training fold's frames only",
@@ -292,6 +340,7 @@ def run_temporal(
     inputs="images",
     drop_channels=(),
     epoch_mode="nested",
+    gru=None,
 ):
     """Train the chosen models on one shared per-frame cache; save one folder per model.
 
@@ -300,7 +349,8 @@ def run_temporal(
     earlier cache instead of extracting again. ``drop_channels`` removes position
     channels, e.g. ("bomb_badge",), for an ablation. ``shuffles`` repeats each model's
     whole fit that many times on shuffled labels. ``epoch_mode="other-folds"`` uses
-    the TCN's epoch rule instead of nested selection (see ``fit_folds``).
+    the TCN's epoch rule instead of nested selection (see ``fit_folds``). ``gru``
+    overrides the GRU's settings, e.g. ``FIRST_GRU`` to reproduce the first GRU.
     """
     config = config or BaselineConfig()
     output = Path(output)
@@ -362,7 +412,7 @@ def run_temporal(
     }
     prefix = "positions" if inputs == "positions" else "resnet18"
     for name in models:
-        model_input, build_head, description = model_inputs(name, frames, classes)
+        model_input, build_head, description = model_inputs(name, frames, classes, gru)
         run_config = describe_run(
             dataset,
             targets,
@@ -570,7 +620,12 @@ def load_temporal(checkpoint, *, context: RunContext, encoder=None) -> TemporalC
     if name == "gru":
         settings = config["temporal"]
         head = TemporalGRU(
-            state["project.weight"].shape[1], settings["projection"], settings["hidden"], n_classes
+            state["project.weight"].shape[1],
+            settings["projection"],
+            settings["hidden"],
+            n_classes,
+            settings.get("dropout", 0.0),  # Runs saved before dropout existed had none,
+            settings.get("readout", "last"),  # and read the last state.
         )
     else:
         head = nn.Linear(state["weight"].shape[1], n_classes)

@@ -257,6 +257,19 @@ def main(argv=None):
         "--fixed-epochs", type=int, metavar="N", help="Train exactly N epochs; no early stopping"
     )
     temporal.add_argument(
+        "--gru-projection", type=int, default=8, help="GRU frame projection size (first GRU: 32)"
+    )
+    temporal.add_argument("--gru-hidden", type=int, default=16, help="GRU state size (first: 32)")
+    temporal.add_argument(
+        "--gru-dropout", type=float, default=0.3, help="GRU dropout in training (first: 0)"
+    )
+    temporal.add_argument(
+        "--gru-readout",
+        choices=["mean-max", "last"],
+        default="mean-max",
+        help="GRU readout: mean+max over all real frames (default) or the last state (earlier GRUs)",
+    )
+    temporal.add_argument(
         "--epoch-mode",
         choices=["nested", "other-folds"],
         default="nested",
@@ -318,6 +331,12 @@ def main(argv=None):
                     inputs=args.inputs,
                     drop_channels=tuple(args.drop_channels),
                     epoch_mode=args.epoch_mode,
+                    gru={
+                        "projection": args.gru_projection,
+                        "hidden": args.gru_hidden,
+                        "dropout": args.gru_dropout,
+                        "readout": args.gru_readout,
+                    },
                 )
             elif args.command == "detector-check":
                 from .detector_check import CheckConfig, run_detector_check

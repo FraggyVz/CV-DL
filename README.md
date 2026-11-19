@@ -65,7 +65,7 @@ is the **stricter estimate**.
 |---|---|---|---|---|---|---|
 | Baseline: mean pooling + linear | frozen ResNet-18 frame features | 0.584 | 0.627 | 0.518 | not run | [tactic baseline](docs/tactic-baseline.md) |
 | Thirds: temporal average pooling (3 bins) + linear | frozen ResNet-18 frame features | 0.650 | 0.691 | 0.620 | not run | [temporal models](docs/tactic-temporal.md) |
-| GRU | frozen ResNet-18 frame features | 0.338 | 0.353 | 0.345 | not run | [temporal models](docs/tactic-temporal.md) |
+| GRU: 8/16, dropout 0.3, mean+max over all frames | frozen ResNet-18 frame features | 0.681 | 0.736 | not run | not run | [temporal models](docs/tactic-temporal.md) |
 | **TCN** | original detector features | **0.679** | **0.693** | not run | **0.919** | [Tactic model](#tactic-model) |
 
 The TCN numbers are from a rerun on 2026-11-19 (`runs/tactic-tcn-repro-20261119`); its
@@ -85,7 +85,7 @@ and `notebooks/tactic-model-comparison.ipynb`.
   evidence that frame order helps on these development matches
   ([details](docs/tactic-temporal.md#the-random-thirds-control)).
 - Position features: the ResNet-row models on detector positions (8×8 grid) instead of
-  image features: mean 0.595, thirds 0.557, GRU 0.384 (nested)
+  image features: mean 0.595, thirds 0.557, first GRU 0.384 (nested)
   ([details](docs/tactic-temporal.md#position-features)).
 
 Report cross-validation as the estimate for new matches. The test score is optimistic:

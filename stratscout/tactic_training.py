@@ -171,11 +171,15 @@ def fit_classifier(features, targets, fold, *, classes, config, seed, context, b
     validation = torch.tensor(fold.validation_indices, device=context.device)
     x, y = features.to(context.device), targets.to(context.device)
     weights = training_class_weights(y[train], classes)
-    # Initialisation is the only random operation: full-batch fitting has no shuffle.
+    # Full-batch fitting has no shuffle. Random numbers are drawn only for initialisation
+    # and, in heads with dropout, for the training passes; both come from a stream seeded
+    # here, so a refit to N epochs repeats the first N epochs of a longer fit exactly.
+    # Heads without dropout draw nothing while training, so their results are unchanged.
     with torch.random.fork_rng(devices=[]):
         torch.random.default_generator.manual_seed(seed)
         head = build_head() if build_head else nn.Linear(x.shape[1], len(classes))
         head = head.to(context.device)
+        training_rng = torch.random.get_rng_state()
     optimiser = torch.optim.AdamW(
         head.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay
     )
@@ -186,7 +190,10 @@ def fit_classifier(features, targets, fold, *, classes, config, seed, context, b
     for epoch in range(1, epoch_limit + 1):
         head.train()
         optimiser.zero_grad(set_to_none=True)
-        loss = criterion(head(x[train]), y[train])
+        with torch.random.fork_rng(devices=[]):
+            torch.random.set_rng_state(training_rng)
+            loss = criterion(head(x[train]), y[train])
+            training_rng = torch.random.get_rng_state()
         loss.backward()
         optimiser.step()
         if not math.isfinite(loss.item()):

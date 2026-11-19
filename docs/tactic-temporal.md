@@ -103,22 +103,45 @@ It has the same input size and head as `thirds`; only the time order is removed.
 
 ## The GRU
 
+The final GRU (the default since 2026-11-19):
+
 | Part | Setting |
 |---|---|
 | Standardise | Each of the 512 features, using the training fold's frames only; no weights |
-| Project | One linear layer, 512 to 32, shared by every frame |
-| GRU | One layer, 34 inputs (32 + 2 time inputs), 32 hidden units |
-| Output | Linear layer on the last hidden state |
-| Size | 23,109 trainable weights; `thirds` has 7,685 and `mean` 2,565 |
+| Project | One linear layer, 512 to 8, shared by every frame; dropout 0.3 in training |
+| GRU | One layer, 10 inputs (8 + 2 time inputs), 16 hidden units |
+| Readout | Mean and maximum of the GRU outputs over each clip's real frames, joined (32 numbers); padding never enters; dropout 0.3 in training |
+| Output | Linear layer, 32 to 5 classes |
+| Size | 5,613 trainable weights; `thirds` has 7,685 and `mean` 2,565 |
 
-**Why standardise.** The first version fed the raw features to the GRU and scored far
+Dropout draws random numbers while training, so `fit_classifier` draws them from a stream
+seeded with the run's seed: a refit to N epochs repeats the first N epochs of a longer fit
+exactly. Models without dropout draw nothing while training, so their results are unchanged.
+
+**Three configurations were tried**, each fixed before its score was seen, all on the
+same image features, clips, folds and seeds, under the TCN's epoch rule
+(`--epoch-mode other-folds`):
+
+| GRU | Weights | Macro-F1, mean over seeds | Run |
+|---|---:|---:|---|
+| First: projection 32, hidden 32, no dropout, last state | 23,109 | 0.338 | `runs/tactic-temporal-other-folds-20261119` |
+| Smaller with dropout: 8/16, dropout 0.3, last state | 5,533 | 0.354 | `runs/tactic-gru-small-other-folds-20261119` |
+| Final: the same with mean+max pooling over all real frames | 5,613 | 0.681 (seed ensemble 0.736; epochs 120-130) | `runs/tactic-gru-pooled-other-folds-20261119` |
+
+The first GRU fitted its training clips almost exactly within about 20 epochs, which
+points to too many weights for about 60 training clips per fold. The earlier settings stay
+available, and every run saves its own in `config.json`, so old runs still reload and
+reproduce: `--gru-projection 32 --gru-hidden 32 --gru-dropout 0 --gru-readout last` gives
+the first GRU, and `--gru-readout last` alone the second. The results sections below that
+name `gru` show the first GRU, as run then.
+
+**Why standardise.** The very first version fed the raw features to the GRU and scored far
 below the baseline. Its training loss had barely moved when the stopping rule ended the
 search, because clips differ by much less than the features' shared level. Standardising
-fixed the training. The change was made after seeing development scores, so the GRU has
-had one more design round than `thirds`; read its score with that in mind.
+fixed the training. That change was made after seeing development scores, so the GRU has
+had more design rounds than `thirds`; read its score with that in mind.
 
-Apart from that fix, the GRU is one untuned configuration: the baseline's learning rate
-and weight decay, no dropout, sizes chosen once in advance.
+Apart from these choices, the GRU uses the baseline's learning rate and weight decay.
 
 ## Results on 2026-11-16
 
@@ -132,17 +155,17 @@ these settings; random-thirds was planned before its score was seen and not tune
 | `mean` (baseline) | 0.518 +/- 0.034 | 0.589 | 0.676 | 0.146 |
 | `thirds` | 0.620 +/- 0.015 | 0.671 | 0.763 | 0.155 |
 | `random-thirds` | 0.526 +/- 0.012 | 0.602 | 0.666 | 0.142 |
-| `gru` | 0.345 +/- 0.008 | 0.439 | 0.400 | 0.171 |
+| `gru` (first GRU) | 0.345 +/- 0.008 | 0.439 | 0.400 | 0.171 |
 | Majority guess | 0.065 | 0.195 | - | - |
 
-| Validation match | Clips | `mean` | `thirds` | `random-thirds` | `gru` |
+| Validation match | Clips | `mean` | `thirds` | `random-thirds` | `gru` (first GRU) |
 |---|---:|---:|---:|---:|---:|
 | Spirit vs Falcons | 21 | 0.578 | 0.643 | 0.577 | 0.376 |
 | Furia vs Falcons | 22 | 0.565 | 0.625 | 0.535 | 0.353 |
 | MOUZ vs BetBoom | 20 | 0.429 | 0.713 | 0.534 | 0.286 |
 | Aurora vs Vitality | 19 | 0.500 | 0.500 | 0.460 | 0.363 |
 
-| Class | Clips | `mean` | `thirds` | `random-thirds` | `gru` |
+| Class | Clips | `mean` | `thirds` | `random-thirds` | `gru` (first GRU) |
 |---|---:|---:|---:|---:|---:|
 | A_DIRECT | 15 | 0.451 | 0.627 | 0.474 | 0.478 |
 | B_DIRECT | 24 | 0.638 | 0.677 | 0.632 | 0.550 |
@@ -168,7 +191,7 @@ none. Against `random-thirds`, the gain without MOUZ is 0.065. With four matches
 evidence that time order helps on these development matches, not a settled size of the
 gain or proof that it holds on other matches.
 
-**The GRU is below the baseline on every match** and almost never predicts a split
+**The first GRU is below the baseline on every match** and almost never predicts a split
 correctly. It is one untuned configuration on 82 clips. Its optimistic score, with the
 epoch picked on the scored match itself, is also about 0.40, so the epoch choice is not
 what holds it back: no stopping point on these runs reaches the baseline. Its training
@@ -233,16 +256,16 @@ nothing was changed after seeing the scores.
 |---|---:|---:|---:|---:|---:|
 | `mean` | 0.518 +/- 0.034 | 0.595 +/- 0.003 | 0.589 | 0.646 | +0.077, 10 of 12 |
 | `thirds` | 0.620 +/- 0.015 | 0.557 +/- 0.014 | 0.671 | 0.643 | -0.063, 4 of 12 |
-| `gru` | 0.345 +/- 0.008 | 0.384 +/- 0.040 | 0.439 | 0.446 | +0.039, 6 of 12 |
+| `gru` (first GRU) | 0.345 +/- 0.008 | 0.384 +/- 0.040 | 0.439 | 0.446 | +0.039, 6 of 12 |
 
-| Validation match | `mean` images / positions | `thirds` images / positions | `gru` images / positions |
+| Validation match | `mean` images / positions | `thirds` images / positions | first GRU images / positions |
 |---|---|---|---|
 | Spirit vs Falcons | 0.578 / 0.655 | 0.643 / 0.517 | 0.376 / 0.350 |
 | Furia vs Falcons | 0.565 / 0.537 | 0.625 / 0.628 | 0.353 / 0.414 |
 | MOUZ vs BetBoom | 0.429 / 0.541 | 0.713 / 0.523 | 0.286 / 0.453 |
 | Aurora vs Vitality | 0.500 / 0.647 | 0.500 / 0.561 | 0.363 / 0.318 |
 
-| Class | Clips | `mean` images / positions | `thirds` images / positions | `gru` images / positions |
+| Class | Clips | `mean` images / positions | `thirds` images / positions | first GRU images / positions |
 |---|---:|---|---|---|
 | A_DIRECT | 15 | 0.451 / 0.640 | 0.627 / 0.654 | 0.478 / 0.412 |
 | B_DIRECT | 24 | 0.638 / 0.682 | 0.677 / 0.720 | 0.550 / 0.574 |
@@ -263,14 +286,14 @@ about 0.17. As above, the check found no sign of leakage.
   image-feature score on Spirit and MOUZ. B_SPLIT falls to 0.29. So the evidence that time
   order helps on these development matches comes from image features only; with
   positions it does not hold on these runs.
-- **The GRU is still far below the others** with either input.
+- **The first GRU is still far below the others** with either input.
 - **The bomb badge adds little:**
 
   | Model | With bomb badge | Without | Difference |
   |---|---:|---:|---:|
   | `mean` | 0.595 | 0.591 | +0.004 |
   | `thirds` | 0.557 | 0.532 | +0.025 |
-  | `gru` | 0.384 | 0.370 | +0.014 |
+  | `gru` (first GRU) | 0.384 | 0.370 | +0.014 |
 
   Its clearest effect is on RETAKE (about +0.1 F1 for every model), as expected from a
   planted badge.
@@ -318,12 +341,12 @@ the rerun.
 |---|---:|---:|---:|---:|
 | Baseline (mean) | 0.584 +/- 0.016 | 0.627 | 0.646 | 0.518 |
 | Thirds | 0.650 +/- 0.013 | 0.691 | 0.707 | 0.620 |
-| GRU | 0.338 +/- 0.011 | 0.353 | 0.439 | 0.345 |
+| First GRU | 0.338 +/- 0.011 | 0.353 | 0.439 | 0.345 |
 | TCN | 0.679 +/- 0.016 | 0.693 | 0.707 | not run |
 
 The TCN's time-blind control scores 0.645 under the same rule.
 
-| Validation match | Baseline | Thirds | GRU | TCN |
+| Validation match | Baseline | Thirds | First GRU | TCN |
 |---|---:|---:|---:|---:|
 | Spirit vs Falcons | 0.531 | 0.563 | 0.330 | 0.620 |
 | Furia vs Falcons | 0.655 | 0.709 | 0.349 | 0.871 |
@@ -334,7 +357,7 @@ Per class and the breakdown use the seed ensemble, pooled over the 82 clips, for
 model. "Site right" puts a clip in the right group (A, B or RETAKE); "split or direct
 right" is for A and B clips whose site was right.
 
-| Class | Clips | Baseline | Thirds | GRU | TCN |
+| Class | Clips | Baseline | Thirds | First GRU | TCN |
 |---|---:|---:|---:|---:|---:|
 | A_DIRECT | 15 | 0.571 | 0.625 | 0.457 | 0.710 |
 | B_DIRECT | 24 | 0.711 | 0.711 | 0.588 | 0.727 |
@@ -346,7 +369,7 @@ right" is for A and B clips whose site was right.
 |---|---:|---:|
 | Baseline | 0.902 | 0.644 |
 | Thirds | 0.915 | 0.707 |
-| GRU | 0.768 | 0.481 |
+| First GRU | 0.768 | 0.481 |
 | TCN | 0.866 | 0.768 |
 
 No shuffled refit (20 per ResNet model) reached its real score; shuffled scores averaged
@@ -355,7 +378,7 @@ about 0.17-0.18. The TCN run has no shuffled-label check.
 **What it shows.** On the same rule, thirds (0.650) is 0.029 below the TCN (0.679) and
 level with it as a seed ensemble (0.691 against 0.693). The TCN is clearly ahead on Furia
 and on A_DIRECT/A_SPLIT, and the best at split against direct once the site is right; thirds
-is best at the site itself and on RETAKE. The GRU stays far behind. Every ResNet model
+is best at the site itself and on RETAKE. The first GRU stays far behind; the final GRU (0.681) is level with the TCN (see [the GRU](#the-gru)). Every ResNet model
 gains about 0.03-0.07 from the looser rule, which shows how much the epoch rule alone moves
 these scores. Remaining differences: the TCN reads detector features, trains in
 mini-batches with jittered and dropped detections and scores every 10th epoch; the ResNet
