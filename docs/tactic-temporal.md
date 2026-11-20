@@ -40,6 +40,7 @@ result keys and folder names keep those names so existing runs still work.
 | `--models gru` | Train only the listed models (`mean`, `thirds` for temporal average pooling, `random-thirds` for its control, `gru`); the default is `mean thirds gru` |
 | `--inputs positions` | Use detector position features instead of image features; see [position features](#position-features) |
 | `--drop-channels bomb_badge` | Position inputs only: remove a channel, for an ablation |
+| `--no-class-weights` | Ablation: train without the balanced class weights in the loss (default: weighted); see [class weights](#class-weights) |
 | `--inputs clip-data --clip-data <folder>` | Use the shared clip data, the clip-data TCN's input; see [clip-data inputs](#clip-data-inputs) |
 | `--epoch-mode other-folds` | Use the TCN's epoch rule instead of nested selection; see [the TCN's protocol](#all-four-models-under-the-tcns-epoch-rule-2026-11-19). Also accepted by `tactic-baseline` |
 | `--features runs/tactic-temporal/frame-features.pt` | Reuse an earlier cache; it is refused if the manifest, frame count, size or feature source differ |
@@ -121,14 +122,18 @@ seeded with the run's seed: a refit to N epochs repeats the first N epochs of a 
 exactly. Models without dropout draw nothing while training, so their results are unchanged.
 
 **Three configurations were tried**, each fixed before its score was seen, all on the
-same image features, clips, folds and seeds, under the TCN's epoch rule
-(`--epoch-mode other-folds`):
+same image features, clips, folds and seeds. They were first scored under the TCN's epoch
+rule (`--epoch-mode other-folds`); on 2026-11-20 each was rerun once with nested selection,
+the stricter default, using the sizes and readout saved in its config:
 
-| GRU | Weights | Macro-F1, mean over seeds | Run |
-|---|---:|---:|---|
-| First: projection 32, hidden 32, no dropout, last state | 23,109 | 0.338 | `runs/tactic-temporal-other-folds-20261119` |
-| Smaller with dropout: 8/16, dropout 0.3, last state | 5,533 | 0.354 | `runs/tactic-gru-small-other-folds-20261119` |
-| Final: the same with mean+max pooling over all real frames | 5,613 | 0.681 (seed ensemble 0.736; epochs 120-130) | `runs/tactic-gru-pooled-other-folds-20261119` |
+| GRU | Weights | Nested macro-F1 (main) | Other-folds macro-F1 | Runs (nested; other-folds) |
+|---|---:|---:|---:|---|
+| First: projection 32, hidden 32, no dropout, last state | 23,109 | 0.345 ± 0.008 | 0.338 | `runs/tactic-gru-first-nested-20261120`; `runs/tactic-temporal-other-folds-20261119` |
+| Middle (smaller with dropout): 8/16, dropout 0.3, last state | 5,533 | 0.327 ± 0.004 | 0.354 | `runs/tactic-gru-middle-nested-20261120`; `runs/tactic-gru-small-other-folds-20261119` |
+| Final: the same with mean+max pooling over all real frames | 5,613 | 0.600 ± 0.028 | 0.681 | `runs/tactic-gru-nested-20261120`; `runs/tactic-gru-pooled-other-folds-20261119` |
+
+Under nested selection the mean+max readout is what lifts the GRU (0.327 to 0.600); the
+smaller size and dropout alone did not (0.345 to 0.327).
 
 The first GRU fitted its training clips almost exactly within about 20 epochs, which
 points to too many weights for about 60 training clips per fold. The earlier settings stay
@@ -148,6 +153,35 @@ fixed the training. That change was made after seeing development scores, so the
 had more design rounds than temporal average pooling; read its score with that in mind.
 
 Apart from these choices, the GRU uses the baseline's learning rate and weight decay.
+
+## Class weights
+
+Every model weights each class in the training loss by N/(K × class count), from the
+fold's training clips only, so a small class counts as much as a large one.
+`--no-class-weights` turns this off for an ablation; the run saves `"class_weights": false`
+in its settings, and its folds record no weights. The default is unchanged: refitting
+temporal average pooling with the default reproduces the saved run's predictions exactly.
+
+One planned ablation (2026-11-20; ResNet images, nested, seeds 0–2):
+
+```powershell
+python -m stratscout tactic-temporal --manifest data/processed/datasets/2026-11-16-train-only/train/manifest.csv --output runs/tactic-thirds-unweighted-nested --exclude-uncertain --models thirds --features runs/tactic-temporal-20261116/frame-features.pt --no-class-weights
+```
+
+| Temporal average pooling | Nested macro-F1 | A_DIRECT | B_DIRECT | A_SPLIT | B_SPLIT | RETAKE | Pooled macro-F1 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Class weights on (default) | 0.620 ± 0.015 | 0.595 | 0.727 | 0.500 | 0.600 | 0.821 | 0.648 |
+| Class weights off | 0.564 ± 0.005 | 0.579 | 0.784 | 0.381 | 0.667 | 0.821 | 0.646 |
+
+Per-class F1 comes from pooled seed-ensemble predictions, the same method as the
+[model comparison notebook](../notebooks/tactic-model-comparison.ipynb): each clip's class
+probabilities are averaged over the three seeds of the model that held out its match, and
+all 82 clips are scored together. Without weights A_SPLIT falls (−0.119) and A_DIRECT
+slightly (−0.016), B_DIRECT (+0.057) and B_SPLIT (+0.067) rise, and RETAKE is unchanged.
+On these pooled predictions macro-F1 barely moves (0.648 to 0.646); the nested drop
+(−0.056) shows in the per-match, per-seed scores, not in the seed ensemble.
+Run:
+`runs/tactic-thirds-unweighted-nested-20261120`.
 
 ## Results on 2026-11-16
 
