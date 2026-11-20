@@ -189,7 +189,7 @@ data/
             test/   manifest.csv, clips/<class>/*.mp4
 labels/                            segment label files (*.segments.json): committed to Git
 configs/                           local settings, e.g. recording-video.json (not committed)
-runs/                              experiment outputs, the shared clip data and the detection cache: committed to Git
+runs/                              experiment outputs: ignored by Git, shared as a ZIP (a few older folders stay tracked)
 ```
 
 - **Your own recording:** see [Process a recording](#process-a-recording). The batch
@@ -203,10 +203,13 @@ runs/                              experiment outputs, the shared clip data and 
   directly inside. If train and test arrive as separate ZIPs carrying the same
   `export.json`, keep one copy at the top. Make a new dated folder for each export;
   never mix clips from two exports.
-- Do not commit videos or datasets. `labels/`, code and `runs/` (model runs with their
-  checkpoints, the shared clip data and the detection cache) are shared through Git, so
-  everyone can open the same results. Commit only runs worth keeping, and delete scratch
-  runs before committing.
+- **Shared run folders:** Git ignores `runs/` (and `tmp/`). Share run folders as a ZIP,
+  like the dataset, and extract it into `runs/` so each run is one folder directly inside.
+  The notebooks read these folders by name.
+- Do not commit videos, datasets or run outputs. `labels/` and code are shared through
+  Git. The few run folders committed before `runs/` was ignored (`clip-data-2026-11-16`,
+  `tactic-cache` and `tactic-tcn-clipdata-final`) stay tracked. Use `git add -f` only for
+  a small result that must be in Git, never for checkpoints or feature caches.
 
 ## Process a recording
 
