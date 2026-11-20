@@ -31,12 +31,13 @@ It takes about 4 minutes per match. Open `report.md` in the output folder, or ru
 | Step | What happens |
 |---|---|
 | Pair rounds | Video rounds (estimated) and demo rounds are paired in order; warm-up rounds are dropped. The counts must agree. |
-| Line up time | A straight line from demo time to video time is fitted on round starts, then a small offset is tuned. |
+| Line up time | A straight line from demo time to video time (the clock) is fitted on the start of every complete round; then a small offset is tuned on odd rounds. |
 | Line up the map | Demo coordinates are scaled and shifted onto the radar crop. |
 | Score | The detector runs on one frame per second; each team's detections are paired with its alive players. |
 
-**Odd rounds** line up time and map; **even rounds** are scored. Calibration error and
-detector error are therefore reported separately.
+The clock uses every round's start time, from the demo and the video, not the detector.
+**Odd rounds** fit only the small time offset and the map; **even rounds** are scored.
+Calibration error and detector error are therefore reported separately.
 
 ## How to read the results
 
@@ -66,7 +67,8 @@ error left over from the mapping, not from the detector.
   A position-based model must take the inferred carrier too, marked as inferred.
 - Gaps are common: in that run at least one player was missing in 12% of team-frames, so
   a model reading a sequence of frames must tolerate missing players.
-- The pass mark is pooled. Single rounds vary (Furia round 2 had T found at 80.5%) and
-  only 20 rounds were scored.
-- The time and map fit use detector centroids on odd rounds, so a detector that was off
-  in the same way everywhere would partly be absorbed by the fit.
+- The pass mark is pooled over the checked matches. Single rounds vary (in the 2026-11-11
+  run, Furia round 2 had T found at 80.5%) and that run scored only 20 rounds.
+- The time offset and map fit use detector centroids on odd rounds, so a detector that was
+  off in the same way everywhere would partly be absorbed by the fit. The clock line does
+  not use the detector.

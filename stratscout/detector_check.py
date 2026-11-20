@@ -1,9 +1,10 @@
 """Detector check: score the colour detector's player positions against demo positions.
 
 Demo positions are evaluation evidence only. They are never passed to the detector or to
-any model. Held-out matches are refused before any of their files are opened. The time
-alignment and the demo-to-radar mapping are fitted on odd rounds; the detector is scored
-on even rounds, so calibration error and detector error are reported separately. Player
+any model. Held-out matches are refused before any of their files are opened. The clock
+line from demo time to video time is fitted on the start of every complete round; only the
+small time offset and the demo-to-radar mapping are fitted on odd rounds. The detector is
+scored on even rounds, so calibration error and detector error are reported separately. Player
 identity over time (the tracker) is not evaluated. Importing this module reads nothing.
 """
 
@@ -748,16 +749,17 @@ def _fmt(value, pattern="{:.1f}") -> str:
 
 def report(results: List[Dict], summary: Dict, mark: PassMark) -> str:
     pooled = summary["groups"]["pooled"]
+    matches = ", ".join(r["calibration"]["match"] for r in results)
     lines = [
         "# Detector check: colour detector vs demo positions",
         "",
-        f"**Verdict: {summary['verdict']}** (Furia/Spirit even rounds; NaVi not read).",
+        f"**Verdict: {summary['verdict']}** (even rounds of {matches}; test matches not read).",
         "",
         f"Pass mark per team: median <= {mark.median_px:g} px, 90th percentile <= {mark.p90_px:g} px,"
         f" found >= {mark.min_found:.0%}, extra <= {mark.max_extra:.0%}. A player is found by a"
         f" detection within {mark.match_px:g} px; errors use pairs within {mark.error_gate_px:g} px.",
         "",
-        "## Result per team (both matches, scored rounds)",
+        "## Result per team (all checked matches, scored rounds)",
         "",
         "| Team | Players | Found | Extra | Median px | 90th pct px | Pass |",
         "|---|---:|---:|---:|---:|---:|---|",
@@ -788,8 +790,10 @@ def report(results: List[Dict], summary: Dict, mark: PassMark) -> str:
         "",
         "## Calibration error (kept separate from detector error)",
         "",
-        "Fitted on odd rounds only. The floor is still, isolated players after spawn: it",
-        "bounds how much of any error comes from the mapping and centroids, not the detector.",
+        "The clock line uses the start of every complete round; the time offset and radar",
+        "mapping are fitted on odd rounds only. The floor is still, isolated players after",
+        "spawn: it bounds how much of any error comes from the mapping and centroids, not the",
+        "detector.",
         "",
         "| Match | Anchor max residual s | Offset s | Speed ratio | Pairs | Calibration median px | Floor median px | Floor 90th px |",
         "|---|---:|---:|---:|---:|---:|---:|---:|",
@@ -807,10 +811,11 @@ def report(results: List[Dict], summary: Dict, mark: PassMark) -> str:
         "## Not covered",
         "",
         "- The tracker (player identity over time), listed as unrepaired in the README.",
-        "- NaVi (held-out test match) and the CNN detector.",
+        "- The held-out test matches and the CNN detector.",
         "- Freeze time and post-round frames; death-marker timing beyond counting extras.",
         f"- Inferred hidden carriers are counted as T detections ({summary['inferred_carriers']} here).",
-        "- Calibration uses detector centroids on odd rounds; demo positions are evaluation evidence only.",
+        "- The offset and radar mapping use detector centroids on odd rounds; demo positions are",
+        "  evaluation evidence only.",
         "",
     ]
     return "\n".join(lines)
@@ -847,7 +852,8 @@ def run_detector_check(
                 "matches": [{"folder": f.name, "demo": d.name} for f, d in pairs],
                 "check": asdict(config),
                 "pass_mark": asdict(mark),
-                "split": "calibrate on odd rounds, score even rounds",
+                "split": "clock line on every complete round start; offset and radar mapping "
+                "on odd rounds; score even rounds",
                 "versions": {n: version(n) for n in ("numpy", "opencv-python", "demoparser2")},
                 "python": platform.python_version(),
             }

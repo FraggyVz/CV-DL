@@ -65,7 +65,7 @@ is the **stricter estimate**.
 |---|---|---|---|---|---|---|
 | Baseline: mean pooling + linear | frozen ResNet-18 frame features | 0.584 | 0.627 | 0.518 | not run | [tactic baseline](docs/tactic-baseline.md) |
 | Temporal average pooling (3 segments) + linear classifier | frozen ResNet-18 frame features | 0.650 | 0.691 | 0.620 | not run | [temporal models](docs/tactic-temporal.md) |
-| GRU: 8/16, dropout 0.3, mean+max over all frames | frozen ResNet-18 frame features | 0.681 | 0.736 | not run | not run | [temporal models](docs/tactic-temporal.md) |
+| GRU: 8/16, dropout 0.3, mean+max over all frames | frozen ResNet-18 frame features | 0.681 | 0.736 | 0.600 | not run | [temporal models](docs/tactic-temporal.md) |
 | **TCN** | original detector features | **0.679** | **0.693** | not run | **0.919** | [Tactic model](#tactic-model) |
 
 The TCN numbers are from a rerun on 2026-11-19 (`runs/tactic-tcn-repro-20261119`); its
@@ -75,12 +75,16 @@ jittered and dropped detections, scoring every 10th epoch; the ResNet models tra
 full-batch with no augmentation, scoring every epoch. Only the TCN has been scored on the
 test matches. Per match, per class and the site against split-or-direct breakdown are in
 [the comparison](docs/tactic-temporal.md#all-four-models-under-the-tcns-epoch-rule-2026-11-19)
-and `notebooks/tactic-model-comparison.ipynb`.
+and `notebooks/tactic-model-comparison.ipynb`. The notebook is saved with its outputs; to
+rerun it you need the run folders it names, which are not in Git and are shared as a ZIP
+(extract into `runs/`).
 
 - Controls for the TCN: majority class 0.065 (test 0.047); time-blind control (the same
   detector features pooled over the clip) 0.625 (test 0.862); 0.645 in the 2026-11-19
-  rerun. TCN on the shared clip data:
-  running (`runs/tactic-tcn-clipdata-001`).
+  rerun. TCN on the shared clip data (a different input): 0.834 (ensemble 0.833) in a
+  train-only rerun (`runs/tactic-tcn-clipdata-repro-20261119`; ri3n's
+  `runs/tactic-tcn-clipdata-final` gave 0.836); the same model without temporal layers
+  on that data 0.823 (ensemble 0.845). Both use the TCN's rule.
 - Random-segment average pooling + linear classifier (control): the same three segments with the frames assigned at random, 0.526 (nested);
   evidence that frame order helps on these development matches
   ([details](docs/tactic-temporal.md#the-random-segment-control)).

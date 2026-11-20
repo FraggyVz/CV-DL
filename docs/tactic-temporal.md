@@ -136,6 +136,10 @@ reproduce: `--gru-projection 32 --gru-hidden 32 --gru-dropout 0 --gru-readout la
 the first GRU, and `--gru-readout last` alone the second. The results sections below that
 name `gru` show the first GRU, as run then.
 
+**To reproduce the table, add `--epoch-mode other-folds`.** The default is nested selection,
+which gives a different, stricter score: the final GRU scores 0.600 nested (seed ensemble
+0.697; `runs/tactic-gru-nested-20261120`) against 0.681 under the TCN's rule.
+
 **Why standardise.** The very first version fed the raw features to the GRU and scored far
 below the baseline. Its training loss had barely moved when the stopping rule ended the
 search, because clips differ by much less than the features' shared level. Standardising
@@ -379,9 +383,11 @@ about 0.17-0.18. The TCN run has no shuffled-label check.
 **What it shows.** On the same rule, temporal average pooling (0.650) is 0.029 below the TCN (0.679) and
 level with it as a seed ensemble (0.691 against 0.693). The TCN is clearly ahead on Furia
 and on A_DIRECT/A_SPLIT, and the best at split against direct once the site is right; temporal average pooling
-is best at the site itself and on RETAKE. The first GRU stays far behind; the final GRU (0.681) is level with the TCN (see [the GRU](#the-gru)). Every ResNet model
-gains about 0.03-0.07 from the looser rule, which shows how much the epoch rule alone moves
-these scores. Remaining differences: the TCN reads detector features, trains in
+is best at the site itself and on RETAKE. The first GRU stays far behind; the final GRU (0.681) is level with the TCN (see [the GRU](#the-gru)). The looser rule
+lifts the baseline by 0.066, temporal average pooling by 0.030 and the final GRU by 0.081
+(nested 0.600, `runs/tactic-gru-nested-20261120`), but not the first GRU (0.338 against
+0.345 nested). So the epoch rule alone can move these scores by up to about 0.08, and not
+by the same amount for every model. Remaining differences: the TCN reads detector features, trains in
 mini-batches with jittered and dropped detections and scores every 10th epoch; the ResNet
 models train full-batch with no augmentation and score every epoch. With four matches the
 gaps are a rough guide, not a significance test.
