@@ -49,44 +49,56 @@ segments reviewed. Training has 82 clips from Furia–Falcons, Spirit–Falcons,
 Aurora–Vitality and MOUZ–BetBoom; test has 45 clips from NaVi–Falcons and
 Vitality–Falcons. One clip, Spirit #5, has an uncertain boundary and is excluded
 with `--exclude-uncertain`. It contains every clip of the older `2026-11-01` export,
-so don't combine the two. Label files for Aurora, MOUZ and Vitality–Falcons are not
-in `labels/` yet. Open label questions are in [labels/review-notes.md](labels/review-notes.md).
+so don't combine the two. Open label questions are in
+[labels/review-notes.md](labels/review-notes.md).
 
 ### Results so far (2026-11-16, macro-F1)
 
-Cross-validation on the 82 training clips (Spirit #5 excluded), one training match held
-out at a time, seeds 0–2. All four rows use the **TCN's epoch rule**: each match is scored
-at the epoch best on the other matches' mean curve (`--epoch-mode other-folds` for the
-ResNet models). That rule is **slightly optimistic**, because the other matches' models
-trained on the scored match; the nested column keeps the scored match out completely and
-is the **stricter estimate**.
+Cross-validation on the 82 training clips (Spirit #5 excluded): each of the four training
+matches is held out in turn, seeds 0–2. The main column is **nested epoch selection**: the
+epoch is chosen from the three training matches only, so the scored match never helps
+choose it. Values are the mean over the four held-out matches and three seeds, ± the seed
+SD. The TCN's **other-folds rule** (each match scored at the epoch best on the other
+matches, whose models were trained on it) is shown for reference only; it scored most
+models higher.
 
-| Model | Input | TCN rule: mean over seeds | TCN rule: seed ensemble | Nested (stricter) | Test (scored once) | Details |
-|---|---|---|---|---|---|---|
-| Baseline: mean pooling + linear | frozen ResNet-18 frame features | 0.584 | 0.627 | 0.518 | not run | [tactic baseline](docs/tactic-baseline.md) |
-| Temporal average pooling (3 segments) + linear classifier | frozen ResNet-18 frame features | 0.650 | 0.691 | 0.620 | not run | [temporal models](docs/tactic-temporal.md) |
-| GRU: 8/16, dropout 0.3, mean+max over all frames | frozen ResNet-18 frame features | 0.681 | 0.736 | not run | not run | [temporal models](docs/tactic-temporal.md) |
-| **TCN** | original detector features | **0.679** | **0.693** | not run | **0.919** | [Tactic model](#tactic-model) |
+| Model | Input | Nested macro-F1 (main) | Other-folds | Test (scored once) | Details |
+|---|---|---|---|---|---|
+| Mean pooling | ResNet images | 0.518 ± 0.034 | 0.584 | not run | [tactic baseline](docs/tactic-baseline.md) |
+| Temporal average pooling (3 segments) | ResNet images | 0.620 ± 0.015 | 0.650 | not run | [temporal models](docs/tactic-temporal.md) |
+| GRU | ResNet images | 0.600 ± 0.028 | 0.681 | not run | [temporal models](docs/tactic-temporal.md#the-gru) |
+| TCN | Detector features | not yet run (slow) | 0.679 | 0.919 | [Tactic model](#tactic-model) |
+| Pooled classifier | Detector features | not yet run (slow) | 0.645 | 0.862 | [Tactic model](#tactic-model) |
+| Mean pooling | Clip data | 0.796 ± 0.016 | 0.790 | not run | [clip-data inputs](docs/tactic-temporal.md#clip-data-inputs) |
+| Temporal average pooling (3 segments) | Clip data | 0.763 ± 0.048 | 0.775 | not run | [clip-data inputs](docs/tactic-temporal.md#clip-data-inputs) |
+| GRU | Clip data | 0.792 ± 0.033 | 0.809 | not run | [clip-data inputs](docs/tactic-temporal.md#clip-data-inputs) |
+| **TCN** | Clip data | **0.849 ± 0.021** | 0.834 | scored by ri3n; not used here | [shared clip data](docs/clip-data.md) |
+| Pooled classifier | Clip data | 0.809 ± 0.035 | 0.823 | scored by ri3n; not used here | [shared clip data](docs/clip-data.md) |
 
-The TCN numbers are from a rerun on 2026-11-19 (`runs/tactic-tcn-repro-20261119`); its
-earlier run gave 0.667 (ensemble 0.735). The epoch rule is now the same, but the inputs and
-training still differ: the TCN reads detector features and trains in mini-batches with
-jittered and dropped detections, scoring every 10th epoch; the ResNet models train
-full-batch with no augmentation, scoring every epoch. Only the TCN has been scored on the
-test matches. Per match, per class and the site against split-or-direct breakdown are in
-[the comparison](docs/tactic-temporal.md#all-four-models-under-the-tcns-epoch-rule-2026-11-19)
-and `notebooks/tactic-model-comparison.ipynb`.
+The pooled classifier is the TCN's control: the same rows pooled over the clip before a
+small network, so step order cannot matter. The detector-features test scores come from
+the earlier run (cross-validation 0.667 for the TCN and 0.625 for the pooled classifier);
+the other-folds column is the 2026-11-19 rerun (`runs/tactic-tcn-repro-20261119`). Clip data (ri3n's `build-clip-data`) is detector
+channels per map region plus 32 ResNet PCA numbers fitted per fold; image runs use 16
+sampled frames per clip. The nested TCN and pooled-classifier rows come from
+`scripts/nested_tcn.py`; the other-folds clip-data rows from a train-only rerun of
+`train-tactics`. Every value and the per-match, per-class and error breakdowns are computed
+in `notebooks/tactic-model-comparison.ipynb`. The notebook is saved with its outputs; to
+rerun it you need the run folders it names, which are not in Git and are shared as a ZIP
+(extract into `runs/`).
 
-- Controls for the TCN: majority class 0.065 (test 0.047); time-blind control (the same
-  detector features pooled over the clip) 0.625 (test 0.862); 0.645 in the 2026-11-19
-  rerun. TCN on the shared clip data:
-  running (`runs/tactic-tcn-clipdata-001`).
+- Training choices on ResNet images (nested): the Last-state GRU scores 0.345, the Compact
+  last-state GRU 0.327 and the Compact pooled GRU 0.600; temporal average pooling without class weights 0.564,
+  against 0.620 with them ([details](docs/tactic-temporal.md#the-gru)).
+- Majority class: 0.065 (test 0.047).
 - Random-segment average pooling + linear classifier (control): the same three segments with the frames assigned at random, 0.526 (nested);
   evidence that frame order helps on these development matches
   ([details](docs/tactic-temporal.md#the-random-segment-control)).
 - Position features: the ResNet-row models on detector positions (8×8 grid) instead of
   image features: mean 0.595, temporal average pooling 0.557, first GRU 0.384 (nested)
   ([details](docs/tactic-temporal.md#position-features)).
+- The clip data's map regions were adjusted after looking at training labels, so the
+  clip-data scores may be optimistic.
 
 Report cross-validation as the estimate for new matches. The test score is optimistic:
 the test teams also appear in training, and some classes have only 5–6 test clips. Most
@@ -185,7 +197,7 @@ data/
             test/   manifest.csv, clips/<class>/*.mp4
 labels/                            segment label files (*.segments.json): committed to Git
 configs/                           local settings, e.g. recording-video.json (not committed)
-runs/                              experiment outputs, the shared clip data and the detection cache: committed to Git
+runs/                              experiment outputs: ignored by Git, shared as a ZIP (a few older folders stay tracked)
 ```
 
 - **Your own recording:** see [Process a recording](#process-a-recording). The batch
@@ -199,10 +211,13 @@ runs/                              experiment outputs, the shared clip data and 
   directly inside. If train and test arrive as separate ZIPs carrying the same
   `export.json`, keep one copy at the top. Make a new dated folder for each export;
   never mix clips from two exports.
-- Do not commit videos or datasets. `labels/`, code and `runs/` (model runs with their
-  checkpoints, the shared clip data and the detection cache) are shared through Git, so
-  everyone can open the same results. Commit only runs worth keeping, and delete scratch
-  runs before committing.
+- **Shared run folders:** Git ignores `runs/` (and `tmp/`). Share run folders as a ZIP,
+  like the dataset, and extract it into `runs/` so each run is one folder directly inside.
+  The notebooks read these folders by name.
+- Do not commit videos, datasets or run outputs. `labels/` and code are shared through
+  Git. The few run folders committed before `runs/` was ignored (`clip-data-2026-11-16`,
+  `tactic-cache` and `tactic-tcn-clipdata-final`) stay tracked. Use `git add -f` only for
+  a small result that must be in Git, never for checkpoints or feature caches.
 
 ## Process a recording
 
@@ -376,9 +391,9 @@ annotation/evaluation evidence, not vision-model inputs.
 2. **Review the map regions** in `stratscout/mirage_regions.json`, using the
    [walkthrough notebook](notebooks/clip-data-walkthrough.ipynb). Connector also
    catches some Ts on direct A attacks.
-3. **Commit the missing label files** (Aurora, MOUZ, Vitality–Falcons) so everyone
-   exports the same dataset, and resolve the open items in
-   [labels/review-notes.md](labels/review-notes.md).
+3. **Resolve the open label items** in [labels/review-notes.md](labels/review-notes.md).
+   The Aurora, MOUZ and Vitality–Falcons label files are now in Git (done), so everyone
+   exports the same dataset.
 4. **Grow the dataset:** more matches, especially new teams and splits (B_SPLIT has only
    9 training clips). Follow [data processing](docs/data-processing.md) and keep the
    same test matches.

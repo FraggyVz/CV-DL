@@ -12,7 +12,6 @@ Labels by `jx`. After Gin's comments below, the agreed segments were marked
 | Spirit | #17 (round 12) | pending, undecided | Mid-to-A attack; no class covers it (Gin: leave pending) |
 | Spirit | #5 (round 5) | reviewed `A_SPLIT` | Boundary still marked uncertain; confirm or fix it |
 | NaVi | #25 (round 16) | reviewed `RETAKE` | Gin said to leave round 16 unlabelled; confirm whether this retake should stay |
-
 The original questions and Gin's answers follow.
 
 ## Furia–Falcons (training)
@@ -57,6 +56,50 @@ count as `B_DIRECT`.
 
 **Round 12:** Leave this pending, as we do not currently have a mid-to-A class.
 
+## Aurora–Vitality (training)
+
+| Round | Reason |
+|---|---|
+| 2 | Labelled B_SPLIT: the short player held catwalk during the apartments push and only reached B at the end. Split or direct? |
+| 5, 7 | In both, the short player died on catwalk just as apartments pushed. Round 5 is labelled B_DIRECT and round 7 B_SPLIT; which should both be? |
+| 12 | Labelled A_SPLIT, but the mid player came through CT spawn, not connector. He reached A with the ramp/palace group. |
+| 19 | Labelled A_SPLIT: two came through connector while the palace player stayed in palace, as in Furia 7. A third came through window to CT spawn. |
+
+### Gin's comments
+
+**Round 2:** I would keep `B_SPLIT`.
+
+**Round 5:** Change this to `B_SPLIT`. The short player was participating in the
+split but died during the approach; his death does not make it a direct attack.
+
+**Round 7:** Keep `B_SPLIT`.
+
+**Round 12:** Keep `A_SPLIT`. The mid player did not come through CT spawn; he
+moved from mid through window into jungle and killed defenders on A site.
+
+**Round 19:** The initial attack is `A_SPLIT`. After the first T and the CT
+defending B die, the Ts identify the remaining CT on A. The bomb carrier then
+rotates to B while the other Ts gradually advance to eliminate the last CT.
+
+## MOUZ–BetBoom (training)
+
+| Round | Reason |
+|---|---|
+| 4 | A part excluded as a fake: the bomb never went to A, but the players got onto A and traded kills before B was taken. Fake or failed A attack? |
+| 12 | Labelled B_SPLIT: mainly a short hit, with one player moving into apartments at the same time but never coming onto B. |
+| 20 | Undecided: a short-only push on B with nobody in apartments. Same as the mid-to-A case? |
+
+### Gin's comments
+
+**Round 4:** This is a mid-to-A attack, not a fake. Leave it unlabelled, as we do
+not currently have a class for this route.
+
+**Round 12:** Keep `B_SPLIT`, even though the apartments player remained inside
+apartments.
+
+**Round 20:** Leave this unlabelled. It is a clutch situation: the other Ts died
+in mid, leaving one player alone in palace.
+
 ## NaVi–Falcons (test)
 
 | Round | Reason |
@@ -79,3 +122,18 @@ a direct attack or a split, I am confident that watching the actual gameplay wou
 show why this is not a representative example of either.
 
 **Round 17:** Leave this unlabelled, as it is no longer a coordinated hit.
+
+## Vitality–Falcons (test)
+
+| Round | Reason |
+|---|---|
+| 10 | Labelled A_SPLIT: the ramp player was killed in palace alley by a CT who had pushed out onto ramp, as the connector group went in. |
+| 19 | Labelled A_DIRECT: a CT had pushed into palace, and all three attackers died at the ramp and palace exits within 10 s. Attack or just a fight in palace? |
+
+### Gin's comments
+
+**Round 10:** I would not classify this as `A_SPLIT`. The players coming through
+connector did not attack A site; they moved through jungle into window instead.
+
+**Round 19:** I would keep `A_DIRECT`. It was a committed attack that failed
+quickly.

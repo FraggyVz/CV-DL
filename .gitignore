@@ -27,3 +27,7 @@ data/raw/
 /pilot_frames_sources.json
 data_radar/
 debug.log
+
+# Experiment outputs and scratch files. Run folders already in Git stay tracked.
+/runs/
+/tmp/

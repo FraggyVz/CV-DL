@@ -3,10 +3,15 @@
 Every model here sees the same sampled frames, folds, epoch selection, seeds, class
 weights and metrics as Plan A; only the head and its inputs differ. This workflow
 never opens the test split.
+
+With ``inputs="clip-data"`` the per-frame rows are the shared clip data that the clip-data
+TCN reads (72 detector channels plus the ResNet numbers, compressed per fold); see
+``ClipDataHead``.
 """
 
 from __future__ import annotations
 
+import csv
 import json
 import zlib
 from dataclasses import dataclass, field
@@ -53,6 +58,7 @@ MODEL_NAMES = {
     "random-thirds": "resnet18-random-thirds-linear",
     "gru": "resnet18-gru-linear",
 }
+MODEL_PREFIXES = {"images": "resnet18", "positions": "positions", "clip-data": "clipdata"}
 DISPLAY_NAMES = {
     "mean": "Mean pooling + linear",
     "thirds": "Temporal average pooling (3 segments) + linear classifier",
@@ -81,11 +87,19 @@ LIMITS = {
         "than training clips, so it can fit noise.",
     ),
 }
-INPUTS = ("images", "positions")
+INPUTS = ("images", "positions", "clip-data")
 POSITION_LIMIT = (
     "Position features come from the colour detector: about 1 frame in 9 misses a player, "
     "about 1 T position in 6 is an inferred carrier, and the inferred carrier can misfire "
     "on a planted bomb. Counts have no player identity."
+)
+# Clip data: the same per-row features as train-tactics --clip-data (TacticConfig.resnet_pcs).
+CLIP_DATA_PCS = 32
+CLIP_DATA_MODELS = ("mean", "thirds", "gru")
+CLIP_DATA_LIMIT = (
+    "Clip data rows are the shared clip data (docs/clip-data.md): detector channels per map "
+    "region, drawn after looking at training labels, plus ResNet numbers compressed per fold. "
+    "Rows already carry elapsed time and the regions reached so far."
 )
 SHARED_LIMIT = (
     "No synthetic pretraining, detection, temporal localisation or final test evaluation."
@@ -276,6 +290,185 @@ def model_inputs(name, frames: dict, classes, gru=None):
     raise ValueError(f"Unknown model {name!r}; choose from {', '.join(MODELS)}")
 
 
+def load_clip_rows(folder, clip_ids) -> dict:
+    """The shared clip data for these clips, as one padded per-row cache.
+
+    Loading calls the clip-data TCN's own loader (``tactic_tcn._load_clip_inputs``, which
+    reads ``clip_data.load_clip_data``). That loader reads every clip its folder lists, so
+    a folder listing any non-training clip is refused before a clip file is opened: pass
+    a train-only copy. Each row is the raw detector channels followed by the raw ResNet
+    numbers; nothing is fitted here. ``repeat_mask`` marks the padding after each clip's
+    last row (clip-data rows are real time, so there are no repeated frames).
+    """
+    from .tactic_tcn import TacticConfig, _load_clip_inputs
+
+    folder = Path(folder)
+    with (folder / "index.csv").open(encoding="utf-8", newline="") as handle:
+        other = [row["clip_id"] for row in csv.DictReader(handle) if row["split"] != "train"]
+    if other:
+        raise ValueError(
+            f"{folder} lists {len(other)} non-training clips; use a train-only clip-data copy "
+            "so the test split is never read"
+        )
+    config = TacticConfig(input="clip-data", resnet_pcs=CLIP_DATA_PCS)
+    clips, info = _load_clip_inputs(folder, [{"clip_id": c} for c in clip_ids], config)
+    first = clips[clip_ids[0]]
+    detector_width, resnet_width = first["detector"].shape[1], first["resnet"].shape[1]
+    lengths = [len(clips[c]["detector"]) for c in clip_ids]
+    features = torch.zeros(len(clip_ids), max(lengths), detector_width + resnet_width)
+    timestamps = torch.zeros(len(clip_ids), max(lengths), dtype=torch.float64)
+    padding = torch.ones(len(clip_ids), max(lengths), dtype=torch.bool)
+    for i, (clip_id, length) in enumerate(zip(clip_ids, lengths, strict=True)):
+        clip = clips[clip_id]
+        if len(clip["resnet"]) != length or len(clip["t_s"]) != length:
+            raise ValueError(f"{clip_id}: detector, ResNet and time rows differ in number")
+        features[i, :length, :detector_width] = torch.as_tensor(
+            clip["detector"], dtype=torch.float32
+        )
+        features[i, :length, detector_width:] = torch.as_tensor(
+            np.asarray(clip["resnet"], np.float32)
+        )
+        timestamps[i, :length] = torch.as_tensor(clip["t_s"], dtype=torch.float64)
+        padding[i, :length] = False
+    return {
+        "features": features,
+        "timestamps_s": timestamps,
+        "repeat_mask": padding,
+        "clip_ids": list(clip_ids),
+        "samples": [{"clip_id": c, "rows": n} for c, n in zip(clip_ids, lengths, strict=True)],
+        "encoder_sha256": None,
+        "feature_names": list(first["detector_names"])
+        + [f"resnet_{j}" for j in range(resnet_width)],
+        "detector_width": detector_width,
+        "clip_data": info,
+    }
+
+
+class ClipDataHead(nn.Module):
+    """Mean pooling, temporal average pooling or the GRU on clip-data rows.
+
+    Input: ``sequence_inputs`` rows of raw clip data (detector channels, then ResNet
+    numbers). On its first training call, which in ``fit_classifier`` is always the
+    fold's full training batch, the head fits the clip-data TCN's per-row transform on
+    those rows only, by calling its code: ``ResnetCompressor`` (PCA to ``pcs`` numbers)
+    and ``Normaliser`` (per-channel scaling) via ``tactic_tcn._raw_features``. These are
+    then fixed buffers. A new head is built for every fit, so under nested selection the
+    transform comes from the inner training clips only, and validation clips never shape
+    it. The pooling is unchanged: the plain mean over rows, ``thirds_inputs``, or
+    ``TemporalGRU``. Padding never enters.
+    """
+
+    def __init__(
+        self, pooling, detector_width, resnet_width, n_classes=5, pcs=CLIP_DATA_PCS, gru=None
+    ):
+        super().__init__()
+        if pooling not in CLIP_DATA_MODELS:
+            raise ValueError(f"pooling must be one of {', '.join(CLIP_DATA_MODELS)}")
+        self.pooling, self.detector_width, self.pcs = pooling, detector_width, pcs
+        self.width = detector_width + resnet_width
+        rows = detector_width + pcs
+        self.register_buffer("fitted", torch.tensor(False))
+        self.register_buffer("pca_mean", torch.zeros(resnet_width))
+        self.register_buffer("components", torch.zeros(pcs, resnet_width))
+        self.register_buffer("row_mean", torch.zeros(rows))
+        self.register_buffer("row_std", torch.ones(rows))
+        if pooling == "gru":
+            sizes = {**GRU_DEFAULTS, **(gru or {})}
+            self.gru = TemporalGRU(
+                rows,
+                sizes["projection"],
+                sizes["hidden"],
+                n_classes,
+                sizes["dropout"],
+                sizes["readout"],
+            )
+        else:
+            self.classifier = nn.Linear(rows * (3 if pooling == "thirds" else 1), n_classes)
+
+    def fit_transform(self, raw: torch.Tensor) -> None:
+        """Fit the PCA and scaling on these raw training rows (rows, width), as train_model
+        does for the clip-data TCN."""
+        from .clip_data import ResnetCompressor
+        from .tactic_tcn import Normaliser, TacticConfig, _raw_features
+
+        rows = raw.detach().cpu().numpy()
+        clip = {
+            "detector": rows[:, : self.detector_width],
+            "resnet": rows[:, self.detector_width :],
+        }
+        config = TacticConfig(input="clip-data", resnet_pcs=self.pcs)
+        compressor = ResnetCompressor(self.pcs).fit([clip["resnet"]])
+        if len(compressor.components) < self.pcs:
+            raise ValueError(
+                f"Need at least {self.pcs} training rows and ResNet numbers for the PCA"
+            )
+        norm = Normaliser.fit([_raw_features(clip, config, compressor)], compressor)
+        for name, value in (
+            ("pca_mean", compressor.mean),
+            ("components", compressor.components),
+            ("row_mean", norm.mean),
+            ("row_std", norm.std),
+        ):
+            getattr(self, name).copy_(torch.as_tensor(np.asarray(value, np.float32)))
+        self.fitted.fill_(True)
+
+    def transform(self, packed: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """Scaled rows (clips, steps, detector + pcs), zero at padding, and the real-row mask."""
+        width = self.width
+        if packed.ndim != 3 or packed.shape[2] != width + 3:
+            raise ValueError(
+                "Expected sequence_inputs rows of raw clip data (clips, rows, width+3)"
+            )
+        real = packed[:, :, width + 2] > 0
+        if not bool(self.fitted):
+            if not self.training:
+                raise ValueError("Fit the clip-data transform on training rows first")
+            self.fit_transform(packed[:, :, :width][real])
+        raw = packed[:, :, :width]
+        compressed = (raw[:, :, self.detector_width :] - self.pca_mean) @ self.components.T
+        rows = torch.cat([raw[:, :, : self.detector_width], compressed], 2)
+        rows = (rows - self.row_mean) / self.row_std
+        return rows * real.unsqueeze(2), real
+
+    def forward(self, packed: torch.Tensor) -> torch.Tensor:
+        rows, real = self.transform(packed)
+        if self.pooling == "gru":
+            return self.gru(torch.cat([rows, packed[:, :, self.width :]], 2))
+        if self.pooling == "thirds":
+            return self.classifier(thirds_inputs(rows, ~real))
+        lengths = real.sum(dim=1, keepdim=True).to(rows.dtype)
+        return self.classifier(rows.sum(dim=1) / lengths)
+
+
+def clip_data_inputs(name, frames: dict, classes, gru=None):
+    """(inputs, build_head, description) for one model on clip-data rows."""
+    if name not in CLIP_DATA_MODELS:
+        raise ValueError(f"Clip data supports {', '.join(CLIP_DATA_MODELS)}, not {name!r}")
+    width = frames["features"].shape[2]
+    detector = frames["detector_width"]
+    sizes = {**GRU_DEFAULTS, **(gru or {})}
+    if set(sizes) != set(GRU_DEFAULTS):
+        raise ValueError(f"gru settings must be {', '.join(GRU_DEFAULTS)}")
+    description = {
+        "rows": f"{detector} detector channels + {CLIP_DATA_PCS} ResNet PCA numbers, as the "
+        "clip-data TCN",
+        "transform": "ResNet PCA and per-channel scaling fitted on each head's training rows "
+        "only (inner training clips under nested selection), with the clip-data TCN's code",
+        "pooling": {
+            "mean": "mean over all rows",
+            "thirds": "mean of each of three time-ordered segments, concatenated",
+            "gru": "GRU over the rows in order, with elapsed time",
+        }[name],
+    }
+    if name == "gru":
+        description.update(sizes, time_scale_s=TIME_SCALE_S)
+    return (
+        sequence_inputs(frames["features"], frames["timestamps_s"], frames["repeat_mask"]),
+        lambda: ClipDataHead(name, detector, width - detector, len(classes), gru=sizes),
+        description,
+    )
+
+
 def average_scores(fitted, seeds) -> dict:
     """Equal fold average per seed, then the mean over seeds, as in the main summary."""
     per_seed = [
@@ -344,11 +537,13 @@ def run_temporal(
     drop_channels=(),
     epoch_mode="nested",
     gru=None,
+    clip_data=None,
 ):
     """Train the chosen models on one shared per-frame cache; save one folder per model.
 
-    ``inputs`` picks the per-frame features: frozen ResNet-18 image features, or player
-    positions from the minimap detector (``tactic_positions``). ``features`` reuses an
+    ``inputs`` picks the per-frame features: frozen ResNet-18 image features, player
+    positions from the minimap detector (``tactic_positions``), or the shared clip data
+    (``clip_data``, a train-only build-clip-data folder; see ``ClipDataHead``). ``features`` reuses an
     earlier cache instead of extracting again. ``drop_channels`` removes position
     channels, e.g. ("bomb_badge",), for an ablation. ``shuffles`` repeats each model's
     whole fit that many times on shuffled labels. ``epoch_mode="other-folds"`` uses
@@ -367,6 +562,13 @@ def run_temporal(
     drop_channels = tuple(drop_channels)
     if drop_channels and inputs != "positions":
         raise ValueError("drop_channels applies only to position features")
+    if (inputs == "clip-data") != (clip_data is not None):
+        raise ValueError("clip-data inputs need a clip_data folder, and only they take one")
+    if inputs == "clip-data":
+        if features is not None:
+            raise ValueError("clip-data inputs read the clip_data folder, not a feature cache")
+        if set(models) - set(CLIP_DATA_MODELS):
+            raise ValueError(f"Clip data supports {', '.join(CLIP_DATA_MODELS)}")
     dropped = channel_columns(drop_channels) if drop_channels else []
     dataset, targets, folds, mode = prepare_run(
         manifest,
@@ -380,17 +582,23 @@ def run_temporal(
     if inputs == "positions":
         # The detector reads the clips at native size; same clips, frames and times.
         cache_dataset, source, cache_name = native_dataset(dataset), KIND, "position-features.pt"
+    elif inputs == "clip-data":
+        cache_dataset, source, cache_name = dataset, "clip-data", None
     else:
         cache_dataset, source, cache_name = dataset, WEIGHTS, "frame-features.pt"
     if features is not None:
         frames = load_frame_features(features, cache_dataset, source)
+    if inputs == "clip-data":  # Read before any output, so a bad folder leaves nothing behind.
+        frames = load_clip_rows(clip_data, [r.clip_id for r in dataset.records])
+        info = frames["clip_data"]
+        source = f"clip-data {info['data_version']} / {info['regions_version']}"
     output.mkdir(parents=True, exist_ok=False)
     write_new_text(output / "input-manifest.csv", dataset.manifest.read_text(encoding="utf-8-sig"))
     print(
         f"Using {len(dataset)} development clips; exclusions: {list(dataset.excluded_clip_ids)}",
         flush=True,
     )
-    if features is None:
+    if features is None and inputs != "clip-data":
         if inputs == "positions":
             frames = extract_position_features(cache_dataset, context=context)
         else:
@@ -411,11 +619,21 @@ def run_temporal(
         "dropped_channels": list(drop_channels),
         "models": {},
         "frame_features": str(features) if features is not None else cache_name,
-        "repeated_frames": int(frames["repeat_mask"].sum()),
+        # Clip-data rows have no repeats; their mask marks padding only.
+        "repeated_frames": 0 if inputs == "clip-data" else int(frames["repeat_mask"].sum()),
     }
-    prefix = "positions" if inputs == "positions" else "resnet18"
+    if inputs == "clip-data":
+        comparison.update(
+            frame_features=str(clip_data),
+            clip_data=frames["clip_data"],
+            row_width=frames["detector_width"] + CLIP_DATA_PCS,
+        )
+    prefix = MODEL_PREFIXES[inputs]
     for name in models:
-        model_input, build_head, description = model_inputs(name, frames, classes, gru)
+        if inputs == "clip-data":
+            model_input, build_head, description = clip_data_inputs(name, frames, classes, gru)
+        else:
+            model_input, build_head, description = model_inputs(name, frames, classes, gru)
         run_config = describe_run(
             dataset,
             targets,
@@ -438,6 +656,11 @@ def run_temporal(
             run_config["spatial_preprocessing"] = "Native-size clips for the detector; no resize"
             run_config["weights"] = None
             run_config["normalisation"] = None
+        if inputs == "clip-data":
+            run_config["inputs"]["clip_data"] = frames["clip_data"]
+            run_config["spatial_preprocessing"] = "None here: rows come from build-clip-data"
+            run_config["weights"] = None
+            run_config["normalisation"] = description["transform"]
         if build_head:
             run_config["trainable_parameters"] = sum(p.numel() for p in build_head().parameters())
         else:
@@ -457,10 +680,15 @@ def run_temporal(
             run_config=run_config,
             encoder_hash=frames["encoder_sha256"],
             build_head=build_head,
-            title=TITLES[name] if inputs == "images" else f"Position features: {TITLES[name]}",
+            title={
+                "images": TITLES[name],
+                "positions": f"Position features: {TITLES[name]}",
+                "clip-data": f"Clip data: {TITLES[name]}",
+            }[inputs],
             model_limits=(
                 *LIMITS[name],
                 *((POSITION_LIMIT,) if inputs == "positions" else ()),
+                *((CLIP_DATA_LIMIT,) if inputs == "clip-data" else ()),
                 SHARED_LIMIT,
             ),
         )
@@ -592,6 +820,8 @@ def load_temporal(checkpoint, *, context: RunContext, encoder=None) -> TemporalC
     saved = torch.load(checkpoint, map_location="cpu", weights_only=True)
     prefix, _, rest = saved["model"].partition("-")
     name = rest.removesuffix("-linear")
+    if prefix == "clipdata":
+        raise ValueError(f"{checkpoint}: clip-data heads cannot be reloaded here yet")
     if prefix not in ("resnet18", "positions") or name not in MODELS:
         raise ValueError(f"{checkpoint}: {saved['model']!r} is not a temporal model")
     if saved["classes"] != list(TACTIC_CLASSES):
@@ -663,21 +893,38 @@ def comparison_report(output, comparison, dataset) -> str:
     def spread_text(spread):
         return f"{spread['mean']:.3f} +/- {spread['std']:.3f}"
 
+    if comparison.get("inputs") == "clip-data":
+        info = comparison["clip_data"]
+        inputs_line = (
+            f"Inputs: clip data ({info['folder']}; {info['data_version']}, regions "
+            f"{info['regions_version']}): {comparison['row_width']} numbers per row "
+            f"({info['detector_channels']} detector channels + {CLIP_DATA_PCS} ResNet PCA numbers, "
+            "PCA and scaling fitted on each fit's training clips only)."
+        )
+    else:
+        inputs_line = (
+            f"Inputs: {comparison.get('inputs', 'images')} ({comparison.get('feature_width', '?')} "
+            "numbers per frame"
+            + (
+                f"; dropped {', '.join(comparison['dropped_channels'])}"
+                if comparison.get("dropped_channels")
+                else ""
+            )
+            + ")."
+        )
     lines = [
         "# Temporal tactic models: development results",
         "",
-        f"Inputs: {comparison.get('inputs', 'images')} ({comparison.get('feature_width', '?')} numbers "
-        "per frame"
-        + (
-            f"; dropped {', '.join(comparison['dropped_channels'])}"
-            if comparison.get("dropped_channels")
-            else ""
-        )
-        + ").",
+        inputs_line,
         "",
         f"All models share the frame features, {len(first)} whole-match folds, {mode} epoch choice,",
         "seeds, class weights and metrics. Values are mean +/- SD across seeds; the overall row",
-        "averages matches equally per seed first. `mean` is Plan A, refitted on the same cache.",
+        "averages matches equally per seed first. "
+        + (
+            "`mean` is mean pooling on these rows."
+            if comparison.get("inputs") == "clip-data"
+            else "`mean` is Plan A, refitted on the same cache."
+        ),
         "",
         "| Model | Trainable weights | Macro-F1 | Accuracy | Optimistic macro-F1 |",
         "|---|---:|---:|---:|---:|",

@@ -231,9 +231,20 @@ def main(argv=None):
     )
     temporal.add_argument(
         "--inputs",
-        choices=["images", "positions"],
+        choices=["images", "positions", "clip-data"],
         default="images",
-        help="Per-frame features: ResNet-18 images or detector positions",
+        help="Per-frame features: ResNet-18 images, detector positions or the shared clip data",
+    )
+    temporal.add_argument(
+        "--clip-data",
+        type=Path,
+        help="With --inputs clip-data: a train-only build-clip-data folder",
+    )
+    temporal.add_argument(
+        "--no-class-weights",
+        dest="class_weights",
+        action="store_false",
+        help="Ablation: train without balanced class weights in the loss (default: weighted)",
     )
     temporal.add_argument(
         "--drop-channels",
@@ -323,6 +334,7 @@ def main(argv=None):
                         epochs=args.epochs,
                         patience=args.patience,
                         fixed_epochs=args.fixed_epochs,
+                        class_weights=args.class_weights,
                     ),
                     exclude_uncertain=args.exclude_uncertain,
                     models=tuple(args.models),
@@ -337,6 +349,7 @@ def main(argv=None):
                         "dropout": args.gru_dropout,
                         "readout": args.gru_readout,
                     },
+                    clip_data=args.clip_data,
                 )
             elif args.command == "detector-check":
                 from .detector_check import CheckConfig, run_detector_check
