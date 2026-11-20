@@ -14,6 +14,7 @@ import torch
 from torch import nn
 
 from stratscout.__main__ import main
+from stratscout.clip_data import ResnetCompressor
 from stratscout.config import TACTIC_CLASSES
 from stratscout.context import RunContext
 from stratscout.segment_export import COLUMNS
@@ -21,12 +22,17 @@ from stratscout.tactic_data import MatchFold, TacticClipDataset
 from stratscout.tactic_features import load_frame_features
 from stratscout.tactic_model import TacticBaseline, file_sha256
 from stratscout.tactic_positions import TOTALS, feature_names
+from stratscout.tactic_tcn import Normaliser, TacticConfig, _raw_features
 from stratscout.tactic_temporal import (
+    CLIP_DATA_PCS,
     FIRST_GRU,
     GRU_DEFAULTS,
     SMALL_GRU,
     TIME_SCALE_S,
+    ClipDataHead,
     TemporalGRU,
+    clip_data_inputs,
+    load_clip_rows,
     load_temporal,
     mean_inputs,
     random_thirds_inputs,
@@ -35,7 +41,7 @@ from stratscout.tactic_temporal import (
     shuffled_label_check,
     thirds_inputs,
 )
-from stratscout.tactic_training import BaselineConfig, fit_classifier, run_baseline
+from stratscout.tactic_training import BaselineConfig, fit_classifier, fit_folds, run_baseline
 
 MATCHES = (
     ("aurora", [0, 1, 2, 3, 3, 4]),
@@ -49,6 +55,44 @@ def tiny_model(*, context, pretrained=True):
     return TacticBaseline(
         nn.Sequential(nn.BatchNorm2d(3), nn.AdaptiveAvgPool2d(1), nn.Flatten()), 3
     ).to(context.device)
+
+
+def write_clip_data(folder, extra_rows=()):
+    """A build-clip-data style folder for every clip of the synthetic manifest."""
+    (folder / "clips").mkdir(parents=True)
+    detector = ["t_in_a", "ct_in_a", "t_clip", "bomb_x"]
+    (folder / "channels.json").write_text(
+        json.dumps(
+            {
+                "data_version": "clip-data-test",
+                "regions_version": "regions-test",
+                "detector": detector,
+                "summary": ["s0"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    rows = []
+    for match, labels in MATCHES:
+        for i, label in enumerate(labels):
+            clip_id = f"{match}-{i}"
+            generator = np.random.default_rng(len(rows))
+            length = 5 + i  # Clips differ in length, so padding is exercised.
+            np.savez(
+                folder / "clips" / f"{clip_id}.npz",
+                frames=np.arange(length) * 2,
+                t_s=(np.arange(length) * 0.2).astype(np.float32),
+                detector=(generator.normal(size=(length, 4)) + label).astype(np.float32),
+                summary=np.zeros(1, np.float32),
+                resnet=generator.normal(size=(length, 40)).astype(np.float16),
+            )
+            rows.append(
+                [clip_id, "train", match, TACTIC_CLASSES[label], "False", length, length * 0.2]
+            )
+    with (folder / "index.csv").open("w", encoding="utf-8", newline="") as stream:
+        writer = csv.writer(stream)
+        writer.writerow(["clip_id", "split", "match", "label", "uncertain", "rows", "duration_s"])
+        writer.writerows([*rows, *extra_rows])
 
 
 class TemporalInputTests(unittest.TestCase):
@@ -786,6 +830,235 @@ class TemporalRunTests(unittest.TestCase):
             with patch("sys.stderr", new=io.StringIO()), self.assertRaises(SystemExit):
                 main(base + ["--models", "tcn"])
             run.assert_not_called()
+        with patch("stratscout.tactic_temporal.run_temporal") as run:
+            main(base)
+            self.assertEqual(run.call_args.kwargs["inputs"], "images")
+            self.assertIsNone(run.call_args.kwargs["clip_data"])
+            main(base + ["--inputs", "clip-data", "--clip-data", "clips-folder"])
+            self.assertEqual(run.call_args.kwargs["inputs"], "clip-data")
+            self.assertEqual(run.call_args.kwargs["clip_data"], Path("clips-folder"))
+
+    def test_clip_data_runs_mean_thirds_and_gru_on_the_shared_rows(self):
+        folder = self.root / "clip-data"
+        write_clip_data(folder)
+        with patch("stratscout.tactic_features.build_baseline") as build:
+            summary = run_temporal(
+                self.manifest,
+                self.output,
+                context=self.context,
+                config=self.config,
+                inputs="clip-data",
+                clip_data=folder,
+            )
+        build.assert_not_called()  # No image is read or encoded.
+        self.assertEqual(list(summary["models"]), ["mean", "thirds", "gru"])
+        self.assertEqual(summary["row_width"], 4 + CLIP_DATA_PCS)
+        self.assertEqual(summary["repeated_frames"], 0)
+        rows = 4 + CLIP_DATA_PCS
+        for name, weights in (("mean", (rows + 1) * 5), ("thirds", (3 * rows + 1) * 5)):
+            self.assertEqual(summary["models"][name]["trainable_parameters"], weights)
+        reference = [
+            json.loads((self.output / "mean" / f"fold-{n}.json").read_text()) for n in range(1, 5)
+        ]
+        for name in ("mean", "thirds", "gru"):
+            config = json.loads((self.output / name / "config.json").read_text())
+            self.assertEqual(config["model"], f"clipdata-{name}-linear")
+            self.assertEqual(config["inputs"]["kind"], "clip-data")
+            self.assertEqual(config["inputs"]["clip_data"]["regions_version"], "regions-test")
+            for number, expected in enumerate(reference, start=1):
+                fold = json.loads((self.output / name / f"fold-{number}.json").read_text())
+                self.assertEqual(fold["validation_clip_ids"], expected["validation_clip_ids"])
+            saved = torch.load(self.output / name / "fold-1-seed-3.pt", weights_only=True)
+            self.assertTrue(bool(saved["classifier"]["fitted"]))  # The fitted transform is saved.
+            with self.assertRaisesRegex(ValueError, "clip-data heads cannot be reloaded"):
+                load_temporal(self.output / name / "fold-1-seed-3.pt", context=self.context)
+        self.assertIn(
+            "4 detector channels + 32 ResNet PCA numbers", (self.output / "report.md").read_text()
+        )
+
+    def test_clip_data_requests_are_checked_before_any_output(self):
+        folder = self.root / "clip-data"
+        write_clip_data(folder, extra_rows=[["navi-0", "test", "navi", "RETAKE", "False", 5, 1.0]])
+        for kwargs, message in (
+            ({"inputs": "clip-data"}, "need a clip_data folder"),
+            ({"clip_data": folder}, "need a clip_data folder"),
+            (
+                {"inputs": "clip-data", "clip_data": folder, "features": "x.pt"},
+                "not a feature cache",
+            ),
+            (
+                {"inputs": "clip-data", "clip_data": folder, "models": ("random-thirds",)},
+                "supports",
+            ),
+        ):
+            with self.subTest(kwargs=kwargs), self.assertRaisesRegex(ValueError, message):
+                run_temporal(self.manifest, self.output, context=self.context, **kwargs)
+        # A folder listing a test clip is refused before any clip file is opened.
+        with patch("numpy.load") as load, self.assertRaisesRegex(ValueError, "train-only"):
+            run_temporal(
+                self.manifest,
+                self.output,
+                context=self.context,
+                config=self.config,
+                inputs="clip-data",
+                clip_data=folder,
+            )
+        load.assert_not_called()
+        self.assertFalse(self.output.exists())
+
+
+class ClipDataHeadTests(unittest.TestCase):
+    DETECTOR, RESNET = 4, 40
+
+    def packed(self, clips=6, length=12, seed=0):
+        generator = torch.Generator().manual_seed(seed)
+        features = torch.randn(clips, length, self.DETECTOR + self.RESNET, generator=generator)
+        times = torch.arange(length, dtype=torch.float64).repeat(clips, 1) * 0.2
+        padding = torch.zeros(clips, length, dtype=torch.bool)
+        for i in range(clips):
+            padding[i, length - i % 3 :] = True  # Some clips end early.
+        features[padding] = 0
+        return sequence_inputs(features, times, padding), features, padding
+
+    def test_transform_is_the_clip_data_tcns_and_fitted_on_training_rows_only(self):
+        packed, features, padding = self.packed()
+        head = ClipDataHead("mean", self.DETECTOR, self.RESNET)
+        with self.assertRaisesRegex(ValueError, "training rows first"):
+            head.eval()(packed)
+        head.train()(packed[:4])  # The first training call fits the transform.
+        rows = [features[i][~padding[i]].numpy() for i in range(4)]
+        clips = [{"detector": r[:, : self.DETECTOR], "resnet": r[:, self.DETECTOR :]} for r in rows]
+        config = TacticConfig(input="clip-data", resnet_pcs=CLIP_DATA_PCS)
+        compressor = ResnetCompressor(CLIP_DATA_PCS).fit([c["resnet"] for c in clips])
+        norm = Normaliser.fit([_raw_features(c, config, compressor) for c in clips], compressor)
+        np.testing.assert_allclose(head.pca_mean.numpy(), compressor.mean, atol=1e-5)
+        np.testing.assert_allclose(head.row_mean.numpy(), norm.mean, atol=1e-4)
+        np.testing.assert_allclose(head.row_std.numpy(), norm.std, atol=1e-4)
+        # Each clip's rows equal the TCN's own transform of that clip.
+        scaled, real = head.eval().transform(packed)
+        for i in range(6):
+            clip = {
+                "detector": features[i][~padding[i]][:, : self.DETECTOR].numpy(),
+                "resnet": features[i][~padding[i]][:, self.DETECTOR :].numpy(),
+            }
+            expected = norm(_raw_features(clip, config, compressor))
+            got = scaled[i][real[i]].detach().numpy()
+            np.testing.assert_allclose(got, expected, atol=1e-4)
+        self.assertTrue(torch.equal(scaled[~real], torch.zeros_like(scaled[~real])))
+        # Later calls, training or not, never refit: validation rows cannot move it.
+        before = {
+            k: v.clone() for k, v in head.state_dict().items() if not k.startswith("classifier")
+        }
+        head.train()(packed[4:] * 100)
+        for key, value in before.items():
+            self.assertTrue(torch.equal(head.state_dict()[key], value), key)
+
+    def test_every_pooling_ignores_padding(self):
+        packed, _, _ = self.packed()
+        longer = torch.cat([packed, torch.zeros(packed.shape[0], 5, packed.shape[2])], 1)
+        for pooling in ("mean", "thirds", "gru"):
+            torch.manual_seed(0)
+            head = ClipDataHead(pooling, self.DETECTOR, self.RESNET)
+            head.train()(packed)
+            head.eval()
+            torch.testing.assert_close(head(packed), head(longer), msg=pooling)
+        with self.assertRaisesRegex(ValueError, "pooling must be"):
+            ClipDataHead("random-thirds", self.DETECTOR, self.RESNET)
+        with self.assertRaisesRegex(ValueError, "at least 32 training rows"):
+            ClipDataHead("mean", self.DETECTOR, self.RESNET).train()(packed[:1, :3])
+
+    def test_nested_and_other_folds_never_fit_the_transform_on_held_out_clips(self):
+        # Clip k's first detector channel is k, so a fitted row shows which clip it came from.
+        clips_per_match, matches = 4, ("a", "b", "c", "d")
+        n = clips_per_match * len(matches)
+        packed, features, padding = self.packed(clips=n, length=10)
+        features = features.clone()
+        features[:, :, 0] = torch.arange(n, dtype=torch.float32)[:, None]
+        features[padding] = 0
+        packed = sequence_inputs(features, packed.new_zeros(n, 10, dtype=torch.float64), padding)
+        targets = torch.tensor([k % 5 for k in range(n)])  # Any two matches hold all 5 classes.
+        index = {
+            m: list(range(i * clips_per_match, (i + 1) * clips_per_match))
+            for i, m in enumerate(matches)
+        }
+        folds = tuple(
+            MatchFold(
+                tuple(i for o in matches if o != m for i in index[o]),
+                tuple(index[m]),
+                tuple(o for o in matches if o != m),
+                m,
+            )
+            for m in matches
+        )
+        fits = []
+
+        class Recording(ClipDataHead):
+            def fit_transform(self, raw):
+                self.fitted_clips = set(raw[:, 0].round().long().tolist())
+                fits.append(self)
+                super().fit_transform(raw)
+
+            def forward(self, packed):
+                if not self.training:  # Validation: these clips must be outside the fit.
+                    seen = set(packed[:, 0, 0].round().long().tolist())
+                    assert not seen & self.fitted_clips, (seen, self.fitted_clips)
+                return super().forward(packed)
+
+        config = BaselineConfig(epochs=3, patience=2, seeds=(0,))
+        for mode in ("nested", "other-folds"):
+            fits.clear()
+            with self.subTest(mode=mode):
+                fit_folds(
+                    packed,
+                    targets,
+                    folds,
+                    classes=TACTIC_CLASSES,
+                    config=config,
+                    context=RunContext(),
+                    build_head=lambda: Recording("mean", self.DETECTOR, self.RESNET),
+                    epoch_mode=mode,
+                )
+                allowed = [set(f.train_indices) for f in folds]
+                if mode == "nested":  # Inner fits: two of the three training matches.
+                    allowed += [
+                        set(f.train_indices) - set(index[m])
+                        for f in folds
+                        for m in f.train_match_ids
+                    ]
+                for head in fits:
+                    self.assertIn(head.fitted_clips, allowed)
+                self.assertEqual(len(fits), len(folds) * (2 + (3 if mode == "nested" else 0)))
+
+    def test_clip_data_inputs_build_one_head_per_model(self):
+        packed, features, padding = self.packed()
+        frames = {
+            "features": features,
+            "timestamps_s": torch.zeros(features.shape[:2], dtype=torch.float64),
+            "repeat_mask": padding,
+            "detector_width": self.DETECTOR,
+        }
+        for name in ("mean", "thirds", "gru"):
+            inputs, build, description = clip_data_inputs(name, frames, TACTIC_CLASSES)
+            self.assertEqual(tuple(inputs.shape), tuple(packed.shape))
+            self.assertEqual(build().pooling, name)
+            self.assertIn("training rows only", description["transform"])
+        self.assertEqual(clip_data_inputs("gru", frames, TACTIC_CLASSES)[1]().gru.feature_dim, 36)
+        with self.assertRaisesRegex(ValueError, "supports"):
+            clip_data_inputs("random-thirds", frames, TACTIC_CLASSES)
+
+    def test_load_clip_rows_pads_each_clip_and_refuses_folders_with_test_clips(self):
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp) / "clip-data"
+            write_clip_data(folder)
+            frames = load_clip_rows(folder, ["aurora-0", "aurora-3"])
+            self.assertEqual(tuple(frames["features"].shape), (2, 8, 44))
+            self.assertEqual(frames["repeat_mask"][0].tolist(), [False] * 5 + [True] * 3)
+            self.assertEqual(frames["feature_names"][:4], ["t_in_a", "ct_in_a", "t_clip", "bomb_x"])
+            self.assertEqual(frames["clip_data"]["data_version"], "clip-data-test")
+            with (folder / "index.csv").open("a", encoding="utf-8", newline="") as stream:
+                csv.writer(stream).writerow(["navi-0", "test", "navi", "RETAKE", "False", 5, 1.0])
+            with self.assertRaisesRegex(ValueError, "train-only"):
+                load_clip_rows(folder, ["aurora-0"])
 
 
 if __name__ == "__main__":

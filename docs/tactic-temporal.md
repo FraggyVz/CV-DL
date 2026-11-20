@@ -40,6 +40,7 @@ result keys and folder names keep those names so existing runs still work.
 | `--models gru` | Train only the listed models (`mean`, `thirds` for temporal average pooling, `random-thirds` for its control, `gru`); the default is `mean thirds gru` |
 | `--inputs positions` | Use detector position features instead of image features; see [position features](#position-features) |
 | `--drop-channels bomb_badge` | Position inputs only: remove a channel, for an ablation |
+| `--inputs clip-data --clip-data <folder>` | Use the shared clip data, the clip-data TCN's input; see [clip-data inputs](#clip-data-inputs) |
 | `--epoch-mode other-folds` | Use the TCN's epoch rule instead of nested selection; see [the TCN's protocol](#all-four-models-under-the-tcns-epoch-rule-2026-11-19). Also accepted by `tactic-baseline` |
 | `--features runs/tactic-temporal/frame-features.pt` | Reuse an earlier cache; it is refused if the manifest, frame count, size or feature source differ |
 | `--shuffles N` | Refit each model N times on labels shuffled within each match |
@@ -230,6 +231,37 @@ Each sampled frame becomes 260 numbers, saved in `position-features.pt`:
 - The inferred carrier is never added to the T counts. It can misfire on a planted bomb,
   so it has its own channel.
 - Model settings are unchanged; only the input is narrower (260 numbers instead of 512).
+
+## Clip-data inputs
+
+`--inputs clip-data` trains mean pooling, temporal average pooling and the GRU on the
+[shared clip data](clip-data.md), the same rows the clip-data TCN (`train-tactics
+--clip-data`) reads, so every model can be compared on one input.
+
+```powershell
+python -m stratscout tactic-temporal --manifest data/processed/datasets/2026-11-16-train-only/train/manifest.csv --output runs/tactic-clipdata-nested --exclude-uncertain --inputs clip-data --clip-data data/processed/clip-data-2026-11-16-train-only
+```
+
+Add `--epoch-mode other-folds` for the TCN's rule. `random-thirds` and `--features` are not
+used with clip data.
+
+- **Rows:** 72 detector channels per map region plus 32 ResNet numbers per row, 5 rows per
+  second, exactly as the clip-data TCN builds them. The data is loaded with the TCN's own
+  loader.
+- **Fitted on training clips only.** The ResNet PCA (512 to 32) and the per-channel scaling
+  are fitted inside each model, on the first training pass, from that fit's training clips,
+  using the TCN's own code (`ResnetCompressor`, `Normaliser`). Under nested selection each
+  inner fit has its own, from the inner training clips only. Held-out clips never shape
+  them.
+- **Pooling unchanged:** the mean over all rows, the three time-ordered segment means, or
+  the final GRU (8/16, dropout 0.3, mean+max readout) over the rows with their elapsed time.
+- **Train-only folder.** The clip-data loader reads every clip its folder lists, so a folder
+  that lists any test clip is refused before a clip file is opened. Make a train-only copy:
+  the train clips' `.npz` files, `channels.json`, and `index.csv` with only the train rows.
+- Saved heads include the fitted PCA and scaling, but `load_temporal` does not reload
+  clip-data heads yet.
+- The clip data's map regions were drawn after looking at training labels
+  ([clip data](clip-data.md#map-regions)), so scores on it may be optimistic.
 
 ## What you get
 
