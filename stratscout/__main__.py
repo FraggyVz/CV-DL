@@ -241,6 +241,12 @@ def main(argv=None):
         help="With --inputs clip-data: a train-only build-clip-data folder",
     )
     temporal.add_argument(
+        "--no-class-weights",
+        dest="class_weights",
+        action="store_false",
+        help="Ablation: train without balanced class weights in the loss (default: weighted)",
+    )
+    temporal.add_argument(
         "--drop-channels",
         nargs="+",
         default=[],
@@ -328,6 +334,7 @@ def main(argv=None):
                         epochs=args.epochs,
                         patience=args.patience,
                         fixed_epochs=args.fixed_epochs,
+                        class_weights=args.class_weights,
                     ),
                     exclude_uncertain=args.exclude_uncertain,
                     models=tuple(args.models),

@@ -32,8 +32,12 @@ class BaselineConfig:
     learning_rate: float = 0.01
     weight_decay: float = 0.001
     fixed_epochs: int | None = None
+    # Balanced class weights in the training loss (default). False is for an ablation only.
+    class_weights: bool = True
 
     def __post_init__(self):
+        if type(self.class_weights) is not bool:
+            raise ValueError("class_weights must be True or False")
         for name in ("size", "n_frames", "epochs", "patience"):
             value = getattr(self, name)
             if type(value) is not int or value < 1:
@@ -170,7 +174,8 @@ def fit_classifier(features, targets, fold, *, classes, config, seed, context, b
     train = torch.tensor(fold.train_indices, device=context.device)
     validation = torch.tensor(fold.validation_indices, device=context.device)
     x, y = features.to(context.device), targets.to(context.device)
-    weights = training_class_weights(y[train], classes)
+    # With class weighting off (an ablation), every clip counts the same in the loss.
+    weights = training_class_weights(y[train], classes) if config.class_weights else None
     # Full-batch fitting has no shuffle. Random numbers are drawn only for initialisation
     # and, in heads with dropout, for the training passes; both come from a stream seeded
     # here, so a refit to N epochs repeats the first N epochs of a longer fit exactly.
@@ -242,7 +247,9 @@ def fit_classifier(features, targets, fold, *, classes, config, seed, context, b
             evaluation_epoch=best_epoch if config.fixed_epochs is None else config.fixed_epochs,
             epoch_selection="early-stopping" if config.fixed_epochs is None else "fixed",
             epochs_run=len(history),
-            class_weights=dict(zip(classes, weights.cpu().tolist(), strict=True)),
+            class_weights=None
+            if weights is None
+            else dict(zip(classes, weights.cpu().tolist(), strict=True)),
             metrics=metrics,
             history=history,
         ),

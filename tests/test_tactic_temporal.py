@@ -837,6 +837,36 @@ class TemporalRunTests(unittest.TestCase):
             main(base + ["--inputs", "clip-data", "--clip-data", "clips-folder"])
             self.assertEqual(run.call_args.kwargs["inputs"], "clip-data")
             self.assertEqual(run.call_args.kwargs["clip_data"], Path("clips-folder"))
+            self.assertTrue(run.call_args.kwargs["config"].class_weights)  # Weighted by default.
+            main(base + ["--no-class-weights"])
+            self.assertFalse(run.call_args.kwargs["config"].class_weights)
+
+    def test_class_weights_can_be_turned_off_for_an_ablation(self):
+        self.run_models(self.output, models=("thirds",))
+        run_temporal(
+            self.manifest,
+            self.root / "unweighted",
+            context=self.context,
+            config=BaselineConfig(
+                size=32, n_frames=4, epochs=3, patience=2, seeds=(3, 7), class_weights=False
+            ),
+            models=("thirds",),
+            features=self.output / "frame-features.pt",
+        )
+        for number in range(1, 5):
+            on = json.loads((self.output / "thirds" / f"fold-{number}.json").read_text())
+            off = json.loads(
+                (self.root / "unweighted" / "thirds" / f"fold-{number}.json").read_text()
+            )
+            self.assertEqual(on["validation_clip_ids"], off["validation_clip_ids"])
+            for run in on["runs"]:
+                self.assertEqual(len(run["class_weights"]), 5)
+            for run in off["runs"]:
+                self.assertIsNone(run["class_weights"])
+        saved = json.loads((self.root / "unweighted" / "thirds" / "config.json").read_text())
+        self.assertFalse(saved["settings"]["class_weights"])
+        with self.assertRaisesRegex(ValueError, "True or False"):
+            BaselineConfig(class_weights="no")
 
     def test_clip_data_runs_mean_thirds_and_gru_on_the_shared_rows(self):
         folder = self.root / "clip-data"
