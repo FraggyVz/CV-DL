@@ -383,9 +383,9 @@ annotation/evaluation evidence, not vision-model inputs.
 2. **Review the map regions** in `stratscout/mirage_regions.json`, using the
    [walkthrough notebook](notebooks/clip-data-walkthrough.ipynb). Connector also
    catches some Ts on direct A attacks.
-3. **Commit the missing label files** (Aurora, MOUZ, Vitality–Falcons) so everyone
-   exports the same dataset, and resolve the open items in
-   [labels/review-notes.md](labels/review-notes.md).
+3. **Resolve the open label items** in [labels/review-notes.md](labels/review-notes.md).
+   The Aurora, MOUZ and Vitality–Falcons label files are now in Git (done), so everyone
+   exports the same dataset.
 4. **Grow the dataset:** more matches, especially new teams and splits (B_SPLIT has only
    9 training clips). Follow [data processing](docs/data-processing.md) and keep the
    same test matches.
