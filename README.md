@@ -251,6 +251,7 @@ python -m stratscout icon-count-eval --train furia spirit --test navi --output r
 python -m stratscout train-tactics --dataset data/processed/datasets/2026-11-16 --output runs/tactic-tcn-<new> --exclude-uncertain --seeds 3
 python -m stratscout train-tactics --dataset data/processed/datasets/2026-11-16 --clip-data runs/clip-data-2026-11-16 --output runs/tactic-tcn-clipdata-<new> --exclude-uncertain --seeds 3
 python -m stratscout predict-tcn data/processed/datasets/2026-11-16/test/clips --output runs/predictions-001.csv
+python -m stratscout predict-gru <clips> --with-tcn --background runs/backgrounds/<match>.png --output runs/predictions-gru-001.csv
 python -m stratscout build-clip-data --dataset data/processed/datasets/2026-11-16 --output runs/clip-data-2026-11-16
 python -m stratscout prototype --smoke --output runs/smoke-001
 ```
@@ -321,6 +322,14 @@ time-blind control (the same features pooled over the clip) and a majority-class
   file name before the first dot, as `export-segments` names them. Give at least about
   5 clips per match, or pass the prepared match video (`minimap-10fps.mp4`) with
   `--background-from`. It needs no labels.
+- **Second opinion (`predict-gru`, `gru_predict.predict_clips`).** The final Compact pooled
+  GRU (`train-gru-final`, epochs chosen by leave-one-match-out CV on the training matches)
+  as an optional second opinion or backup; the TCN stays the selected model and the default.
+  `predict-gru` mirrors `predict-tcn`'s options and output, with a model column, and
+  `--with-tcn` adds the TCN's rows. For the web app, `predict_clips` computes the clip
+  features once and returns JSON-ready results; `save-background` saves an empty-map
+  image from a training match so a single clip is detected as in training. See the
+  [prediction guide](docs/gru-predict.md).
 
 Detections are unvalidated colour estimates, so the features inherit their misses
 (e.g. players standing on site letters, stacks). The 2026-11-16 dataset (82 training
@@ -348,6 +357,7 @@ schema are not the current video-preparation or five-class dataset route.
 | `segmentation`, `icon_split`, `bomb`, `rounds`, `live_preview`, `count_eval`                                          | Colour/shape detection, overlap handling, estimates and review                                             |
 | `segments`, `segment_labeller`                                                                                        | Five-class segment records, validation, safe saving and the keyboard labeller                              |
 | `segment_export`, `tactic_features`, `tactic_tcn`, `tcn_predict`                                                      | Clip export, per-frame clip features, the tactic TCN experiment and TCN prediction                         |
+| `gru_predict`                                                                                                         | Final Compact pooled GRU, and TCN/GRU prediction for the web app ([guide](docs/gru-predict.md))            |
 | `clip_data`, `mirage_regions.json`                                                                                    | Shared model-ready clip data: detector channels per map region, bomb state and ResNet features             |
 | `preprocessing`, `detector`, `datasets`, `training`, `evaluation`, `synthetic`                                        | CNN icon detector and experiments                                                                          |
 | `tracking`, `annotations`, `config`, `contracts`, `context`, `workflow`, `storage`, `video`, `pilot`, `visualisation` | Tracking, legacy labels, explicit run state and orchestration                                              |

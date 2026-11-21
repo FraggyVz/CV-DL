@@ -175,6 +175,73 @@ def main(argv=None):
         help="Map-regions JSON for clip-data models (default: stratscout/mirage_regions.json)",
     )
     guess.add_argument("--device", default="cpu")
+    final_gru = sub.add_parser(
+        "train-gru-final",
+        help="Choose the Compact pooled GRU's epochs by leave-one-match-out CV, then train "
+        "every seed on all training clips and save it",
+    )
+    final_gru.add_argument(
+        "--manifest", type=Path, required=True, help="Exported train/manifest.csv"
+    )
+    final_gru.add_argument(
+        "--clip-data", type=Path, required=True, help="A train-only build-clip-data folder"
+    )
+    final_gru.add_argument("--output", type=Path, required=True, help="New folder; must not exist")
+    final_gru.add_argument("--exclude-uncertain", action="store_true")
+    final_gru.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2])
+    final_gru.add_argument("--epochs", type=int, default=200, help="Most epochs to try")
+    final_gru.add_argument("--device", default="cpu")
+    gru_guess = sub.add_parser(
+        "predict-gru",
+        help="Classify new prepared clips with the saved Compact pooled GRU seeds",
+    )
+    gru_guess.add_argument(
+        "clips", nargs="+", type=Path, help="Clip files or folders of .mp4 clips"
+    )
+    gru_guess.add_argument(
+        "--models",
+        type=Path,
+        help="models/ folder written by train-gru-final "
+        "(default: runs/tactic-gru-clipdata-final-20261121/models)",
+    )
+    gru_guess.add_argument(
+        "--with-tcn", action="store_true", help="Also run the TCN (the selected model) on the clips"
+    )
+    gru_guess.add_argument(
+        "--tcn-models", type=Path, help="With --with-tcn: the TCN models/ folder (default: final)"
+    )
+    gru_guess.add_argument("--output", type=Path, help="Also write a new CSV of predictions")
+    backgrounds = gru_guess.add_mutually_exclusive_group()
+    backgrounds.add_argument(
+        "--background", type=Path, help="A saved empty-map background (save-background)"
+    )
+    backgrounds.add_argument(
+        "--background-from",
+        nargs="+",
+        type=Path,
+        help="Videos of the same match for the empty-map background (default: the clips)",
+    )
+    gru_guess.add_argument(
+        "--min-confidence",
+        type=float,
+        default=0.6,
+        help="Flag predictions whose top probability is below this",
+    )
+    gru_guess.add_argument(
+        "--regions",
+        type=Path,
+        help="Map-regions JSON (default: stratscout/mirage_regions.json)",
+    )
+    gru_guess.add_argument("--device", default="cpu")
+    background = sub.add_parser(
+        "save-background",
+        help="Save an empty-map background from one training match's clips, for single clips",
+    )
+    background.add_argument("--dataset", type=Path, required=True, help="export-segments folder")
+    background.add_argument(
+        "--match", required=True, help="Training match folder (or a unique part of its name)"
+    )
+    background.add_argument("--output", type=Path, required=True, help="New .png file")
     counts = sub.add_parser(
         "icon-count-eval", help="Fit icon splitting on some matches; score team counts on others"
     )
@@ -531,6 +598,39 @@ def main(argv=None):
                     device=args.device,
                     regions_path=args.regions,
                 )
+            elif args.command == "train-gru-final":
+                from .context import RunContext
+                from .gru_predict import train_final_gru
+                from .tactic_training import BaselineConfig
+
+                train_final_gru(
+                    args.manifest,
+                    args.clip_data,
+                    args.output,
+                    context=RunContext(device=args.device),
+                    config=BaselineConfig(seeds=tuple(args.seeds), epochs=args.epochs),
+                    exclude_uncertain=args.exclude_uncertain,
+                )
+                print(f"Report: {args.output / 'report.md'}")
+            elif args.command == "predict-gru":
+                from .gru_predict import run_predict_gru
+
+                run_predict_gru(
+                    args.clips,
+                    args.models,
+                    with_tcn=args.with_tcn,
+                    tcn_models=args.tcn_models,
+                    output=args.output,
+                    background=args.background,
+                    background_from=args.background_from,
+                    min_confidence=args.min_confidence,
+                    regions_path=args.regions,
+                    device=args.device,
+                )
+            elif args.command == "save-background":
+                from .gru_predict import save_background
+
+                save_background(args.dataset, args.match, args.output)
             elif args.command == "process-recordings":
                 from .recording_batch import process_recordings
 
