@@ -1,0 +1,768 @@
+{
+  "fold": 4,
+  "train_match_ids": [
+    "3ecf8682175f17808a278f15e975708ac4ad40afa9932faeea58fe377b7f23d5",
+    "4cd15fe6925939096a09c0cea1cd49242c2be11a71fce8d676f2a74716351f29",
+    "5a97d3be099eec670803c4548a4cbbf8cfcb870c3cce894b4c1e0a7b74f8e65c"
+  ],
+  "validation_match_id": "d346d1076089371f40c02b50eaa4f80a3de10b8f2c6977be4f1f3226ad39d024",
+  "train_clip_ids": [
+    "furia-falcons-mirage-cologne-major-2026.jx.s030",
+    "furia-falcons-mirage-cologne-major-2026.jx.s001",
+    "furia-falcons-mirage-cologne-major-2026.jx.s002",
+    "furia-falcons-mirage-cologne-major-2026.jx.s004",
+    "furia-falcons-mirage-cologne-major-2026.jx.s003",
+    "furia-falcons-mirage-cologne-major-2026.jx.s005",
+    "furia-falcons-mirage-cologne-major-2026.jx.s006",
+    "furia-falcons-mirage-cologne-major-2026.jx.s007",
+    "furia-falcons-mirage-cologne-major-2026.jx.s010",
+    "furia-falcons-mirage-cologne-major-2026.jx.s009",
+    "furia-falcons-mirage-cologne-major-2026.jx.s011",
+    "furia-falcons-mirage-cologne-major-2026.jx.s012",
+    "furia-falcons-mirage-cologne-major-2026.jx.s014",
+    "furia-falcons-mirage-cologne-major-2026.jx.s018",
+    "furia-falcons-mirage-cologne-major-2026.jx.s019",
+    "furia-falcons-mirage-cologne-major-2026.jx.s022",
+    "furia-falcons-mirage-cologne-major-2026.jx.s024",
+    "furia-falcons-mirage-cologne-major-2026.jx.s025",
+    "furia-falcons-mirage-cologne-major-2026.jx.s026",
+    "furia-falcons-mirage-cologne-major-2026.jx.s027",
+    "furia-falcons-mirage-cologne-major-2026.jx.s028",
+    "furia-falcons-mirage-cologne-major-2026.jx.s029",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s001",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s005",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s002",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s007",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s008",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s009",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s010",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s011",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s012",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s013",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s014",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s015",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s018",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s019",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s020",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s022",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s023",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s024",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s027",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s026",
+    "spirit-falcons-mirage-cologne-major.jx.s027",
+    "spirit-falcons-mirage-cologne-major.jx.s002",
+    "spirit-falcons-mirage-cologne-major.jx.s003",
+    "spirit-falcons-mirage-cologne-major.jx.s004",
+    "spirit-falcons-mirage-cologne-major.jx.s006",
+    "spirit-falcons-mirage-cologne-major.jx.s007",
+    "spirit-falcons-mirage-cologne-major.jx.s008",
+    "spirit-falcons-mirage-cologne-major.jx.s010",
+    "spirit-falcons-mirage-cologne-major.jx.s011",
+    "spirit-falcons-mirage-cologne-major.jx.s013",
+    "spirit-falcons-mirage-cologne-major.jx.s015",
+    "spirit-falcons-mirage-cologne-major.jx.s016",
+    "spirit-falcons-mirage-cologne-major.jx.s018",
+    "spirit-falcons-mirage-cologne-major.jx.s019",
+    "spirit-falcons-mirage-cologne-major.jx.s020",
+    "spirit-falcons-mirage-cologne-major.jx.s021",
+    "spirit-falcons-mirage-cologne-major.jx.s022",
+    "spirit-falcons-mirage-cologne-major.jx.s023",
+    "spirit-falcons-mirage-cologne-major.jx.s026",
+    "spirit-falcons-mirage-cologne-major.jx.s024",
+    "spirit-falcons-mirage-cologne-major.jx.s025"
+  ],
+  "validation_clip_ids": [
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s001",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s002",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s004",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s005",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s006",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s010",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s012",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s014",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s016",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s018",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s019",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s020",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s021",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s022",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s023",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s025",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s028",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s029",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s030"
+  ],
+  "train_counts": {
+    "A_DIRECT": 12,
+    "B_DIRECT": 21,
+    "A_SPLIT": 9,
+    "B_SPLIT": 7,
+    "RETAKE": 14
+  },
+  "validation_counts": {
+    "A_DIRECT": 3,
+    "B_DIRECT": 3,
+    "A_SPLIT": 5,
+    "B_SPLIT": 2,
+    "RETAKE": 6
+  },
+  "majority_class": "B_DIRECT",
+  "majority": {
+    "accuracy": 0.15789473684210525,
+    "macro_f1": 0.05454545454545454,
+    "per_class": {
+      "A_DIRECT": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 3
+      },
+      "B_DIRECT": {
+        "precision": 0.15789473684210525,
+        "recall": 1.0,
+        "f1": 0.2727272727272727,
+        "support": 3
+      },
+      "A_SPLIT": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 5
+      },
+      "B_SPLIT": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 2
+      },
+      "RETAKE": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 6
+      }
+    },
+    "confusion_matrix": [
+      [
+        0,
+        3,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        3,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        5,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        2,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        6,
+        0,
+        0,
+        0
+      ]
+    ]
+  },
+  "runs": [
+    {
+      "seed": 0,
+      "best_epoch": null,
+      "evaluation_epoch": 17,
+      "epoch_selection": "other-folds",
+      "epochs_run": 17,
+      "class_weights": {
+        "A_DIRECT": 1.0500000715255737,
+        "B_DIRECT": 0.6000000238418579,
+        "A_SPLIT": 1.399999976158142,
+        "B_SPLIT": 1.7999999523162842,
+        "RETAKE": 0.8999999761581421
+      },
+      "metrics": {
+        "accuracy": 0.8421052631578947,
+        "macro_f1": 0.8332467532467532,
+        "per_class": {
+          "A_DIRECT": {
+            "precision": 0.75,
+            "recall": 1.0,
+            "f1": 0.8571428571428571,
+            "support": 3
+          },
+          "B_DIRECT": {
+            "precision": 1.0,
+            "recall": 0.6666666666666666,
+            "f1": 0.8,
+            "support": 3
+          },
+          "A_SPLIT": {
+            "precision": 0.8333333333333334,
+            "recall": 1.0,
+            "f1": 0.9090909090909091,
+            "support": 5
+          },
+          "B_SPLIT": {
+            "precision": 0.6666666666666666,
+            "recall": 1.0,
+            "f1": 0.8,
+            "support": 2
+          },
+          "RETAKE": {
+            "precision": 1.0,
+            "recall": 0.6666666666666666,
+            "f1": 0.8,
+            "support": 6
+          }
+        },
+        "confusion_matrix": [
+          [
+            3,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            2,
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            5,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            2,
+            0
+          ],
+          [
+            1,
+            0,
+            1,
+            0,
+            4
+          ]
+        ]
+      },
+      "epoch_source_fold": null,
+      "selection": {
+        "epoch": 17,
+        "mean_other_folds_macro_f1": 0.8102935401181014,
+        "source_validation_match_ids": [
+          "3ecf8682175f17808a278f15e975708ac4ad40afa9932faeea58fe377b7f23d5",
+          "4cd15fe6925939096a09c0cea1cd49242c2be11a71fce8d676f2a74716351f29",
+          "5a97d3be099eec670803c4548a4cbbf8cfcb870c3cce894b4c1e0a7b74f8e65c"
+        ]
+      },
+      "optimistic": {
+        "seed": 0,
+        "best_epoch": 31,
+        "evaluation_epoch": 31,
+        "epoch_selection": "early-stopping",
+        "epochs_run": 200,
+        "class_weights": {
+          "A_DIRECT": 1.0500000715255737,
+          "B_DIRECT": 0.6000000238418579,
+          "A_SPLIT": 1.399999976158142,
+          "B_SPLIT": 1.7999999523162842,
+          "RETAKE": 0.8999999761581421
+        },
+        "metrics": {
+          "accuracy": 1.0,
+          "macro_f1": 1.0,
+          "per_class": {
+            "A_DIRECT": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 3
+            },
+            "B_DIRECT": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 3
+            },
+            "A_SPLIT": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 5
+            },
+            "B_SPLIT": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 2
+            },
+            "RETAKE": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 6
+            }
+          },
+          "confusion_matrix": [
+            [
+              3,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              3,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              5,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              2,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              6
+            ]
+          ]
+        }
+      },
+      "checkpoint": "fold-4-seed-0.pt"
+    },
+    {
+      "seed": 1,
+      "best_epoch": null,
+      "evaluation_epoch": 17,
+      "epoch_selection": "other-folds",
+      "epochs_run": 17,
+      "class_weights": {
+        "A_DIRECT": 1.0500000715255737,
+        "B_DIRECT": 0.6000000238418579,
+        "A_SPLIT": 1.399999976158142,
+        "B_SPLIT": 1.7999999523162842,
+        "RETAKE": 0.8999999761581421
+      },
+      "metrics": {
+        "accuracy": 0.8421052631578947,
+        "macro_f1": 0.8332467532467532,
+        "per_class": {
+          "A_DIRECT": {
+            "precision": 0.75,
+            "recall": 1.0,
+            "f1": 0.8571428571428571,
+            "support": 3
+          },
+          "B_DIRECT": {
+            "precision": 1.0,
+            "recall": 0.6666666666666666,
+            "f1": 0.8,
+            "support": 3
+          },
+          "A_SPLIT": {
+            "precision": 0.8333333333333334,
+            "recall": 1.0,
+            "f1": 0.9090909090909091,
+            "support": 5
+          },
+          "B_SPLIT": {
+            "precision": 0.6666666666666666,
+            "recall": 1.0,
+            "f1": 0.8,
+            "support": 2
+          },
+          "RETAKE": {
+            "precision": 1.0,
+            "recall": 0.6666666666666666,
+            "f1": 0.8,
+            "support": 6
+          }
+        },
+        "confusion_matrix": [
+          [
+            3,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            2,
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            5,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            2,
+            0
+          ],
+          [
+            1,
+            0,
+            1,
+            0,
+            4
+          ]
+        ]
+      },
+      "epoch_source_fold": null,
+      "selection": {
+        "epoch": 17,
+        "mean_other_folds_macro_f1": 0.8102935401181014,
+        "source_validation_match_ids": [
+          "3ecf8682175f17808a278f15e975708ac4ad40afa9932faeea58fe377b7f23d5",
+          "4cd15fe6925939096a09c0cea1cd49242c2be11a71fce8d676f2a74716351f29",
+          "5a97d3be099eec670803c4548a4cbbf8cfcb870c3cce894b4c1e0a7b74f8e65c"
+        ]
+      },
+      "optimistic": {
+        "seed": 1,
+        "best_epoch": 21,
+        "evaluation_epoch": 21,
+        "epoch_selection": "early-stopping",
+        "epochs_run": 200,
+        "class_weights": {
+          "A_DIRECT": 1.0500000715255737,
+          "B_DIRECT": 0.6000000238418579,
+          "A_SPLIT": 1.399999976158142,
+          "B_SPLIT": 1.7999999523162842,
+          "RETAKE": 0.8999999761581421
+        },
+        "metrics": {
+          "accuracy": 0.8947368421052632,
+          "macro_f1": 0.8732467532467533,
+          "per_class": {
+            "A_DIRECT": {
+              "precision": 0.75,
+              "recall": 1.0,
+              "f1": 0.8571428571428571,
+              "support": 3
+            },
+            "B_DIRECT": {
+              "precision": 1.0,
+              "recall": 0.6666666666666666,
+              "f1": 0.8,
+              "support": 3
+            },
+            "A_SPLIT": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 5
+            },
+            "B_SPLIT": {
+              "precision": 0.6666666666666666,
+              "recall": 1.0,
+              "f1": 0.8,
+              "support": 2
+            },
+            "RETAKE": {
+              "precision": 1.0,
+              "recall": 0.8333333333333334,
+              "f1": 0.9090909090909091,
+              "support": 6
+            }
+          },
+          "confusion_matrix": [
+            [
+              3,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              2,
+              0,
+              1,
+              0
+            ],
+            [
+              0,
+              0,
+              5,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              2,
+              0
+            ],
+            [
+              1,
+              0,
+              0,
+              0,
+              5
+            ]
+          ]
+        }
+      },
+      "checkpoint": "fold-4-seed-1.pt"
+    },
+    {
+      "seed": 2,
+      "best_epoch": null,
+      "evaluation_epoch": 17,
+      "epoch_selection": "other-folds",
+      "epochs_run": 17,
+      "class_weights": {
+        "A_DIRECT": 1.0500000715255737,
+        "B_DIRECT": 0.6000000238418579,
+        "A_SPLIT": 1.399999976158142,
+        "B_SPLIT": 1.7999999523162842,
+        "RETAKE": 0.8999999761581421
+      },
+      "metrics": {
+        "accuracy": 0.7894736842105263,
+        "macro_f1": 0.78,
+        "per_class": {
+          "A_DIRECT": {
+            "precision": 0.6666666666666666,
+            "recall": 0.6666666666666666,
+            "f1": 0.6666666666666666,
+            "support": 3
+          },
+          "B_DIRECT": {
+            "precision": 1.0,
+            "recall": 0.6666666666666666,
+            "f1": 0.8,
+            "support": 3
+          },
+          "A_SPLIT": {
+            "precision": 0.7142857142857143,
+            "recall": 1.0,
+            "f1": 0.8333333333333334,
+            "support": 5
+          },
+          "B_SPLIT": {
+            "precision": 0.6666666666666666,
+            "recall": 1.0,
+            "f1": 0.8,
+            "support": 2
+          },
+          "RETAKE": {
+            "precision": 1.0,
+            "recall": 0.6666666666666666,
+            "f1": 0.8,
+            "support": 6
+          }
+        },
+        "confusion_matrix": [
+          [
+            2,
+            0,
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            2,
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            5,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            2,
+            0
+          ],
+          [
+            1,
+            0,
+            1,
+            0,
+            4
+          ]
+        ]
+      },
+      "epoch_source_fold": null,
+      "selection": {
+        "epoch": 17,
+        "mean_other_folds_macro_f1": 0.8102935401181014,
+        "source_validation_match_ids": [
+          "3ecf8682175f17808a278f15e975708ac4ad40afa9932faeea58fe377b7f23d5",
+          "4cd15fe6925939096a09c0cea1cd49242c2be11a71fce8d676f2a74716351f29",
+          "5a97d3be099eec670803c4548a4cbbf8cfcb870c3cce894b4c1e0a7b74f8e65c"
+        ]
+      },
+      "optimistic": {
+        "seed": 2,
+        "best_epoch": 200,
+        "evaluation_epoch": 200,
+        "epoch_selection": "early-stopping",
+        "epochs_run": 200,
+        "class_weights": {
+          "A_DIRECT": 1.0500000715255737,
+          "B_DIRECT": 0.6000000238418579,
+          "A_SPLIT": 1.399999976158142,
+          "B_SPLIT": 1.7999999523162842,
+          "RETAKE": 0.8999999761581421
+        },
+        "metrics": {
+          "accuracy": 0.8421052631578947,
+          "macro_f1": 0.8332467532467532,
+          "per_class": {
+            "A_DIRECT": {
+              "precision": 0.75,
+              "recall": 1.0,
+              "f1": 0.8571428571428571,
+              "support": 3
+            },
+            "B_DIRECT": {
+              "precision": 1.0,
+              "recall": 0.6666666666666666,
+              "f1": 0.8,
+              "support": 3
+            },
+            "A_SPLIT": {
+              "precision": 0.8,
+              "recall": 0.8,
+              "f1": 0.8,
+              "support": 5
+            },
+            "B_SPLIT": {
+              "precision": 0.6666666666666666,
+              "recall": 1.0,
+              "f1": 0.8,
+              "support": 2
+            },
+            "RETAKE": {
+              "precision": 1.0,
+              "recall": 0.8333333333333334,
+              "f1": 0.9090909090909091,
+              "support": 6
+            }
+          },
+          "confusion_matrix": [
+            [
+              3,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              2,
+              0,
+              1,
+              0
+            ],
+            [
+              1,
+              0,
+              4,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              2,
+              0
+            ],
+            [
+              0,
+              0,
+              1,
+              0,
+              5
+            ]
+          ]
+        }
+      },
+      "checkpoint": "fold-4-seed-2.pt"
+    }
+  ],
+  "seed_spread": {
+    "macro_f1": {
+      "mean": 0.8154978354978355,
+      "std": 0.025100760197964006,
+      "min": 0.78,
+      "max": 0.8332467532467532
+    },
+    "accuracy": {
+      "mean": 0.8245614035087719,
+      "std": 0.024810764252159535,
+      "min": 0.7894736842105263,
+      "max": 0.8421052631578947
+    }
+  },
+  "optimistic_seed_spread": {
+    "macro_f1": {
+      "mean": 0.9021645021645023,
+      "std": 0.07108135469324228,
+      "min": 0.8332467532467532,
+      "max": 1.0
+    },
+    "accuracy": {
+      "mean": 0.912280701754386,
+      "std": 0.06564311204866566,
+      "min": 0.8421052631578947,
+      "max": 1.0
+    }
+  }
+}

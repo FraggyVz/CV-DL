@@ -1,0 +1,44 @@
+{
+  "epoch_mode": "other-folds",
+  "inputs": "images",
+  "feature_source": "ResNet18_Weights.IMAGENET1K_V1",
+  "feature_width": 512,
+  "dropped_channels": [],
+  "models": {
+    "gru": {
+      "folder": "gru",
+      "model": "resnet18-gru-linear",
+      "trainable_parameters": 5533,
+      "macro_f1": {
+        "mean": 0.3535803913435492,
+        "std": 0.019675246339397635,
+        "min": 0.3283513708513708,
+        "max": 0.3763583346478083
+      },
+      "accuracy": {
+        "mean": 0.45015284423179164,
+        "std": 0.011172993571720488,
+        "min": 0.4360987696514012,
+        "max": 0.46343415356573253
+      },
+      "optimistic_macro_f1": {
+        "mean": 0.4950442247810669,
+        "std": 0.032245380533801896,
+        "min": 0.45096764346764345,
+        "max": 0.5272110930005667
+      },
+      "majority": {
+        "macro_f1": 0.06465488215488216,
+        "accuracy": 0.19450615174299385
+      },
+      "seed_ensemble": {
+        "macro_f1": 0.36685763188458953,
+        "accuracy": 0.47560975609756095,
+        "clips": 82
+      },
+      "shuffled": null
+    }
+  },
+  "frame_features": "runs\\tactic-temporal-20261116\\frame-features.pt",
+  "repeated_frames": 0
+}

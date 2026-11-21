@@ -1,0 +1,139 @@
+{
+  "per_seed": [
+    {
+      "seed": 0,
+      "macro_f1": 0.6631746031746032,
+      "accuracy": 0.7070374800637959
+    },
+    {
+      "seed": 1,
+      "macro_f1": 0.6323196248196248,
+      "accuracy": 0.682695374800638
+    },
+    {
+      "seed": 2,
+      "macro_f1": 0.6541991341991342,
+      "accuracy": 0.7081738437001595
+    }
+  ],
+  "model": {
+    "macro_f1": {
+      "mean": 0.6498977873977875,
+      "std": 0.012958487837466197,
+      "min": 0.6323196248196248,
+      "max": 0.6631746031746032
+    },
+    "accuracy": {
+      "mean": 0.6993022328548645,
+      "std": 0.011751982283950543,
+      "min": 0.682695374800638,
+      "max": 0.7081738437001595
+    }
+  },
+  "majority": {
+    "macro_f1": 0.06465488215488216,
+    "accuracy": 0.19450615174299385
+  },
+  "epoch_mode": "other-folds",
+  "seed_ensemble": {
+    "method": "mean probability over seeds per clip; metrics pooled over all held-out clips",
+    "clips": 82,
+    "accuracy": 0.7073170731707317,
+    "macro_f1": 0.6905555555555556,
+    "per_class": {
+      "A_DIRECT": {
+        "precision": 0.5882352941176471,
+        "recall": 0.6666666666666666,
+        "f1": 0.625,
+        "support": 15
+      },
+      "B_DIRECT": {
+        "precision": 0.7619047619047619,
+        "recall": 0.6666666666666666,
+        "f1": 0.7111111111111111,
+        "support": 24
+      },
+      "A_SPLIT": {
+        "precision": 0.6923076923076923,
+        "recall": 0.6428571428571429,
+        "f1": 0.6666666666666666,
+        "support": 14
+      },
+      "B_SPLIT": {
+        "precision": 0.5454545454545454,
+        "recall": 0.6666666666666666,
+        "f1": 0.6,
+        "support": 9
+      },
+      "RETAKE": {
+        "precision": 0.85,
+        "recall": 0.85,
+        "f1": 0.85,
+        "support": 20
+      }
+    },
+    "confusion_matrix": [
+      [
+        10,
+        1,
+        4,
+        0,
+        0
+      ],
+      [
+        0,
+        16,
+        0,
+        5,
+        3
+      ],
+      [
+        5,
+        0,
+        9,
+        0,
+        0
+      ],
+      [
+        0,
+        3,
+        0,
+        6,
+        0
+      ],
+      [
+        2,
+        1,
+        0,
+        0,
+        17
+      ]
+    ],
+    "pooled_seed_macro_f1": [
+      0.6927898950782245,
+      0.669735268545337,
+      0.6914618714618715
+    ]
+  },
+  "optimistic": {
+    "macro_f1": {
+      "mean": 0.7625284462126567,
+      "std": 0.010064608115596726,
+      "min": 0.7503896103896104,
+      "max": 0.7750345560871876
+    },
+    "accuracy": {
+      "mean": 0.7642999544315335,
+      "std": 0.010984706587050778,
+      "min": 0.7553685349737981,
+      "max": 0.7797732968785601
+    }
+  },
+  "limitations": [
+    "Other-folds is slightly optimistic: the epoch for a match comes from the other folds' models, and each of those trained on the scored match. Nested selection is the stricter estimate. This is not an independent test score.",
+    "The optimistic column selects and scores the epoch on the same validation match.",
+    "Seed spread describes initialisation variability, not uncertainty across unseen matches.",
+    "Thirds keeps only coarse order: early, middle and late averages. It does not see elapsed time, so a short and a long clip look alike.",
+    "No synthetic pretraining, detection, temporal localisation or final test evaluation."
+  ]
+}

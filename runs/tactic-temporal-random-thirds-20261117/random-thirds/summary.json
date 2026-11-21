@@ -1,0 +1,59 @@
+{
+  "per_seed": [
+    {
+      "seed": 0,
+      "macro_f1": 0.5139839408957055,
+      "accuracy": 0.5994446343130554
+    },
+    {
+      "seed": 1,
+      "macro_f1": 0.5221687230897757,
+      "accuracy": 0.5972886762360446
+    },
+    {
+      "seed": 2,
+      "macro_f1": 0.543157040328093,
+      "accuracy": 0.6097260195944406
+    }
+  ],
+  "model": {
+    "macro_f1": {
+      "mean": 0.5264365681045248,
+      "std": 0.012286260847668554,
+      "min": 0.5139839408957055,
+      "max": 0.543157040328093
+    },
+    "accuracy": {
+      "mean": 0.6021531100478469,
+      "std": 0.005426709135263275,
+      "min": 0.5972886762360446,
+      "max": 0.6097260195944406
+    }
+  },
+  "majority": {
+    "macro_f1": 0.06465488215488216,
+    "accuracy": 0.19450615174299385
+  },
+  "epoch_mode": "nested",
+  "optimistic": {
+    "macro_f1": {
+      "mean": 0.6656631331631331,
+      "std": 0.026423042063861694,
+      "min": 0.6367901542901542,
+      "max": 0.700642968142968
+    },
+    "accuracy": {
+      "mean": 0.6958570669096984,
+      "std": 0.01743146858474571,
+      "min": 0.671214969241285,
+      "max": 0.708777625882889
+    }
+  },
+  "limitations": [
+    "Nested selection keeps each validation match out of its own model and epoch choice, but every match is still development data: the settings were chosen while looking at them. Inner fits train on one match fewer than the refit. This is not an independent test score.",
+    "The optimistic column selects and scores the epoch on the same validation match.",
+    "Seed spread describes initialisation variability, not uncertainty across unseen matches.",
+    "Control: the same three averages and head as thirds, but frames are assigned to the groups at random, so it has thirds' extra inputs without its frame order.",
+    "No synthetic pretraining, detection, temporal localisation or final test evaluation."
+  ]
+}

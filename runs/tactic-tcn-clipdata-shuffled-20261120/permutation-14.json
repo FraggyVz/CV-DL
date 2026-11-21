@@ -1,0 +1,65 @@
+{
+  "permutation": 14,
+  "method": "labels permuted within each training match with numpy default_rng(permutation); tactic_tcn.cross_validate as in train-tactics; scored against the shuffled labels",
+  "config": {
+    "grid": 8,
+    "step": 2,
+    "channels": 32,
+    "kernel": 3,
+    "dilations": [
+      1,
+      2,
+      4,
+      8,
+      16
+    ],
+    "dropout": 0.2,
+    "epochs": 150,
+    "eval_every": 10,
+    "batch": 8,
+    "lr": 0.001,
+    "warmup_epochs": 5,
+    "weight_decay": 0.01,
+    "label_smoothing": 0.05,
+    "jitter": 0.005,
+    "drop": 0.05,
+    "seeds": [
+      0,
+      1,
+      2
+    ],
+    "models": [
+      "tcn"
+    ],
+    "input": "clip-data",
+    "resnet_pcs": 32
+  },
+  "clip_data": {
+    "folder": "data\\processed\\clip-data-2026-11-16-train-only",
+    "data_version": "clip-data-1",
+    "regions_version": "mirage-spectator-v1",
+    "detector_channels": 72,
+    "resnet_pcs": 32
+  },
+  "clips": 82,
+  "changed_labels": 64,
+  "models": {
+    "tcn": {
+      "cross_fold_macro_f1": 0.22975085100085096,
+      "ensemble_macro_f1": 0.22924604000118878,
+      "per_fold_macro_f1": {
+        "aurora-vitality-mirage-esl-pro-league-season-24": 0.09588263588263589,
+        "furia-falcons-mirage-cologne-major-2026": 0.1313203463203463,
+        "mouz-betboom-mirage-iem-bejing-2026": 0.39120009620009616,
+        "spirit-falcons-mirage-cologne-major": 0.3006003256003256
+      },
+      "cross_fold_epochs": {
+        "aurora-vitality-mirage-esl-pro-league-season-24": 40,
+        "furia-falcons-mirage-cologne-major-2026": 50,
+        "mouz-betboom-mirage-iem-bejing-2026": 40,
+        "spirit-falcons-mirage-cologne-major": 50
+      }
+    }
+  },
+  "seconds": 631.3
+}
