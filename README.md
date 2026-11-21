@@ -83,9 +83,10 @@ channels per map region plus 32 ResNet PCA numbers fitted per fold; image runs u
 sampled frames per clip. The nested TCN and pooled-classifier rows come from
 `scripts/nested_tcn.py`; the other-folds clip-data rows from a train-only rerun of
 `train-tactics`. Every value and the per-match, per-class and error breakdowns are computed
-in `notebooks/tactic-model-comparison.ipynb`. The notebook is saved with its outputs; to
-rerun it you need the run folders it names, which are not in Git and are shared as a ZIP
-(extract into `runs/`).
+in `notebooks/tactic-model-comparison.ipynb`. The notebook is saved with its outputs. The
+result files it reads are tracked in Git, so a clone can rerun it with the same scores.
+Figures 2.2 and 2.3 and a few review and input checks also need the train-only dataset
+and clip-data copies; without them they show "—" or "unverified".
 
 - Training choices on ResNet images (nested): the Last-state GRU scores 0.345, the Compact
   last-state GRU 0.327 and the Compact pooled GRU 0.600; temporal average pooling without class weights 0.564,
@@ -197,7 +198,7 @@ data/
             test/   manifest.csv, clips/<class>/*.mp4
 labels/                            segment label files (*.segments.json): committed to Git
 configs/                           local settings, e.g. recording-video.json (not committed)
-runs/                              experiment outputs: ignored by Git except the final deployment models
+runs/                              experiment outputs: ignored by Git except the files listed below
 ```
 
 - **Your own recording:** see [Process a recording](#process-a-recording). The batch
@@ -211,13 +212,16 @@ runs/                              experiment outputs: ignored by Git except the
   directly inside. If train and test arrive as separate ZIPs carrying the same
   `export.json`, keep one copy at the top. Make a new dated folder for each export;
   never mix clips from two exports.
-- **Final deployment models:** tracked in Git, so a clone can predict straight away. The
-  TCN is in `runs/tactic-tcn-clipdata-final` and the Compact pooled GRU in
-  `runs/tactic-gru-clipdata-final-20261121` (its `models/*.pt` and `report.json`).
-- **Shared run folders:** Git ignores `runs/` (and `tmp/`). All other run outputs,
-  checkpoints and feature caches stay out of Git and are shared as a ZIP on the repo's
-  Releases page. Extract it into `runs/` so each run is one folder directly inside. The
-  notebooks read these folders by name.
+- **Tracked in Git:** Git ignores `runs/` (and `tmp/`), except for two kinds of files:
+  - the **final deployment models**, so a clone can predict straight away: the TCN in
+    `runs/tactic-tcn-clipdata-final` and the Compact pooled GRU in
+    `runs/tactic-gru-clipdata-final-20261121` (its `models/*.pt` and `report.json`);
+  - the **comparison notebook's result files**: the `.json`, `.csv` and `.md` files of
+    the run folders listed in the setup cell of
+    `notebooks/tactic-model-comparison.ipynb`, so a clone can rerun it.
+- **Shared run folders:** checkpoints, feature caches and all other run outputs stay
+  out of Git and are shared as a ZIP on the repo's Releases page. Extract it into `runs/`
+  so each run is one folder directly inside. The notebooks read these folders by name.
 - Do not commit videos, datasets or run outputs. `labels/` and code are shared through
   Git. Two older folders committed before `runs/` was ignored (`clip-data-2026-11-16` and
   `tactic-cache`) also stay tracked.

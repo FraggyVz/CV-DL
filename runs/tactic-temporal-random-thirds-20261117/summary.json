@@ -1,0 +1,50 @@
+{
+  "epoch_mode": "nested",
+  "models": {
+    "random-thirds": {
+      "folder": "random-thirds",
+      "model": "resnet18-random-thirds-linear",
+      "trainable_parameters": 7685,
+      "macro_f1": {
+        "mean": 0.5264365681045248,
+        "std": 0.012286260847668554,
+        "min": 0.5139839408957055,
+        "max": 0.543157040328093
+      },
+      "accuracy": {
+        "mean": 0.6021531100478469,
+        "std": 0.005426709135263275,
+        "min": 0.5972886762360446,
+        "max": 0.6097260195944406
+      },
+      "optimistic_macro_f1": {
+        "mean": 0.6656631331631331,
+        "std": 0.026423042063861694,
+        "min": 0.6367901542901542,
+        "max": 0.700642968142968
+      },
+      "majority": {
+        "macro_f1": 0.06465488215488216,
+        "accuracy": 0.19450615174299385
+      },
+      "shuffled": {
+        "count": 20,
+        "macro_f1": {
+          "mean": 0.14162749437532243,
+          "std": 0.055608060560781124,
+          "min": 0.06725629308962643,
+          "max": 0.27643527281685176
+        },
+        "accuracy": {
+          "mean": 0.20391404647983596,
+          "std": 0.051929455299245524,
+          "min": 0.12520600744284954,
+          "max": 0.3282258676995519
+        },
+        "at_least_real": 0
+      }
+    }
+  },
+  "frame_features": "runs\\tactic-temporal-20261116\\frame-features.pt",
+  "repeated_frames": 0
+}

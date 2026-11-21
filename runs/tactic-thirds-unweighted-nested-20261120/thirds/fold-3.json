@@ -1,0 +1,732 @@
+{
+  "fold": 3,
+  "train_match_ids": [
+    "3ecf8682175f17808a278f15e975708ac4ad40afa9932faeea58fe377b7f23d5",
+    "4cd15fe6925939096a09c0cea1cd49242c2be11a71fce8d676f2a74716351f29",
+    "d346d1076089371f40c02b50eaa4f80a3de10b8f2c6977be4f1f3226ad39d024"
+  ],
+  "validation_match_id": "5a97d3be099eec670803c4548a4cbbf8cfcb870c3cce894b4c1e0a7b74f8e65c",
+  "train_clip_ids": [
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s001",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s002",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s004",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s005",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s006",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s010",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s012",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s014",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s016",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s018",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s019",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s020",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s021",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s022",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s023",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s025",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s028",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s029",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s030",
+    "furia-falcons-mirage-cologne-major-2026.jx.s030",
+    "furia-falcons-mirage-cologne-major-2026.jx.s001",
+    "furia-falcons-mirage-cologne-major-2026.jx.s002",
+    "furia-falcons-mirage-cologne-major-2026.jx.s004",
+    "furia-falcons-mirage-cologne-major-2026.jx.s003",
+    "furia-falcons-mirage-cologne-major-2026.jx.s005",
+    "furia-falcons-mirage-cologne-major-2026.jx.s006",
+    "furia-falcons-mirage-cologne-major-2026.jx.s007",
+    "furia-falcons-mirage-cologne-major-2026.jx.s010",
+    "furia-falcons-mirage-cologne-major-2026.jx.s009",
+    "furia-falcons-mirage-cologne-major-2026.jx.s011",
+    "furia-falcons-mirage-cologne-major-2026.jx.s012",
+    "furia-falcons-mirage-cologne-major-2026.jx.s014",
+    "furia-falcons-mirage-cologne-major-2026.jx.s018",
+    "furia-falcons-mirage-cologne-major-2026.jx.s019",
+    "furia-falcons-mirage-cologne-major-2026.jx.s022",
+    "furia-falcons-mirage-cologne-major-2026.jx.s024",
+    "furia-falcons-mirage-cologne-major-2026.jx.s025",
+    "furia-falcons-mirage-cologne-major-2026.jx.s026",
+    "furia-falcons-mirage-cologne-major-2026.jx.s027",
+    "furia-falcons-mirage-cologne-major-2026.jx.s028",
+    "furia-falcons-mirage-cologne-major-2026.jx.s029",
+    "spirit-falcons-mirage-cologne-major.jx.s027",
+    "spirit-falcons-mirage-cologne-major.jx.s002",
+    "spirit-falcons-mirage-cologne-major.jx.s003",
+    "spirit-falcons-mirage-cologne-major.jx.s004",
+    "spirit-falcons-mirage-cologne-major.jx.s006",
+    "spirit-falcons-mirage-cologne-major.jx.s007",
+    "spirit-falcons-mirage-cologne-major.jx.s008",
+    "spirit-falcons-mirage-cologne-major.jx.s010",
+    "spirit-falcons-mirage-cologne-major.jx.s011",
+    "spirit-falcons-mirage-cologne-major.jx.s013",
+    "spirit-falcons-mirage-cologne-major.jx.s015",
+    "spirit-falcons-mirage-cologne-major.jx.s016",
+    "spirit-falcons-mirage-cologne-major.jx.s018",
+    "spirit-falcons-mirage-cologne-major.jx.s019",
+    "spirit-falcons-mirage-cologne-major.jx.s020",
+    "spirit-falcons-mirage-cologne-major.jx.s021",
+    "spirit-falcons-mirage-cologne-major.jx.s022",
+    "spirit-falcons-mirage-cologne-major.jx.s023",
+    "spirit-falcons-mirage-cologne-major.jx.s026",
+    "spirit-falcons-mirage-cologne-major.jx.s024",
+    "spirit-falcons-mirage-cologne-major.jx.s025"
+  ],
+  "validation_clip_ids": [
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s001",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s005",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s002",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s007",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s008",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s009",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s010",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s011",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s012",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s013",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s014",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s015",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s018",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s019",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s020",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s022",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s023",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s024",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s027",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s026"
+  ],
+  "train_counts": {
+    "A_DIRECT": 11,
+    "B_DIRECT": 19,
+    "A_SPLIT": 13,
+    "B_SPLIT": 6,
+    "RETAKE": 13
+  },
+  "validation_counts": {
+    "A_DIRECT": 4,
+    "B_DIRECT": 5,
+    "A_SPLIT": 1,
+    "B_SPLIT": 3,
+    "RETAKE": 7
+  },
+  "majority_class": "B_DIRECT",
+  "majority": {
+    "accuracy": 0.25,
+    "macro_f1": 0.08,
+    "per_class": {
+      "A_DIRECT": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 4
+      },
+      "B_DIRECT": {
+        "precision": 0.25,
+        "recall": 1.0,
+        "f1": 0.4,
+        "support": 5
+      },
+      "A_SPLIT": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 1
+      },
+      "B_SPLIT": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 3
+      },
+      "RETAKE": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 7
+      }
+    },
+    "confusion_matrix": [
+      [
+        0,
+        4,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        5,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        1,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        3,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        7,
+        0,
+        0,
+        0
+      ]
+    ]
+  },
+  "runs": [
+    {
+      "seed": 0,
+      "best_epoch": null,
+      "evaluation_epoch": 58,
+      "epoch_selection": "nested",
+      "epochs_run": 58,
+      "class_weights": null,
+      "metrics": {
+        "accuracy": 0.7,
+        "macro_f1": 0.6311688311688312,
+        "per_class": {
+          "A_DIRECT": {
+            "precision": 0.6666666666666666,
+            "recall": 0.5,
+            "f1": 0.5714285714285714,
+            "support": 4
+          },
+          "B_DIRECT": {
+            "precision": 0.6666666666666666,
+            "recall": 0.8,
+            "f1": 0.7272727272727273,
+            "support": 5
+          },
+          "A_SPLIT": {
+            "precision": 0.3333333333333333,
+            "recall": 1.0,
+            "f1": 0.5,
+            "support": 1
+          },
+          "B_SPLIT": {
+            "precision": 1.0,
+            "recall": 0.3333333333333333,
+            "f1": 0.5,
+            "support": 3
+          },
+          "RETAKE": {
+            "precision": 0.8571428571428571,
+            "recall": 0.8571428571428571,
+            "f1": 0.8571428571428571,
+            "support": 7
+          }
+        },
+        "confusion_matrix": [
+          [
+            2,
+            0,
+            2,
+            0,
+            0
+          ],
+          [
+            0,
+            4,
+            0,
+            0,
+            1
+          ],
+          [
+            0,
+            0,
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            2,
+            0,
+            1,
+            0
+          ],
+          [
+            1,
+            0,
+            0,
+            0,
+            6
+          ]
+        ]
+      },
+      "epoch_source_fold": null,
+      "selection": {
+        "epoch": 58,
+        "mean_validation_macro_f1": 0.5757287157287156,
+        "inner_validation_match_ids": [
+          "3ecf8682175f17808a278f15e975708ac4ad40afa9932faeea58fe377b7f23d5",
+          "4cd15fe6925939096a09c0cea1cd49242c2be11a71fce8d676f2a74716351f29",
+          "d346d1076089371f40c02b50eaa4f80a3de10b8f2c6977be4f1f3226ad39d024"
+        ]
+      },
+      "optimistic": {
+        "seed": 0,
+        "best_epoch": 70,
+        "evaluation_epoch": 70,
+        "epoch_selection": "early-stopping",
+        "epochs_run": 100,
+        "class_weights": null,
+        "metrics": {
+          "accuracy": 0.85,
+          "macro_f1": 0.8711111111111111,
+          "per_class": {
+            "A_DIRECT": {
+              "precision": 0.8,
+              "recall": 1.0,
+              "f1": 0.8888888888888888,
+              "support": 4
+            },
+            "B_DIRECT": {
+              "precision": 0.7142857142857143,
+              "recall": 1.0,
+              "f1": 0.8333333333333334,
+              "support": 5
+            },
+            "A_SPLIT": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 1
+            },
+            "B_SPLIT": {
+              "precision": 1.0,
+              "recall": 0.6666666666666666,
+              "f1": 0.8,
+              "support": 3
+            },
+            "RETAKE": {
+              "precision": 1.0,
+              "recall": 0.7142857142857143,
+              "f1": 0.8333333333333334,
+              "support": 7
+            }
+          },
+          "confusion_matrix": [
+            [
+              4,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              5,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              1,
+              0,
+              0
+            ],
+            [
+              0,
+              1,
+              0,
+              2,
+              0
+            ],
+            [
+              1,
+              1,
+              0,
+              0,
+              5
+            ]
+          ]
+        }
+      },
+      "checkpoint": "fold-3-seed-0.pt"
+    },
+    {
+      "seed": 1,
+      "best_epoch": null,
+      "evaluation_epoch": 63,
+      "epoch_selection": "nested",
+      "epochs_run": 63,
+      "class_weights": null,
+      "metrics": {
+        "accuracy": 0.65,
+        "macro_f1": 0.660952380952381,
+        "per_class": {
+          "A_DIRECT": {
+            "precision": 0.6666666666666666,
+            "recall": 0.5,
+            "f1": 0.5714285714285714,
+            "support": 4
+          },
+          "B_DIRECT": {
+            "precision": 0.5,
+            "recall": 1.0,
+            "f1": 0.6666666666666666,
+            "support": 5
+          },
+          "A_SPLIT": {
+            "precision": 0.5,
+            "recall": 1.0,
+            "f1": 0.6666666666666666,
+            "support": 1
+          },
+          "B_SPLIT": {
+            "precision": 1.0,
+            "recall": 0.6666666666666666,
+            "f1": 0.8,
+            "support": 3
+          },
+          "RETAKE": {
+            "precision": 1.0,
+            "recall": 0.42857142857142855,
+            "f1": 0.6,
+            "support": 7
+          }
+        },
+        "confusion_matrix": [
+          [
+            2,
+            1,
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            5,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0,
+            2,
+            0
+          ],
+          [
+            1,
+            3,
+            0,
+            0,
+            3
+          ]
+        ]
+      },
+      "epoch_source_fold": null,
+      "selection": {
+        "epoch": 63,
+        "mean_validation_macro_f1": 0.5777489177489178,
+        "inner_validation_match_ids": [
+          "3ecf8682175f17808a278f15e975708ac4ad40afa9932faeea58fe377b7f23d5",
+          "4cd15fe6925939096a09c0cea1cd49242c2be11a71fce8d676f2a74716351f29",
+          "d346d1076089371f40c02b50eaa4f80a3de10b8f2c6977be4f1f3226ad39d024"
+        ]
+      },
+      "optimistic": {
+        "seed": 1,
+        "best_epoch": 71,
+        "evaluation_epoch": 71,
+        "epoch_selection": "early-stopping",
+        "epochs_run": 101,
+        "class_weights": null,
+        "metrics": {
+          "accuracy": 0.75,
+          "macro_f1": 0.8006349206349206,
+          "per_class": {
+            "A_DIRECT": {
+              "precision": 0.8,
+              "recall": 1.0,
+              "f1": 0.8888888888888888,
+              "support": 4
+            },
+            "B_DIRECT": {
+              "precision": 0.5555555555555556,
+              "recall": 1.0,
+              "f1": 0.7142857142857143,
+              "support": 5
+            },
+            "A_SPLIT": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 1
+            },
+            "B_SPLIT": {
+              "precision": 1.0,
+              "recall": 0.6666666666666666,
+              "f1": 0.8,
+              "support": 3
+            },
+            "RETAKE": {
+              "precision": 1.0,
+              "recall": 0.42857142857142855,
+              "f1": 0.6,
+              "support": 7
+            }
+          },
+          "confusion_matrix": [
+            [
+              4,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              5,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              1,
+              0,
+              0
+            ],
+            [
+              0,
+              1,
+              0,
+              2,
+              0
+            ],
+            [
+              1,
+              3,
+              0,
+              0,
+              3
+            ]
+          ]
+        }
+      },
+      "checkpoint": "fold-3-seed-1.pt"
+    },
+    {
+      "seed": 2,
+      "best_epoch": null,
+      "evaluation_epoch": 62,
+      "epoch_selection": "nested",
+      "epochs_run": 62,
+      "class_weights": null,
+      "metrics": {
+        "accuracy": 0.55,
+        "macro_f1": 0.5342857142857143,
+        "per_class": {
+          "A_DIRECT": {
+            "precision": 0.5,
+            "recall": 0.25,
+            "f1": 0.3333333333333333,
+            "support": 4
+          },
+          "B_DIRECT": {
+            "precision": 0.4444444444444444,
+            "recall": 0.8,
+            "f1": 0.5714285714285714,
+            "support": 5
+          },
+          "A_SPLIT": {
+            "precision": 0.3333333333333333,
+            "recall": 1.0,
+            "f1": 0.5,
+            "support": 1
+          },
+          "B_SPLIT": {
+            "precision": 0.6666666666666666,
+            "recall": 0.6666666666666666,
+            "f1": 0.6666666666666666,
+            "support": 3
+          },
+          "RETAKE": {
+            "precision": 1.0,
+            "recall": 0.42857142857142855,
+            "f1": 0.6,
+            "support": 7
+          }
+        },
+        "confusion_matrix": [
+          [
+            1,
+            1,
+            2,
+            0,
+            0
+          ],
+          [
+            0,
+            4,
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0,
+            2,
+            0
+          ],
+          [
+            1,
+            3,
+            0,
+            0,
+            3
+          ]
+        ]
+      },
+      "epoch_source_fold": null,
+      "selection": {
+        "epoch": 62,
+        "mean_validation_macro_f1": 0.5851370851370851,
+        "inner_validation_match_ids": [
+          "3ecf8682175f17808a278f15e975708ac4ad40afa9932faeea58fe377b7f23d5",
+          "4cd15fe6925939096a09c0cea1cd49242c2be11a71fce8d676f2a74716351f29",
+          "d346d1076089371f40c02b50eaa4f80a3de10b8f2c6977be4f1f3226ad39d024"
+        ]
+      },
+      "optimistic": {
+        "seed": 2,
+        "best_epoch": 69,
+        "evaluation_epoch": 69,
+        "epoch_selection": "early-stopping",
+        "epochs_run": 99,
+        "class_weights": null,
+        "metrics": {
+          "accuracy": 0.8,
+          "macro_f1": 0.8370784770784769,
+          "per_class": {
+            "A_DIRECT": {
+              "precision": 0.8,
+              "recall": 1.0,
+              "f1": 0.8888888888888888,
+              "support": 4
+            },
+            "B_DIRECT": {
+              "precision": 0.6666666666666666,
+              "recall": 0.8,
+              "f1": 0.7272727272727273,
+              "support": 5
+            },
+            "A_SPLIT": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 1
+            },
+            "B_SPLIT": {
+              "precision": 1.0,
+              "recall": 0.6666666666666666,
+              "f1": 0.8,
+              "support": 3
+            },
+            "RETAKE": {
+              "precision": 0.8333333333333334,
+              "recall": 0.7142857142857143,
+              "f1": 0.7692307692307693,
+              "support": 7
+            }
+          },
+          "confusion_matrix": [
+            [
+              4,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              4,
+              0,
+              0,
+              1
+            ],
+            [
+              0,
+              0,
+              1,
+              0,
+              0
+            ],
+            [
+              0,
+              1,
+              0,
+              2,
+              0
+            ],
+            [
+              1,
+              1,
+              0,
+              0,
+              5
+            ]
+          ]
+        }
+      },
+      "checkpoint": "fold-3-seed-2.pt"
+    }
+  ],
+  "seed_spread": {
+    "macro_f1": {
+      "mean": 0.6088023088023088,
+      "std": 0.05407591640887974,
+      "min": 0.5342857142857143,
+      "max": 0.660952380952381
+    },
+    "accuracy": {
+      "mean": 0.6333333333333334,
+      "std": 0.062360956446232324,
+      "min": 0.55,
+      "max": 0.7
+    }
+  },
+  "optimistic_seed_spread": {
+    "macro_f1": {
+      "mean": 0.8362748362748361,
+      "std": 0.028777395468376762,
+      "min": 0.8006349206349206,
+      "max": 0.8711111111111111
+    },
+    "accuracy": {
+      "mean": 0.8000000000000002,
+      "std": 0.04082482904638629,
+      "min": 0.75,
+      "max": 0.85
+    }
+  }
+}

@@ -1,0 +1,140 @@
+{
+  "per_seed": [
+    {
+      "seed": 0,
+      "macro_f1": 0.7624912660438976,
+      "accuracy": 0.8089570517202096
+    },
+    {
+      "seed": 1,
+      "macro_f1": 0.8008874458874459,
+      "accuracy": 0.8686517429938482
+    },
+    {
+      "seed": 2,
+      "macro_f1": 0.7616572316572316,
+      "accuracy": 0.8072795625427204
+    }
+  ],
+  "model": {
+    "macro_f1": {
+      "mean": 0.7750119811961916,
+      "std": 0.01829988448198132,
+      "min": 0.7616572316572316,
+      "max": 0.8008874458874459
+    },
+    "accuracy": {
+      "mean": 0.8282961190855928,
+      "std": 0.028543951819998203,
+      "min": 0.8072795625427204,
+      "max": 0.8686517429938482
+    }
+  },
+  "majority": {
+    "macro_f1": 0.06465488215488216,
+    "accuracy": 0.19450615174299385
+  },
+  "epoch_mode": "other-folds",
+  "seed_ensemble": {
+    "method": "mean probability over seeds per clip; metrics pooled over all held-out clips",
+    "clips": 82,
+    "accuracy": 0.8536585365853658,
+    "macro_f1": 0.8370498084291187,
+    "per_class": {
+      "A_DIRECT": {
+        "precision": 0.9285714285714286,
+        "recall": 0.8666666666666667,
+        "f1": 0.896551724137931,
+        "support": 15
+      },
+      "B_DIRECT": {
+        "precision": 0.9047619047619048,
+        "recall": 0.7916666666666666,
+        "f1": 0.8444444444444444,
+        "support": 24
+      },
+      "A_SPLIT": {
+        "precision": 0.8,
+        "recall": 0.8571428571428571,
+        "f1": 0.8275862068965517,
+        "support": 14
+      },
+      "B_SPLIT": {
+        "precision": 0.5833333333333334,
+        "recall": 0.7777777777777778,
+        "f1": 0.6666666666666666,
+        "support": 9
+      },
+      "RETAKE": {
+        "precision": 0.95,
+        "recall": 0.95,
+        "f1": 0.95,
+        "support": 20
+      }
+    },
+    "confusion_matrix": [
+      [
+        13,
+        0,
+        2,
+        0,
+        0
+      ],
+      [
+        0,
+        19,
+        0,
+        5,
+        0
+      ],
+      [
+        1,
+        0,
+        12,
+        0,
+        1
+      ],
+      [
+        0,
+        2,
+        0,
+        7,
+        0
+      ],
+      [
+        0,
+        0,
+        1,
+        0,
+        19
+      ]
+    ],
+    "pooled_seed_macro_f1": [
+      0.7778605728981072,
+      0.8465680157841412,
+      0.7842582417582419
+    ]
+  },
+  "optimistic": {
+    "macro_f1": {
+      "mean": 0.8750587375587376,
+      "std": 0.015913039881431692,
+      "min": 0.8598226773226774,
+      "max": 0.897020202020202
+    },
+    "accuracy": {
+      "mean": 0.8878284726968938,
+      "std": 0.029154644939987446,
+      "min": 0.8669742538163591,
+      "max": 0.9290584415584415
+    }
+  },
+  "limitations": [
+    "Other-folds is slightly optimistic: the epoch for a match comes from the other folds' models, and each of those trained on the scored match. Nested selection is the stricter estimate. This is not an independent test score.",
+    "The optimistic column selects and scores the epoch on the same validation match.",
+    "Seed spread describes initialisation variability, not uncertainty across unseen matches.",
+    "Temporal average pooling (3 segments) keeps only coarse order: early, middle and late averages. It does not see elapsed time, so a short and a long clip look alike.",
+    "Clip data rows are the shared clip data (docs/clip-data.md): detector channels per map region, drawn after looking at training labels, plus ResNet numbers compressed per fold. Rows already carry elapsed time and the regions reached so far.",
+    "No synthetic pretraining, detection, temporal localisation or final test evaluation."
+  ]
+}

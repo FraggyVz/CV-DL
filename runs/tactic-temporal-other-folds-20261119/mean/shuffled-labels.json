@@ -1,0 +1,123 @@
+{
+  "method": "Labels permuted within each match with numpy default_rng(permutation); whole protocol refitted; scored against the shuffled labels; equal fold average, then mean over seeds",
+  "real": {
+    "macro_f1": 0.5839615939615939,
+    "accuracy": 0.6551615781878939
+  },
+  "count": 20,
+  "macro_f1": {
+    "mean": 0.17923269011272946,
+    "std": 0.05157439645112845,
+    "min": 0.06709379801485064,
+    "max": 0.31414633296986233
+  },
+  "accuracy": {
+    "mean": 0.21519651401230347,
+    "std": 0.05412715433268099,
+    "min": 0.08070839978734716,
+    "max": 0.3436099718994456
+  },
+  "at_least_real": 0,
+  "permutations": [
+    {
+      "permutation": 0,
+      "macro_f1": 0.13309431309431308,
+      "accuracy": 0.19030341004025217
+    },
+    {
+      "permutation": 1,
+      "macro_f1": 0.21117367281840968,
+      "accuracy": 0.22959766841345788
+    },
+    {
+      "permutation": 2,
+      "macro_f1": 0.209414561330196,
+      "accuracy": 0.2767619807093491
+    },
+    {
+      "permutation": 3,
+      "macro_f1": 0.06709379801485064,
+      "accuracy": 0.08070839978734716
+    },
+    {
+      "permutation": 4,
+      "macro_f1": 0.158868410172758,
+      "accuracy": 0.2105661881977671
+    },
+    {
+      "permutation": 5,
+      "macro_f1": 0.16001120711647027,
+      "accuracy": 0.20211513632566266
+    },
+    {
+      "permutation": 6,
+      "macro_f1": 0.19265947015947016,
+      "accuracy": 0.2243164730006835
+    },
+    {
+      "permutation": 7,
+      "macro_f1": 0.1596265308765309,
+      "accuracy": 0.19847725374041167
+    },
+    {
+      "permutation": 8,
+      "macro_f1": 0.2204462041226747,
+      "accuracy": 0.24137711703501177
+    },
+    {
+      "permutation": 9,
+      "macro_f1": 0.16332584898761368,
+      "accuracy": 0.2060321257689679
+    },
+    {
+      "permutation": 10,
+      "macro_f1": 0.20005328005328005,
+      "accuracy": 0.23236975013290806
+    },
+    {
+      "permutation": 11,
+      "macro_f1": 0.13116284300494827,
+      "accuracy": 0.16548473456368193
+    },
+    {
+      "permutation": 12,
+      "macro_f1": 0.19818621465680286,
+      "accuracy": 0.22803410040252145
+    },
+    {
+      "permutation": 13,
+      "macro_f1": 0.15075332075332074,
+      "accuracy": 0.20790707830181512
+    },
+    {
+      "permutation": 14,
+      "macro_f1": 0.24726836888601592,
+      "accuracy": 0.2920397584871269
+    },
+    {
+      "permutation": 15,
+      "macro_f1": 0.1660033430621666,
+      "accuracy": 0.1836807928913192
+    },
+    {
+      "permutation": 16,
+      "macro_f1": 0.15463286169168522,
+      "accuracy": 0.1869987468671679
+    },
+    {
+      "permutation": 17,
+      "macro_f1": 0.12012737262737262,
+      "accuracy": 0.1424527227158806
+    },
+    {
+      "permutation": 18,
+      "macro_f1": 0.22660584785584784,
+      "accuracy": 0.261096870965292
+    },
+    {
+      "permutation": 19,
+      "macro_f1": 0.31414633296986233,
+      "accuracy": 0.3436099718994456
+    }
+  ]
+}
