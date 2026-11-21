@@ -212,13 +212,16 @@ runs/                              experiment outputs: ignored by Git except the
   directly inside. If train and test arrive as separate ZIPs carrying the same
   `export.json`, keep one copy at the top. Make a new dated folder for each export;
   never mix clips from two exports.
-- **Tracked in Git:** Git ignores `runs/` (and `tmp/`), except for two kinds of files:
+- **Tracked in Git:** Git ignores `runs/` (and `tmp/`), except for three kinds of files:
   - the **final deployment models**, so a clone can predict straight away: the TCN in
     `runs/tactic-tcn-clipdata-final` and the Compact pooled GRU in
     `runs/tactic-gru-clipdata-final-20261121` (its `models/*.pt` and `report.json`);
   - the **comparison notebook's result files**: the `.json`, `.csv` and `.md` files of
     the run folders listed in the setup cell of
-    `notebooks/tactic-model-comparison.ipynb`, so a clone can rerun it.
+    `notebooks/tactic-model-comparison.ipynb`, so a clone can rerun it;
+  - the **final test results**: the GRU's one test run in
+    `runs/tactic-gru-clipdata-test-20261121` (made by `scripts/final_test_gru.py`), read
+    by `notebooks/tactic-final-test.ipynb` with the TCN's saved test results.
 - **Shared run folders:** checkpoints, feature caches and all other run outputs stay
   out of Git and are shared as a ZIP on the repo's Releases page. Extract it into `runs/`
   so each run is one folder directly inside. The notebooks read these folders by name.
