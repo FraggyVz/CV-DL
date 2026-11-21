@@ -30,10 +30,8 @@ scaling. Each model averages its three saved seeds.
 | TCN | `runs/tactic-tcn-clipdata-final/models` | `tcn-seed0.pt` to `tcn-seed2.pt`, and `../report.json` (regions version) |
 | GRU | `runs/tactic-gru-clipdata-final-20261121/models` | `gru-seed0.pt` to `gru-seed2.pt` |
 
-The TCN's folder `runs/tactic-tcn-clipdata-final` is tracked in git, so a clone already
-has the TCN models. The GRU's folder is not yet: copy
-`runs/tactic-gru-clipdata-final-20261121` to the same path in your checkout, or pass
-other folders with `tcn_models=` and `gru_models=`. Both models were trained with map regions `mirage-spectator-v1`
+Both model folders are tracked in git, so a clone already has them: nothing to copy.
+To use other models, pass their folders with `tcn_models=` and `gru_models=`. Both models were trained with map regions `mirage-spectator-v1`
 (`stratscout/mirage_regions.json`). Loading refuses a regions file with another version
 or channel layout, and a GRU folder whose seeds have different settings.
 
