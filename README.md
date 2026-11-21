@@ -197,7 +197,7 @@ data/
             test/   manifest.csv, clips/<class>/*.mp4
 labels/                            segment label files (*.segments.json): committed to Git
 configs/                           local settings, e.g. recording-video.json (not committed)
-runs/                              experiment outputs: ignored by Git, shared as a ZIP (a few older folders stay tracked)
+runs/                              experiment outputs: ignored by Git except the final deployment models
 ```
 
 - **Your own recording:** see [Process a recording](#process-a-recording). The batch
@@ -211,13 +211,16 @@ runs/                              experiment outputs: ignored by Git, shared as
   directly inside. If train and test arrive as separate ZIPs carrying the same
   `export.json`, keep one copy at the top. Make a new dated folder for each export;
   never mix clips from two exports.
-- **Shared run folders:** Git ignores `runs/` (and `tmp/`). Share run folders as a ZIP,
-  like the dataset, and extract it into `runs/` so each run is one folder directly inside.
-  The notebooks read these folders by name.
+- **Final deployment models:** tracked in Git, so a clone can predict straight away. The
+  TCN is in `runs/tactic-tcn-clipdata-final` and the Compact pooled GRU in
+  `runs/tactic-gru-clipdata-final-20261121` (its `models/*.pt` and `report.json`).
+- **Shared run folders:** Git ignores `runs/` (and `tmp/`). All other run outputs,
+  checkpoints and feature caches stay out of Git and are shared as a ZIP on the repo's
+  Releases page. Extract it into `runs/` so each run is one folder directly inside. The
+  notebooks read these folders by name.
 - Do not commit videos, datasets or run outputs. `labels/` and code are shared through
-  Git. The few run folders committed before `runs/` was ignored (`clip-data-2026-11-16`,
-  `tactic-cache` and `tactic-tcn-clipdata-final`) stay tracked. Use `git add -f` only for
-  a small result that must be in Git, never for checkpoints or feature caches.
+  Git. Two older folders committed before `runs/` was ignored (`clip-data-2026-11-16` and
+  `tactic-cache`) also stay tracked.
 
 ## Process a recording
 
@@ -251,6 +254,7 @@ python -m stratscout icon-count-eval --train furia spirit --test navi --output r
 python -m stratscout train-tactics --dataset data/processed/datasets/2026-11-16 --output runs/tactic-tcn-<new> --exclude-uncertain --seeds 3
 python -m stratscout train-tactics --dataset data/processed/datasets/2026-11-16 --clip-data runs/clip-data-2026-11-16 --output runs/tactic-tcn-clipdata-<new> --exclude-uncertain --seeds 3
 python -m stratscout predict-tcn data/processed/datasets/2026-11-16/test/clips --output runs/predictions-001.csv
+python -m stratscout predict-gru <clips> --with-tcn --background runs/backgrounds/<match>.png --output runs/predictions-gru-001.csv
 python -m stratscout build-clip-data --dataset data/processed/datasets/2026-11-16 --output runs/clip-data-2026-11-16
 python -m stratscout prototype --smoke --output runs/smoke-001
 ```
@@ -321,6 +325,14 @@ time-blind control (the same features pooled over the clip) and a majority-class
   file name before the first dot, as `export-segments` names them. Give at least about
   5 clips per match, or pass the prepared match video (`minimap-10fps.mp4`) with
   `--background-from`. It needs no labels.
+- **Second opinion (`predict-gru`, `gru_predict.predict_clips`).** The final Compact pooled
+  GRU (`train-gru-final`, epochs chosen by leave-one-match-out CV on the training matches)
+  as an optional second opinion or backup; the TCN stays the selected model and the default.
+  `predict-gru` mirrors `predict-tcn`'s options and output, with a model column, and
+  `--with-tcn` adds the TCN's rows. For the web app, `predict_clips` computes the clip
+  features once and returns JSON-ready results; `save-background` saves an empty-map
+  image from a training match so a single clip is detected as in training. See the
+  [prediction guide](docs/gru-predict.md).
 
 Detections are unvalidated colour estimates, so the features inherit their misses
 (e.g. players standing on site letters, stacks). The 2026-11-16 dataset (82 training
@@ -348,6 +360,7 @@ schema are not the current video-preparation or five-class dataset route.
 | `segmentation`, `icon_split`, `bomb`, `rounds`, `live_preview`, `count_eval`                                          | Colour/shape detection, overlap handling, estimates and review                                             |
 | `segments`, `segment_labeller`                                                                                        | Five-class segment records, validation, safe saving and the keyboard labeller                              |
 | `segment_export`, `tactic_features`, `tactic_tcn`, `tcn_predict`                                                      | Clip export, per-frame clip features, the tactic TCN experiment and TCN prediction                         |
+| `gru_predict`                                                                                                         | Final Compact pooled GRU, and TCN/GRU prediction for the web app ([guide](docs/gru-predict.md))            |
 | `clip_data`, `mirage_regions.json`                                                                                    | Shared model-ready clip data: detector channels per map region, bomb state and ResNet features             |
 | `preprocessing`, `detector`, `datasets`, `training`, `evaluation`, `synthetic`                                        | CNN icon detector and experiments                                                                          |
 | `tracking`, `annotations`, `config`, `contracts`, `context`, `workflow`, `storage`, `video`, `pilot`, `visualisation` | Tracking, legacy labels, explicit run state and orchestration                                              |
