@@ -71,9 +71,13 @@ models higher.
 | Pooled classifier | Detector features | not yet run (slow) | 0.645 | 0.862 | [Tactic model](#tactic-model) |
 | Mean pooling | Clip data | 0.796 ± 0.016 | 0.790 | not run | [clip-data inputs](docs/tactic-temporal.md#clip-data-inputs) |
 | Temporal average pooling (3 segments) | Clip data | 0.763 ± 0.048 | 0.775 | not run | [clip-data inputs](docs/tactic-temporal.md#clip-data-inputs) |
-| GRU | Clip data | 0.792 ± 0.033 | 0.809 | not run | [clip-data inputs](docs/tactic-temporal.md#clip-data-inputs) |
-| **TCN** | Clip data | **0.849 ± 0.021** | 0.834 | scored by ri3n; not used here | [shared clip data](docs/clip-data.md) |
-| Pooled classifier | Clip data | 0.809 ± 0.035 | 0.823 | scored by ri3n; not used here | [shared clip data](docs/clip-data.md) |
+| GRU | Clip data | 0.792 ± 0.033 | 0.809 | [0.890 (ensemble 0.963)](notebooks/tactic-final-test.ipynb) | [clip-data inputs](docs/tactic-temporal.md#clip-data-inputs) |
+| **TCN** | Clip data | **0.849 ± 0.021** | 0.834 | [**0.897** (ensemble 0.927)](notebooks/tactic-final-test.ipynb) | [shared clip data](docs/clip-data.md) |
+| Pooled classifier | Clip data | 0.809 ± 0.035 | 0.823 | not reported | [shared clip data](docs/clip-data.md) |
+
+Test results for the clip-data TCN and GRU are in `notebooks/tactic-final-test.ipynb`
+(macro-F1 pooled over the 45 test clips, mean over three seeds, with the seed ensemble in
+brackets); the TCN was selected by nested cross-validation before the GRU was scored.
 
 The pooled classifier is the TCN's control: the same rows pooled over the clip before a
 small network, so step order cannot matter. The detector-features test scores come from
