@@ -3,6 +3,12 @@ services:
     build: .
     ports:
       - "127.0.0.1:8000:8000"
+    environment:
+      STRATSCOUT_MAX_UPLOAD_BYTES: ${STRATSCOUT_MAX_UPLOAD_BYTES:-21474836480}
+      STRATSCOUT_VIDEO_PROFILE: ${STRATSCOUT_VIDEO_PROFILE:-/app/configs/recording-video.json}
     volumes:
       - ./data:/app/data
       - ./labels:/app/labels
+      - ./configs:/app/configs:ro
+      - ./runs/tactic-tcn-clipdata-final:/app/runs/tactic-tcn-clipdata-final:ro
+      - ./runs/tactic-gru-clipdata-final-20261121:/app/runs/tactic-gru-clipdata-final-20261121:ro
