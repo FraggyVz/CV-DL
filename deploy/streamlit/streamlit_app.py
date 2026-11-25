@@ -46,6 +46,7 @@ results_view = components.declare_component(
 
 CSS = """
 <style>
+html { font-size: 17.6px; } /* 10% above Streamlit's 16px; the title is fixed in px */
 :root { --muted:#8d958e; --accent:#c8f169; --panel:#171b18; --line:#292f2b; --red:#f27b6e; }
 .stApp { background: radial-gradient(ellipse at 82% 0%, rgb(200 241 105 / 8%), transparent 36rem), #101311; }
 .block-container, [data-testid="stMainBlockContainer"] { max-width: 100% !important;
@@ -53,43 +54,43 @@ CSS = """
 .ss-mono { font-family: Consolas, "Courier New", monospace; letter-spacing: .06em; }
 .ss-topbar { display:flex; align-items:center; justify-content:space-between; gap:20px;
   padding: 0 0 18px; border-bottom: 1px solid var(--line); margin-bottom: 8px; flex-wrap: wrap; }
-.ss-brand { display:flex; align-items:center; gap:10px; font-weight:600; font-size:16px; color:#e7e9e5; }
+.ss-brand { display:flex; align-items:center; gap:10px; font-weight:600; font-size: 17.6px; color:#e7e9e5; }
 .ss-mark { width:28px; height:28px; display:grid; place-items:center; border-radius:7px;
   background: var(--accent); color:#101311; font-weight:800; }
-.ss-status { display:flex; align-items:center; gap:8px; color:#a7afa8; font-size:12px; }
+.ss-status { display:flex; align-items:center; gap:8px; color:#a7afa8; font-size: 13.2px; }
 .ss-dot { width:8px; height:8px; border-radius:50%; background: var(--accent); }
-.ss-badge { margin-left:6px; font-size:10px; color:#a7afa8; }
-.ss-eyebrow { color: var(--accent); font-size: 11px; margin: 0 0 8px; }
-.ss-hero h1 { font-size: clamp(2.2rem, 6vw, 4rem); font-weight: 520; letter-spacing: -0.06em;
+.ss-badge { margin-left:6px; font-size: 11px; color:#a7afa8; }
+.ss-eyebrow { color: var(--accent); font-size: 12.1px; margin: 0 0 8px; }
+.ss-hero h1 { font-size: clamp(35px, 6vw, 64px); font-weight: 520; letter-spacing: -0.06em;
   line-height: 1; margin: 34px 0 16px; padding:0; }
 .ss-hero p.copy { color:#a7afa8; max-width: 640px; }
 .ss-section { display:flex; justify-content:space-between; align-items:flex-end; gap:12px;
   margin: 34px 0 12px; flex-wrap: wrap; }
 .ss-section h2 { margin:0; padding:0; font-size:1.35rem; }
-.ss-quiet { color:#737d75; font-size: 10px; }
+.ss-quiet { color:#737d75; font-size: 11px; }
 .ss-pipeline { list-style:none; padding:0 !important; margin: 6px 0 8px !important; display:grid;
   grid-template-columns: repeat(4, minmax(0,1fr)); gap:10px; }
 .ss-pipeline li { border:1px solid var(--line); border-radius:8px; padding:10px 12px; background: var(--panel);
   display:flex; flex-direction:column; gap:2px; }
 .ss-pipeline li.complete { border-color: rgb(200 241 105 / 35%); }
 .ss-pipeline li.current { border-color: #e9bd62; }
-.ss-num { font-family: Consolas, monospace; color: var(--accent); font-size: 12px; }
-.ss-ptitle { font-weight:600; font-size: 14px; }
-.ss-pstate { color: var(--muted); font-size: 12px; }
-.ss-note { color: var(--muted); font-size: 13px; margin: 4px 0; }
-.ss-round-num { color: var(--accent); font-size: 11px; }
-.ss-round-name { font-size: 13px; word-break: break-all; }
-.ss-round-status { color: var(--muted); font-size: 12px; }
-.ss-pill { padding: 2px 6px; border-radius: 4px; background:#263445; color:#a9c7ef; font-size: 10px;
+.ss-num { font-family: Consolas, monospace; color: var(--accent); font-size: 13.2px; }
+.ss-ptitle { font-weight:600; font-size: 15.4px; }
+.ss-pstate { color: var(--muted); font-size: 13.2px; }
+.ss-note { color: var(--muted); font-size: 14.3px; margin: 4px 0; }
+.ss-round-num { color: var(--accent); font-size: 12.1px; }
+.ss-round-name { font-size: 14.3px; word-break: break-all; }
+.ss-round-status { color: var(--muted); font-size: 13.2px; }
+.ss-pill { padding: 2px 6px; border-radius: 4px; background:#263445; color:#a9c7ef; font-size: 11px;
   text-transform: uppercase; }
 .ss-pill.retake { background:#402725; color:#f1a49b; }
 .ss-notice { display:flex; gap:11px; margin: 22px 0 0; padding: 14px 16px;
   border:1px solid rgb(200 241 105 / 16%); border-radius:9px; background: rgb(200 241 105 / 4%); }
 .ss-notice-mark { width:18px; height:18px; flex:0 0 auto; display:grid; place-items:center;
-  border:1px solid #879d56; border-radius:50%; color: var(--accent); font-family: Consolas, monospace; font-size: 11px; }
-.ss-notice p { margin:0; color:#b7c0b3; font-size: 13px; line-height: 1.55; }
+  border:1px solid #879d56; border-radius:50%; color: var(--accent); font-family: Consolas, monospace; font-size: 12.1px; }
+.ss-notice p { margin:0; color:#b7c0b3; font-size: 14.3px; line-height: 1.55; }
 .ss-footer { display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; padding: 22px 0 8px;
-  color:#737d75; font-size: 10px; text-transform: uppercase; }
+  color:#737d75; font-size: 11px; text-transform: uppercase; }
 /* Buttons in the local app's style: dark, with a lime accent for the main action. */
 .stButton button, .stPopover button, [data-testid="stBaseButton-secondary"] {
   background: #191e1a; border: 1px solid #424b43; color: #e7e9e5; border-radius: 6px; }
@@ -99,9 +100,12 @@ CSS = """
   color: var(--accent) !important; font-weight: 600; }
 [data-testid="stBaseButton-primary"]:hover { background: rgb(200 241 105 / 15%) !important; }
 .stButton button:disabled { opacity: .5; }
-.st-key-reset button, .st-key-reset_confirm_box button { background: #2a1b19 !important; border-color: #70403b !important; color: #f29a8f !important; }
-.st-key-reset button:hover, .st-key-reset_confirm_box button:hover { background: #38201d !important; border-color: #a45b51 !important; }
-[data-testid="stVideo"] video, video { max-width: 420px; width: 100%; border-radius: 8px;
+.st-key-reset_open button, .st-key-reset_confirm button { background: #2a1b19 !important; border-color: #70403b !important; color: #f29a8f !important; }
+.st-key-reset_open button:hover, .st-key-reset_confirm button:hover { background: #38201d !important; border-color: #a45b51 !important; }
+.st-key-reset_row { align-items: flex-end !important; }
+.st-key-reset_row .stMarkdown { text-align: right; }
+.st-key-reset_row p.ss-quiet { font-size: 11px !important; }
+[data-testid="stVideo"] video, video { width: 100%; max-height: 520px; object-fit: contain; border-radius: 8px;
   border: 1px solid var(--line); background: #000; }
 @media (max-width: 640px) { .ss-pipeline { grid-template-columns: repeat(2, minmax(0,1fr)); } }
 </style>
@@ -190,7 +194,22 @@ def reset_workspace() -> None:
     for r in list(rounds()):
         remove_round(r["id"])
     st.session_state.match_name = "Match 1"
+    st.session_state.match_count = 1
     st.session_state.selected = ""
+    st.session_state.confirm_reset = False
+
+
+def new_match() -> None:
+    """Start the next match with an empty round list (one match per session)."""
+    for r in list(rounds()):
+        remove_round(r["id"])
+    st.session_state.match_count = st.session_state.get("match_count", 1) + 1
+    st.session_state.match_name = f"Match {st.session_state.match_count}"
+    st.session_state.selected = ""
+
+
+def ask_reset(value: bool) -> None:
+    st.session_state.confirm_reset = value
 
 
 def add_uploads() -> None:
@@ -217,7 +236,7 @@ def warm_models() -> bool:
     return True
 
 
-def analyse(r: dict, progress) -> None:
+def analyse(r: dict, progress, playback_speed: int = 2) -> None:
     """web_analysis.queue_analysis + run_analysis, as the local app's analysis endpoint
     runs them, with the whole clip as the round's one segment."""
     from stratscout.media import probe
@@ -243,7 +262,7 @@ def analyse(r: dict, progress) -> None:
                 video_id,
                 state["analysis_id"],
                 [segment],
-                playback_speed=1,
+                playback_speed=playback_speed,
                 prepared_clip=True,
                 min_confidence=MIN_CONFIDENCE,
             )
@@ -324,7 +343,44 @@ st.markdown(
 )
 
 # 01 / RECORDING ------------------------------------------------------------------
-section("01 / RECORDING", "Build your match rounds", "MP4 · KEPT FOR THIS SESSION")
+heading, header_right = st.columns([3, 1], vertical_alignment="bottom")
+with heading:
+    st.markdown(
+        '<div class="ss-section"><div><p class="ss-eyebrow ss-mono">01 / RECORDING</p>'
+        "<h2>Build your match rounds</h2></div></div>",
+        unsafe_allow_html=True,
+    )
+with header_right, st.container(key="reset_row"):
+    # Reset workspace sits above the section's quiet label, as an inline confirmation.
+    if not st.session_state.get("confirm_reset"):
+        with st.container(key="match_actions", horizontal=True, horizontal_alignment="right"):
+            st.button(
+                "New match",
+                key="new_match",
+                disabled=not rounds(),
+                on_click=new_match,
+                help="Start the next match (Match 2, Match 3…) with an empty round list.",
+            )
+            st.button(
+                "Reset workspace",
+                key="reset_open",
+                disabled=not rounds(),
+                on_click=ask_reset,
+                args=(True,),
+            )
+    else:
+        st.markdown(
+            '<p class="ss-note">Remove every uploaded recording and saved analysis in this '
+            "session?</p>",
+            unsafe_allow_html=True,
+        )
+        with st.container(key="reset_confirm_box", horizontal=True, horizontal_alignment="right"):
+            st.button("Cancel", key="reset_cancel", on_click=ask_reset, args=(False,))
+            st.button("Remove everything", key="reset_confirm", on_click=reset_workspace)
+    st.markdown(
+        '<p class="ss-quiet ss-mono" style="margin:0 0 14px">MP4 · KEPT FOR THIS SESSION</p>',
+        unsafe_allow_html=True,
+    )
 col_match, col_phase = st.columns([2, 1])
 with col_match:
     st.text_input("Current match", key="match_name")
@@ -357,15 +413,6 @@ with sample_tab:
             args=(sample.name,),
         )
 
-with st.container(key="reset"):
-    with st.popover("Reset workspace", disabled=not rounds()):
-        st.markdown(
-            "Reset the entire workspace? This permanently removes every uploaded recording "
-            "and saved analysis in this session."
-        )
-        with st.container(key="reset_confirm_box"):
-            st.button("Remove everything", key="reset_confirm", on_click=reset_workspace)
-
 # 02 / ANALYSIS FLOW --------------------------------------------------------------
 current = selected_round()
 section("02 / ANALYSIS FLOW", "From round clip to model output", "PIPELINE STATUS")
@@ -375,16 +422,19 @@ st.markdown(
     "automatically within the match; full-match round detection is not supported.</p>",
     unsafe_allow_html=True,
 )
-progress_slot = st.empty()
 
 # 03 / MATCH ROUNDS ---------------------------------------------------------------
 section("03 / MATCH ROUNDS", f"{st.session_state.match_name} rounds", f"{len(rounds())} ROUNDS")
 pending = [r for r in rounds() if r["status"] != "complete"]
-if st.button("Analyse all rounds", type="primary", disabled=not pending, key="analyse_all"):
-    bar = progress_slot.progress(0.0, text="Queued.")
+analyse_all = st.button(
+    "Analyse all rounds", type="primary", disabled=not pending, key="analyse_all"
+)
+all_progress = st.empty()
+if analyse_all:
+    bar = all_progress.progress(0.0, text="Queued.")
     for r in pending:
-        analyse(r, bar)
-    progress_slot.empty()
+        analyse(r, bar, int(st.session_state.get("playback_speed", "2")))
+    all_progress.empty()
     st.rerun()
 if not rounds():
     st.markdown(
@@ -430,15 +480,27 @@ if current:
         f"Round {current['round_number']} · {current['filename']}",
         current["phase"].upper(),
     )
-    video_col, panel_col = st.columns([1, 1])
+    video_col, panel_col = st.columns([5, 6])
     with video_col:
         st.video(str(browser_video(current["id"])), loop=True)
     with panel_col:
+        st.markdown(
+            f'<p class="ss-eyebrow ss-mono">ROUND {current["round_number"]}</p>',
+            unsafe_allow_html=True,
+        )
         st.markdown("**Clip boundaries are automatic**")
         st.markdown(
-            '<p class="ss-note">Each new-round clip is analysed from start to finish as one '
-            "round.</p>",
+            '<p class="ss-note">New round clips are analysed from the first frame to the last.</p>',
             unsafe_allow_html=True,
+        )
+        st.selectbox(
+            "Demo replay speed",
+            ["2", "1"],
+            format_func={"2": "2× (recording guide default)", "1": "1× (normal speed)"}.get,
+            key="playback_speed",
+            help="The speed the demo was replayed at when it was recorded. It is passed to "
+            "the analysis as in the local app; prepared clips are already at normal speed, so "
+            "it only changes the result for full-screen recordings.",
         )
         st.checkbox(
             "Already a prepared minimap clip (494×500, 10 fps)",
@@ -448,11 +510,17 @@ if current:
             help="The cloud workspace accepts prepared clips only. Raw recordings need the "
             "local app's crop profile.",
         )
-        label = "Run analysis again" if current["status"] != "idle" else "Run analysis"
-        if st.button(label, key=f"analyse-{current['id']}", type="primary"):
-            bar = progress_slot.progress(0.0, text="Queued.")
-            analyse(current, bar)
-            progress_slot.empty()
+        label = (
+            "Analyse this round again"
+            if current["status"] == "complete"
+            else f"Analyse Round {current['round_number']}"
+        )
+        run = st.button(label, key=f"analyse-{current['id']}", type="primary")
+        round_progress = st.empty()
+        if run:
+            bar = round_progress.progress(0.0, text="Queued.")
+            analyse(current, bar, int(st.session_state.get("playback_speed", "2")))
+            round_progress.empty()
             st.rerun()
         if current["status"] == "failed" and current.get("error"):
             st.error(current["error"])

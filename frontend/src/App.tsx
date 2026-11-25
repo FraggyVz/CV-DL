@@ -1261,29 +1261,6 @@ export default function App() {
           Upload one MP4 per round, then analyse it. Round numbers advance automatically
           within the selected match; full-match round detection is not supported.
         </p>
-        {analysisRunning && analysis && (
-          <div className="analysis-progress" aria-live="polite">
-            <div className="analysis-progress-heading">
-              <span>{analysis.message}</span>
-              <span>{analysis.progress}%</span>
-            </div>
-            <div
-              className="analysis-progress-track"
-              role="progressbar"
-              aria-label="Analysis progress"
-              aria-valuenow={analysis.progress}
-              aria-valuemin={0}
-              aria-valuemax={100}
-            >
-              <span style={{ width: `${analysis.progress}%` }} />
-            </div>
-          </div>
-        )}
-        {analysis?.status === "failed" && analysis.error && (
-          <p className="error-message" role="alert">
-            {analysis.error}
-          </p>
-        )}
       </section>
 
       <section className="workspace-section rounds-section" aria-labelledby="rounds-title">
@@ -1521,6 +1498,29 @@ export default function App() {
                           ? `Analyse Round ${selectedVideo.round_number}`
                           : "Run detection & classify"}
                 </button>
+                {analysisRunning && analysis && (
+                  <div className="analysis-progress" aria-live="polite">
+                    <div className="analysis-progress-heading">
+                      <span>{analysis.message}</span>
+                      <span>{analysis.progress}%</span>
+                    </div>
+                    <div
+                      className="analysis-progress-track"
+                      role="progressbar"
+                      aria-label="Analysis progress"
+                      aria-valuenow={analysis.progress}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                    >
+                      <span style={{ width: `${analysis.progress}%` }} />
+                    </div>
+                  </div>
+                )}
+                {analysis?.status === "failed" && analysis.error && (
+                  <p className="error-message" role="alert">
+                    {analysis.error}
+                  </p>
+                )}
               </aside>
             </div>
           </section>
