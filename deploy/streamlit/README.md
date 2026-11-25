@@ -31,7 +31,7 @@ flow, match rounds, video review and classification.
 | `streamlit_app.py` | The page |
 | `results_component/` | The built React results view. Rebuild it after changing the result cards in `App.tsx`, `ModelPipeline.tsx`, `viewer.tsx` or `app.css` (see below). |
 | `requirements.txt` | Python packages: CPU-only PyTorch, OpenCV (headless), Streamlit |
-| `packages.txt` | System packages: `ffmpeg`, which the local app's preparation step uses |
+| `../../packages.txt` | System packages: `ffmpeg`, which the local app's preparation step uses. It must sit at the repository root: Streamlit Cloud doesn't read it from the app's folder. |
 | `samples/*.mp4` | Three held-out **test** clips for the demo (never used in training) |
 | `../../.streamlit/config.toml` | The dark theme with the local app's colours, read from the repository root |
 
@@ -81,6 +81,7 @@ account, or a fork or copy you own.
 6. For a private repository, set the app to public in its **Share** settings so viewers
    don't need to sign in. The code stays private.
 
-Streamlit reads `requirements.txt` and `packages.txt` from the folder that holds the
-app, not the repository root. If a build log shows ffmpeg missing, copy `packages.txt`
-to the repository root. The app sleeps when unused and wakes on the next visit.
+Streamlit reads `requirements.txt` from the app's folder (`deploy/streamlit/`) but
+`packages.txt` (ffmpeg) from the repository root. After changing `packages.txt`, reboot
+the app from **Manage app** so the system packages are installed again. The app sleeps
+when unused and wakes on the next visit.
