@@ -625,29 +625,33 @@ function Stage({
 export default function ModelPipeline({
   model,
   url,
+  record: given,
   available,
   unavailableReason,
 }: {
   model: "tcn" | "gru";
-  url: string;
+  /** Where to fetch the record (the local app), or pass it directly as ``record``. */
+  url?: string;
+  record?: PipelineRecord;
   available: boolean;
   unavailableReason?: string;
 }) {
-  const [record, setRecord] = useState<PipelineRecord | null>(null);
+  const [loaded, setLoaded] = useState<PipelineRecord | null>(null);
+  const record = given ?? loaded;
   const [error, setError] = useState("");
   const [allBlocks, setAllBlocks] = useState(false);
 
   useEffect(() => {
-    if (!available) return;
+    if (!available || given || !url) return;
     let active = true;
     setError("");
     loadPipeline(url)
-      .then((data) => active && setRecord(data))
+      .then((data) => active && setLoaded(data))
       .catch((reason: Error) => active && setError(reason.message));
     return () => {
       active = false;
     };
-  }, [url, available]);
+  }, [url, available, given]);
 
   const summary = useMemo(() => {
     if (!record) return null;

@@ -3,11 +3,11 @@ import type { ChangeEvent } from "react";
 import ModelPipeline from "./ModelPipeline";
 
 type ServiceState = "checking" | "connected" | "unavailable";
-type ResultTab = "comparison" | "tcn" | "gru";
+export type ResultTab = "comparison" | "tcn" | "gru";
 type SegmentPhase = "attack" | "retake";
-type TacticClass = "A_DIRECT" | "B_DIRECT" | "A_SPLIT" | "B_SPLIT" | "RETAKE";
+export type TacticClass = "A_DIRECT" | "B_DIRECT" | "A_SPLIT" | "B_SPLIT" | "RETAKE";
 
-type ModelPrediction = {
+export type ModelPrediction = {
   tactic: TacticClass;
   confidence: number;
   uncertain: boolean;
@@ -15,7 +15,7 @@ type ModelPrediction = {
   probabilities: Record<TacticClass, number>;
 };
 
-type AnalysisResult = {
+export type AnalysisResult = {
   segment_id: string;
   round_number: number;
   phase: SegmentPhase;
@@ -83,7 +83,7 @@ type HealthResponse = {
   application: "StratScout";
 };
 
-const RESULT_TABS: { id: ResultTab; label: string }[] = [
+export const RESULT_TABS: { id: ResultTab; label: string }[] = [
   { id: "comparison", label: "TCN vs GRU" },
   { id: "tcn", label: "TCN only" },
   { id: "gru", label: "GRU only" },
@@ -273,7 +273,7 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function PredictionCard({
+export function PredictionCard({
   model,
   prediction,
 }: {
@@ -306,7 +306,7 @@ function PredictionCard({
   );
 }
 
-function ModelWalkthrough({
+export function ModelWalkthrough({
   model,
   prediction,
   detection,

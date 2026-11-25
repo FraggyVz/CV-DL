@@ -1718,3 +1718,13 @@ h1 {
 .seed-row {
   font-size: 10px;
 }
+
+/* The results section embedded in the Streamlit cloud demo (src/viewer.tsx) */
+.viewer-body {
+  min-height: 0;
+  background: #101311;
+}
+
+.viewer-embed {
+  margin: 0;
+}
