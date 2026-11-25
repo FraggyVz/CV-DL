@@ -245,6 +245,9 @@ node .\node_modules\typescript\bin\tsc --noEmit
 if ($?) { node .\node_modules\vite\bin\vite.js build }
 ```
 
+Frontend unit tests use Node's built-in test runner and need no extra packages:
+`node --experimental-strip-types --test tests/*.test.ts` from `frontend/` (or `npm test`).
+
 ## Where files go
 
 Large files are shared outside GitHub. Put them in these folders, which Git already

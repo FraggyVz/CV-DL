@@ -56,6 +56,17 @@ def _series(values: np.ndarray, bins, decimals: int = 3) -> List[float]:
     return _round(_binned(np.asarray(values)[:, None], bins)[0], decimals).tolist()
 
 
+def _memory_change(outputs: np.ndarray, bins, decimals: int = 3) -> List[float]:
+    """Size (Euclidean length) of the change in the GRU's memory from each row to the next,
+    averaged per time column. The first row has no earlier row, so it adds nothing; a
+    column holding only that row is 0."""
+    outputs = np.asarray(outputs, np.float64)
+    change = np.full(len(outputs), np.nan)
+    change[1:] = np.linalg.norm(np.diff(outputs, axis=0), axis=1)
+    columns = [change[b][~np.isnan(change[b])] for b in bins]
+    return _round([part.mean() if len(part) else 0.0 for part in columns], decimals).tolist()
+
+
 def _peak_columns(peak_steps: np.ndarray, bins) -> List[int]:
     """How many channels took their maximum in each time column."""
     column_of = np.zeros(bins[-1][-1] + 1, int)
@@ -192,6 +203,7 @@ def _gru_stage(members, features: Dict, bins) -> Dict:
     import torch
 
     from .gru_predict import gru_rows
+    from .tactic_temporal import TIME_SCALE_S
 
     packed = gru_rows(features)
     seeds = []
@@ -215,29 +227,53 @@ def _gru_stage(members, features: Dict, bins) -> Dict:
             check = g.classifier(torch.cat([mean, peak])[None]).softmax(1)[0].numpy()
         if not np.allclose(check, probs, atol=1e-4):
             raise ValueError("the GRU walkthrough does not reproduce the model's output")
+        if float(outputs.abs().max()) > 1.0:
+            raise ValueError("the GRU memory left the range -1 to +1")
         hidden = outputs.shape[1]
         pcs = int(head.pcs)
         detector_width = int(head.detector_width)
         labels = [f"detector {j + 1}" for j in range(detector_width)] + [
             f"ResNet PC {j + 1}" for j in range(pcs)
         ]
-        sizes = info.get("settings", {}).get("gru", {}) if isinstance(info, dict) else {}
+        settings = info.get("settings", {}) if isinstance(info, dict) else {}
+        sizes = settings.get("gru", {})
+        time_inputs = int(g.gru.input_size - g.project.out_features)
+        scale = f"{TIME_SCALE_S:g}"
         record = {
             "input": _heatmap(rows[0].numpy(), bins, labels),
             "input_width": int(rows.shape[2]),
             "projection": _heatmap(
                 projected.numpy(), bins, [f"projection {c + 1}" for c in range(projected.shape[1])]
             ),
-            "hidden": _heatmap(outputs.numpy(), bins, [f"hidden {c + 1}" for c in range(hidden)]),
+            # sequence_inputs: seconds since the clip started, then since the previous row.
+            "time_inputs": _heatmap(
+                steps_in[:, width : width + time_inputs].numpy(),
+                bins,
+                [f"seconds since start / {scale}", f"seconds since previous row / {scale}"][
+                    :time_inputs
+                ],
+                3,
+            ),
+            "hidden": _heatmap(
+                outputs.numpy(), bins, [f"memory {c + 1}" for c in range(hidden)], 2
+            ),
+            "memory_change": _memory_change(outputs.numpy(), bins),
+            "row_times_s": _round(steps_in[:, width].numpy() * TIME_SCALE_S, 1).tolist(),
             "pooled": {
                 "mean": _round(mean.numpy(), 3).tolist(),
                 "max": _round(peak.numpy(), 3).tolist(),
             },
             "peak_columns": _peak_columns(outputs.argmax(0).numpy(), bins),
             "architecture": {
+                "projection_in": int(g.project.in_features),
                 "projection": int(projected.shape[1]),
+                "time_inputs": time_inputs,
+                "time_scale_s": float(TIME_SCALE_S),
+                "gru_input": int(g.gru.input_size),
                 "hidden": int(hidden),
-                "readout": "mean-max",
+                "readout": str(g.readout),
+                "readout_width": int(g.classifier.in_features),
+                "classes": int(g.classifier.out_features),
                 "settings": sizes,
                 "parameters": int(sum(p.numel() for p in head.parameters())),
             },
