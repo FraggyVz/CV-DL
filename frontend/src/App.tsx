@@ -303,6 +303,86 @@ function PredictionCard({
   );
 }
 
+function ModelWalkthrough({
+  model,
+  prediction,
+  detection,
+}: {
+  model: "TCN" | "Compact pooled GRU";
+  prediction: ModelPrediction;
+  detection: AnalysisResult["detection"];
+}) {
+  const modelStep =
+    model === "TCN"
+      ? "Temporal convolutions look for patterns across the clip's time-ordered feature sequence."
+      : "A recurrent GRU reads the feature sequence in order, then combines mean and maximum hidden-state summaries.";
+
+  return (
+    <aside className="model-walkthrough" aria-label={`${model} result walkthrough`}>
+      <div className="walkthrough-heading">
+        <p className="eyebrow">HOW THIS RESULT WAS PRODUCED</p>
+        <h4>{model} pipeline</h4>
+      </div>
+      <ol className="walkthrough-steps">
+        <li>
+          <span className="walkthrough-step-number">01</span>
+          <div>
+            <strong>Prepare the clip</strong>
+            <p>
+              The selected tactic segment was prepared at 10 fps; {detection.frames} frames
+              were processed.
+            </p>
+          </div>
+        </li>
+        <li>
+          <span className="walkthrough-step-number">02</span>
+          <div>
+            <strong>Detect players and bomb</strong>
+            <p>
+              {detection.player_icon_observations} player-icon observations were recorded.
+              The bomb was visible in {detection.bomb_visible_frames} of{" "}
+              {detection.frames} frames.
+            </p>
+          </div>
+        </li>
+        <li>
+          <span className="walkthrough-step-number">03</span>
+          <div>
+            <strong>Build the feature sequence</strong>
+            <p>
+              Detector signals and ResNet-18 visual features describe the clip over time.
+            </p>
+          </div>
+        </li>
+        <li>
+          <span className="walkthrough-step-number">04</span>
+          <div>
+            <strong>Process with {model}</strong>
+            <p>{modelStep} The saved seed models' class probabilities are averaged.</p>
+          </div>
+        </li>
+        <li>
+          <span className="walkthrough-step-number">05</span>
+          <div>
+            <strong>Rank the tactic scores</strong>
+            <p>
+              {prediction.tactic} ranked first at {Math.round(prediction.confidence * 100)}%;
+              {" "}{prediction.runner_up} ranked next.
+              {prediction.uncertain
+                ? " The top score is below 60%, so this result is flagged as uncertain."
+                : " The top score met the 60% review threshold."}
+            </p>
+          </div>
+        </li>
+      </ol>
+      <p className="walkthrough-note">
+        This is a pipeline walkthrough, not a feature-attribution explanation. The model does
+        not identify which player or visual detail caused its prediction.
+      </p>
+    </aside>
+  );
+}
+
 export default function App() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [serviceState, setServiceState] = useState<ServiceState>("checking");
@@ -1514,6 +1594,20 @@ export default function App() {
                             )}
                             {(activeTab === "comparison" || activeTab === "gru") && (
                               <PredictionCard
+                                model="Compact pooled GRU"
+                                prediction={result.predictions.gru}
+                              />
+                            )}
+                            {activeTab === "tcn" && (
+                              <ModelWalkthrough
+                                detection={result.detection}
+                                model="TCN"
+                                prediction={result.predictions.tcn}
+                              />
+                            )}
+                            {activeTab === "gru" && (
+                              <ModelWalkthrough
+                                detection={result.detection}
                                 model="Compact pooled GRU"
                                 prediction={result.predictions.gru}
                               />

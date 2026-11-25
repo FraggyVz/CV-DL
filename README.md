@@ -171,6 +171,11 @@ selection are also saved in that browser, so a match remains selectable before i
 round is uploaded. Predictions below 0.6 confidence are flagged for review; they are not
 ground truth.
 
+In the **TCN only** and **GRU only** tabs, each prediction is paired with a walkthrough
+of clip preparation, detector counts, feature extraction and model scoring. It explains
+the recorded inference pipeline and class ranking; it is not a feature-attribution
+explanation of why the model chose a tactic.
+
 Older recordings uploaded before match rounds were introduced remain unassigned and
 available under **Previous recordings**. Existing saved segments are preserved; an older
 recording with no segments defaults to its full duration. **Reset workspace** deletes
