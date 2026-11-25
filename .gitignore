@@ -31,3 +31,9 @@ debug.log
 # Experiment outputs and scratch files. Run folders already in Git stay tracked.
 /runs/
 /tmp/
+
+# Demo clips for the Streamlit deployment (three held-out test clips).
+!deploy/streamlit/samples/*.mp4
+
+# Uploads and analysis output from the local web app.
+data/web/
