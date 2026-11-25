@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
+import ModelPipeline from "./ModelPipeline";
 
 type ServiceState = "checking" | "connected" | "unavailable";
 type ResultTab = "comparison" | "tcn" | "gru";
@@ -30,6 +31,8 @@ type AnalysisResult = {
     tcn: ModelPrediction;
     gru: ModelPrediction;
   };
+  pipeline?: boolean;
+  pipeline_error?: string;
 };
 
 type AnalysisState = {
@@ -407,6 +410,7 @@ export default function App() {
   const [duration, setDuration] = useState(0);
   const [videoError, setVideoError] = useState("");
   const [activeTab, setActiveTab] = useState<ResultTab>("comparison");
+  const [resultRoundId, setResultRoundId] = useState("");
   const [analysis, setAnalysis] = useState<AnalysisState | null>(null);
   const [roundAnalyses, setRoundAnalyses] = useState<Record<string, RoundAnalysis>>({});
   const [startingAllAnalysis, setStartingAllAnalysis] = useState(false);
@@ -450,6 +454,15 @@ export default function App() {
         .sort((left, right) => (left.round_number ?? 0) - (right.round_number ?? 0)),
     [activeMatch.id, videos],
   );
+  // The round shown in the TCN only / GRU only tabs: the one picked, else the first
+  // analysed round, else the first round.
+  const shownResultRoundId = currentMatchVideos.some((video) => video.id === resultRoundId)
+    ? resultRoundId
+    : (currentMatchVideos.find(
+        (video) => roundAnalyses[video.id]?.state?.status === "complete",
+      )?.id ??
+      currentMatchVideos[0]?.id ??
+      "");
   const legacyVideos = useMemo(
     () => videos.filter((video) => !video.match_id),
     [videos],
@@ -1542,11 +1555,36 @@ export default function App() {
             </button>
           ))}
         </div>
+        {activeTab !== "comparison" && currentMatchVideos.length > 0 && (
+          <div aria-label="Choose the round to inspect" className="round-picker" role="group">
+            <span className="round-picker-label">ROUND</span>
+            {currentMatchVideos.map((video) => {
+              const status = roundAnalyses[video.id]?.state?.status;
+              const selected = video.id === shownResultRoundId;
+              return (
+                <button
+                  aria-label={`Round ${video.round_number}${status === "complete" ? "" : ", not analysed"}`}
+                  aria-pressed={selected}
+                  className={`round-chip ${selected ? "active" : ""} ${status === "complete" ? "complete" : ""}`}
+                  key={video.id}
+                  onClick={() => setResultRoundId(video.id)}
+                  title={video.filename}
+                  type="button"
+                >
+                  {video.round_number}
+                </button>
+              );
+            })}
+          </div>
+        )}
         <div aria-labelledby={`tab-${activeTab}`} className="match-classifications" role="tabpanel">
           {currentMatchVideos.length === 0 ? (
             <p className="empty-state">Upload a round clip to see its TCN and GRU output here.</p>
           ) : (
-            currentMatchVideos.map((video) => {
+            (activeTab === "comparison"
+              ? currentMatchVideos
+              : currentMatchVideos.filter((video) => video.id === shownResultRoundId)
+            ).map((video) => {
               const round = roundAnalyses[video.id];
               const state = round?.state;
               return (
@@ -1613,6 +1651,15 @@ export default function App() {
                               />
                             )}
                           </div>
+                          {(activeTab === "tcn" || activeTab === "gru") && (
+                            <ModelPipeline
+                              available={result.pipeline === true}
+                              key={`${activeTab}-${state.analysis_id ?? ""}-${result.segment_id}`}
+                              model={activeTab}
+                              unavailableReason={result.pipeline_error}
+                              url={`/api/videos/${video.id}/analysis/pipeline/${encodeURIComponent(result.segment_id)}?analysis=${encodeURIComponent(state.analysis_id ?? "")}`}
+                            />
+                          )}
                           {visibleWarnings.length > 0 && (
                             <ul className="result-warnings">
                               {visibleWarnings.map((warning) => (

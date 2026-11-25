@@ -225,7 +225,8 @@ def upload_video(
             "codec": video_info["codec"],
             "pixel_format": video_info["pixel_format"],
             "duration_seconds": video_info["duration_seconds"],
-            "prepared_clip": False,
+            # New uploads start as prepared minimap clips; untick it for raw recordings.
+            "prepared_clip": True,
         }
         if match_id is not None:
             metadata.update(
@@ -406,6 +407,22 @@ def get_video_analysis(video_id: str) -> dict:
     from .web_analysis import get_analysis
 
     return get_analysis(UPLOAD_DIR, canonical_id)
+
+
+@app.get("/api/videos/{video_id}/analysis/pipeline/{segment_id}")
+def get_segment_pipeline(video_id: str, segment_id: str) -> dict:
+    """Stage-by-stage TCN and GRU record of one analysed segment, for the model tabs."""
+    canonical_id = video_id_from_path(video_id)
+    if not video_path(canonical_id).is_file():
+        raise HTTPException(status_code=404, detail="Recording not found")
+    from .web_analysis import get_pipeline
+
+    try:
+        return get_pipeline(UPLOAD_DIR, canonical_id, segment_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @app.get("/", include_in_schema=False)
