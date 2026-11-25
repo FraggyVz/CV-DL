@@ -1540,43 +1540,45 @@ export default function App() {
             / {currentMatchVideos.length} COMPLETE
           </span>
         </div>
-        <div aria-label="Model result views" className="result-tabs" role="tablist">
-          {RESULT_TABS.map((tab) => (
-            <button
-              aria-selected={activeTab === tab.id}
-              className={activeTab === tab.id ? "active" : ""}
-              id={`tab-${tab.id}`}
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              role="tab"
-              type="button"
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-        {activeTab !== "comparison" && currentMatchVideos.length > 0 && (
-          <div aria-label="Choose the round to inspect" className="round-picker" role="group">
-            <span className="round-picker-label">ROUND</span>
-            {currentMatchVideos.map((video) => {
-              const status = roundAnalyses[video.id]?.state?.status;
-              const selected = video.id === shownResultRoundId;
-              return (
-                <button
-                  aria-label={`Round ${video.round_number}${status === "complete" ? "" : ", not analysed"}`}
-                  aria-pressed={selected}
-                  className={`round-chip ${selected ? "active" : ""} ${status === "complete" ? "complete" : ""}`}
-                  key={video.id}
-                  onClick={() => setResultRoundId(video.id)}
-                  title={video.filename}
-                  type="button"
-                >
-                  {video.round_number}
-                </button>
-              );
-            })}
+        <div className="results-toolbar">
+          <div aria-label="Model result views" className="result-tabs" role="tablist">
+            {RESULT_TABS.map((tab) => (
+              <button
+                aria-selected={activeTab === tab.id}
+                className={activeTab === tab.id ? "active" : ""}
+                id={`tab-${tab.id}`}
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                role="tab"
+                type="button"
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
-        )}
+          {activeTab !== "comparison" && currentMatchVideos.length > 0 && (
+            <div aria-label="Choose the round to inspect" className="round-picker" role="group">
+              <span className="round-picker-label">ROUND</span>
+              {currentMatchVideos.map((video) => {
+                const status = roundAnalyses[video.id]?.state?.status;
+                const selected = video.id === shownResultRoundId;
+                return (
+                  <button
+                    aria-label={`Round ${video.round_number}${status === "complete" ? "" : ", not analysed"}`}
+                    aria-pressed={selected}
+                    className={`round-chip ${selected ? "active" : ""} ${status === "complete" ? "complete" : ""}`}
+                    key={video.id}
+                    onClick={() => setResultRoundId(video.id)}
+                    title={video.filename}
+                    type="button"
+                  >
+                    {video.round_number}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
         <div aria-labelledby={`tab-${activeTab}`} className="match-classifications" role="tabpanel">
           {currentMatchVideos.length === 0 ? (
             <p className="empty-state">Upload a round clip to see its TCN and GRU output here.</p>

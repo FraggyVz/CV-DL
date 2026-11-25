@@ -1729,3 +1729,30 @@ h1 {
 .viewer-embed {
   margin: 0;
 }
+
+/* Tabs and round picker stay in view while scrolling through the results.
+   The local app uses CSS sticky; the cloud view (viewer.tsx) shifts it from script. */
+.results-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  margin: 0 -22px;
+  padding: 12px 22px 10px;
+  border-radius: 10px 10px 0 0;
+  background: #171c18;
+}
+
+.results-toolbar .round-picker {
+  margin-bottom: 0;
+}
+
+.results-toolbar.stuck {
+  box-shadow: 0 8px 14px -10px rgb(0 0 0 / 70%);
+}
+
+@media (max-width: 520px) {
+  .results-toolbar {
+    margin: 0 -16px;
+    padding: 10px 16px 8px;
+  }
+}

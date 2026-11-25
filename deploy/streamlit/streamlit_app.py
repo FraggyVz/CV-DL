@@ -197,6 +197,7 @@ def reset_workspace() -> None:
     st.session_state.match_count = 1
     st.session_state.selected = ""
     st.session_state.confirm_reset = False
+    clear_uploader()
 
 
 def new_match() -> None:
@@ -206,6 +207,7 @@ def new_match() -> None:
     st.session_state.match_count = st.session_state.get("match_count", 1) + 1
     st.session_state.match_name = f"Match {st.session_state.match_count}"
     st.session_state.selected = ""
+    clear_uploader()
 
 
 def ask_reset(value: bool) -> None:
@@ -213,11 +215,23 @@ def ask_reset(value: bool) -> None:
 
 
 def add_uploads() -> None:
-    """Each uploaded file becomes the next round as soon as it is chosen, as locally."""
+    """Each uploaded file becomes the next round as soon as it arrives, as locally.
+
+    The uploader is never replaced here: several files may still be uploading into it,
+    and swapping the widget mid-upload cuts them off ("AxiosError: Network Error").
+    Files are matched by their upload id, so each one becomes exactly one round."""
+    added = st.session_state.setdefault("added_uploads", set())
     key = f"uploader-{st.session_state.get('upload_generation', 0)}"
     for f in st.session_state.get(key) or []:
-        add_round(f.name, f.getvalue(), st.session_state.upload_phase)
+        if f.file_id not in added:
+            added.add(f.file_id)
+            add_round(f.name, f.getvalue(), st.session_state.upload_phase)
+
+
+def clear_uploader() -> None:
+    """A fresh, empty uploader; only called when no upload can be in progress."""
     st.session_state.upload_generation = st.session_state.get("upload_generation", 0) + 1
+    st.session_state.added_uploads = set()
 
 
 def add_sample(name: str) -> None:

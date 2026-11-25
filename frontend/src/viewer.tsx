@@ -5,7 +5,7 @@
 //
 // It speaks Streamlit's component messages directly (no extra package): it announces
 // itself, receives "streamlit:render" with the data, and reports its height.
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { ModelWalkthrough, PredictionCard, RESULT_TABS } from "./App";
 import type { AnalysisResult, ResultTab } from "./App";
@@ -28,10 +28,58 @@ function send(type: string, extra: Record<string, unknown> = {}) {
   window.parent.postMessage({ isStreamlitMessage: true, type, ...extra }, "*");
 }
 
+/**
+ * Keeps the tabs and round picker in view while the outer Streamlit page scrolls.
+ * This frame is as tall as its content, so CSS sticky has nothing to stick to; instead
+ * the bar is shifted down by however far the frame's top has scrolled past the page
+ * header, and stops at the end of the results section. The component frame is served
+ * from the same origin as the page, so the outer scroll can be read; if not, the bar
+ * simply stays in place.
+ */
+function useStickToOuterPage(bar: React.RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    let outer: Document;
+    let frame: Element | null;
+    try {
+      outer = window.parent.document;
+      frame = window.frameElement;
+    } catch {
+      return;
+    }
+    if (!frame || outer === document) return;
+    let shift = 0;
+    const update = () => {
+      const element = bar.current;
+      const section = element?.parentElement;
+      if (!element || !section || !frame) return;
+      const header = outer.querySelector('[data-testid="stHeader"]');
+      const visibleTop = header ? Math.max(header.getBoundingClientRect().bottom, 0) : 0;
+      const natural = element.getBoundingClientRect().top - shift;
+      const wanted = visibleTop - (frame.getBoundingClientRect().top + natural);
+      const limit = section.getBoundingClientRect().bottom - 16 - element.offsetHeight - natural;
+      shift = Math.max(0, Math.min(wanted, limit));
+      element.style.transform = shift ? `translateY(${shift}px)` : "";
+      element.classList.toggle("stuck", shift > 0);
+    };
+    outer.addEventListener("scroll", update, true);
+    window.parent.addEventListener("resize", update);
+    const observer = new ResizeObserver(update);
+    observer.observe(document.body);
+    update();
+    return () => {
+      outer.removeEventListener("scroll", update, true);
+      window.parent.removeEventListener("resize", update);
+      observer.disconnect();
+    };
+  }, [bar]);
+}
+
 function ResultsViewer() {
   const [rounds, setRounds] = useState<ViewerRound[]>([]);
   const [activeTab, setActiveTab] = useState<ResultTab>("comparison");
   const [resultRoundId, setResultRoundId] = useState("");
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  useStickToOuterPage(toolbarRef);
 
   useEffect(() => {
     function onMessage(event: MessageEvent) {
@@ -73,42 +121,44 @@ function ResultsViewer() {
           {complete} / {rounds.length} COMPLETE
         </span>
       </div>
-      <div aria-label="Model result views" className="result-tabs" role="tablist">
-        {RESULT_TABS.map((tab) => (
-          <button
-            aria-selected={activeTab === tab.id}
-            className={activeTab === tab.id ? "active" : ""}
-            id={`tab-${tab.id}`}
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            role="tab"
-            type="button"
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-      {activeTab !== "comparison" && rounds.length > 0 && (
-        <div aria-label="Choose the round to inspect" className="round-picker" role="group">
-          <span className="round-picker-label">ROUND</span>
-          {rounds.map((round) => {
-            const selected = round.id === shownRoundId;
-            return (
-              <button
-                aria-label={`Round ${round.round_number}${round.status === "complete" ? "" : ", not analysed"}`}
-                aria-pressed={selected}
-                className={`round-chip ${selected ? "active" : ""} ${round.status === "complete" ? "complete" : ""}`}
-                key={round.id}
-                onClick={() => setResultRoundId(round.id)}
-                title={round.filename}
-                type="button"
-              >
-                {round.round_number}
-              </button>
-            );
-          })}
+      <div className="results-toolbar" ref={toolbarRef}>
+        <div aria-label="Model result views" className="result-tabs" role="tablist">
+          {RESULT_TABS.map((tab) => (
+            <button
+              aria-selected={activeTab === tab.id}
+              className={activeTab === tab.id ? "active" : ""}
+              id={`tab-${tab.id}`}
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              role="tab"
+              type="button"
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
-      )}
+        {activeTab !== "comparison" && rounds.length > 0 && (
+          <div aria-label="Choose the round to inspect" className="round-picker" role="group">
+            <span className="round-picker-label">ROUND</span>
+            {rounds.map((round) => {
+              const selected = round.id === shownRoundId;
+              return (
+                <button
+                  aria-label={`Round ${round.round_number}${round.status === "complete" ? "" : ", not analysed"}`}
+                  aria-pressed={selected}
+                  className={`round-chip ${selected ? "active" : ""} ${round.status === "complete" ? "complete" : ""}`}
+                  key={round.id}
+                  onClick={() => setResultRoundId(round.id)}
+                  title={round.filename}
+                  type="button"
+                >
+                  {round.round_number}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
       <div aria-labelledby={`tab-${activeTab}`} className="match-classifications" role="tabpanel">
         {rounds.length === 0 ? (
           <p className="empty-state">Upload a round clip to see its TCN and GRU output here.</p>
