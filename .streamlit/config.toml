@@ -1,0 +1,8 @@
+# Theme for the Streamlit cloud demo (deploy/streamlit), matching the local web app's colours.
+[theme]
+base = "dark"
+primaryColor = "#c8f169"
+backgroundColor = "#101311"
+secondaryBackgroundColor = "#171b18"
+textColor = "#e7e9e5"
+font = "sans serif"

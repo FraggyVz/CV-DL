@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
+import ModelPipeline from "./ModelPipeline";
 
 type ServiceState = "checking" | "connected" | "unavailable";
-type ResultTab = "comparison" | "tcn" | "gru";
+export type ResultTab = "comparison" | "tcn" | "gru";
 type SegmentPhase = "attack" | "retake";
-type TacticClass = "A_DIRECT" | "B_DIRECT" | "A_SPLIT" | "B_SPLIT" | "RETAKE";
+export type TacticClass = "A_DIRECT" | "B_DIRECT" | "A_SPLIT" | "B_SPLIT" | "RETAKE";
 
-type ModelPrediction = {
+export type ModelPrediction = {
   tactic: TacticClass;
   confidence: number;
   uncertain: boolean;
@@ -14,7 +15,7 @@ type ModelPrediction = {
   probabilities: Record<TacticClass, number>;
 };
 
-type AnalysisResult = {
+export type AnalysisResult = {
   segment_id: string;
   round_number: number;
   phase: SegmentPhase;
@@ -30,6 +31,8 @@ type AnalysisResult = {
     tcn: ModelPrediction;
     gru: ModelPrediction;
   };
+  pipeline?: boolean;
+  pipeline_error?: string;
 };
 
 type AnalysisState = {
@@ -80,7 +83,7 @@ type HealthResponse = {
   application: "StratScout";
 };
 
-const RESULT_TABS: { id: ResultTab; label: string }[] = [
+export const RESULT_TABS: { id: ResultTab; label: string }[] = [
   { id: "comparison", label: "TCN vs GRU" },
   { id: "tcn", label: "TCN only" },
   { id: "gru", label: "GRU only" },
@@ -270,7 +273,7 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function PredictionCard({
+export function PredictionCard({
   model,
   prediction,
 }: {
@@ -303,7 +306,7 @@ function PredictionCard({
   );
 }
 
-function ModelWalkthrough({
+export function ModelWalkthrough({
   model,
   prediction,
   detection,
@@ -407,6 +410,7 @@ export default function App() {
   const [duration, setDuration] = useState(0);
   const [videoError, setVideoError] = useState("");
   const [activeTab, setActiveTab] = useState<ResultTab>("comparison");
+  const [resultRoundId, setResultRoundId] = useState("");
   const [analysis, setAnalysis] = useState<AnalysisState | null>(null);
   const [roundAnalyses, setRoundAnalyses] = useState<Record<string, RoundAnalysis>>({});
   const [startingAllAnalysis, setStartingAllAnalysis] = useState(false);
@@ -450,6 +454,15 @@ export default function App() {
         .sort((left, right) => (left.round_number ?? 0) - (right.round_number ?? 0)),
     [activeMatch.id, videos],
   );
+  // The round shown in the TCN only / GRU only tabs: the one picked, else the first
+  // analysed round, else the first round.
+  const shownResultRoundId = currentMatchVideos.some((video) => video.id === resultRoundId)
+    ? resultRoundId
+    : (currentMatchVideos.find(
+        (video) => roundAnalyses[video.id]?.state?.status === "complete",
+      )?.id ??
+      currentMatchVideos[0]?.id ??
+      "");
   const legacyVideos = useMemo(
     () => videos.filter((video) => !video.match_id),
     [videos],
@@ -1248,29 +1261,6 @@ export default function App() {
           Upload one MP4 per round, then analyse it. Round numbers advance automatically
           within the selected match; full-match round detection is not supported.
         </p>
-        {analysisRunning && analysis && (
-          <div className="analysis-progress" aria-live="polite">
-            <div className="analysis-progress-heading">
-              <span>{analysis.message}</span>
-              <span>{analysis.progress}%</span>
-            </div>
-            <div
-              className="analysis-progress-track"
-              role="progressbar"
-              aria-label="Analysis progress"
-              aria-valuenow={analysis.progress}
-              aria-valuemin={0}
-              aria-valuemax={100}
-            >
-              <span style={{ width: `${analysis.progress}%` }} />
-            </div>
-          </div>
-        )}
-        {analysis?.status === "failed" && analysis.error && (
-          <p className="error-message" role="alert">
-            {analysis.error}
-          </p>
-        )}
       </section>
 
       <section className="workspace-section rounds-section" aria-labelledby="rounds-title">
@@ -1508,6 +1498,29 @@ export default function App() {
                           ? `Analyse Round ${selectedVideo.round_number}`
                           : "Run detection & classify"}
                 </button>
+                {analysisRunning && analysis && (
+                  <div className="analysis-progress" aria-live="polite">
+                    <div className="analysis-progress-heading">
+                      <span>{analysis.message}</span>
+                      <span>{analysis.progress}%</span>
+                    </div>
+                    <div
+                      className="analysis-progress-track"
+                      role="progressbar"
+                      aria-label="Analysis progress"
+                      aria-valuenow={analysis.progress}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                    >
+                      <span style={{ width: `${analysis.progress}%` }} />
+                    </div>
+                  </div>
+                )}
+                {analysis?.status === "failed" && analysis.error && (
+                  <p className="error-message" role="alert">
+                    {analysis.error}
+                  </p>
+                )}
               </aside>
             </div>
           </section>
@@ -1527,26 +1540,53 @@ export default function App() {
             / {currentMatchVideos.length} COMPLETE
           </span>
         </div>
-        <div aria-label="Model result views" className="result-tabs" role="tablist">
-          {RESULT_TABS.map((tab) => (
-            <button
-              aria-selected={activeTab === tab.id}
-              className={activeTab === tab.id ? "active" : ""}
-              id={`tab-${tab.id}`}
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              role="tab"
-              type="button"
-            >
-              {tab.label}
-            </button>
-          ))}
+        <div className="results-toolbar">
+          <div aria-label="Model result views" className="result-tabs" role="tablist">
+            {RESULT_TABS.map((tab) => (
+              <button
+                aria-selected={activeTab === tab.id}
+                className={activeTab === tab.id ? "active" : ""}
+                id={`tab-${tab.id}`}
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                role="tab"
+                type="button"
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          {activeTab !== "comparison" && currentMatchVideos.length > 0 && (
+            <div aria-label="Choose the round to inspect" className="round-picker" role="group">
+              <span className="round-picker-label">ROUND</span>
+              {currentMatchVideos.map((video) => {
+                const status = roundAnalyses[video.id]?.state?.status;
+                const selected = video.id === shownResultRoundId;
+                return (
+                  <button
+                    aria-label={`Round ${video.round_number}${status === "complete" ? "" : ", not analysed"}`}
+                    aria-pressed={selected}
+                    className={`round-chip ${selected ? "active" : ""} ${status === "complete" ? "complete" : ""}`}
+                    key={video.id}
+                    onClick={() => setResultRoundId(video.id)}
+                    title={video.filename}
+                    type="button"
+                  >
+                    {video.round_number}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
         <div aria-labelledby={`tab-${activeTab}`} className="match-classifications" role="tabpanel">
           {currentMatchVideos.length === 0 ? (
             <p className="empty-state">Upload a round clip to see its TCN and GRU output here.</p>
           ) : (
-            currentMatchVideos.map((video) => {
+            (activeTab === "comparison"
+              ? currentMatchVideos
+              : currentMatchVideos.filter((video) => video.id === shownResultRoundId)
+            ).map((video) => {
               const round = roundAnalyses[video.id];
               const state = round?.state;
               return (
@@ -1613,6 +1653,15 @@ export default function App() {
                               />
                             )}
                           </div>
+                          {(activeTab === "tcn" || activeTab === "gru") && (
+                            <ModelPipeline
+                              available={result.pipeline === true}
+                              key={`${activeTab}-${state.analysis_id ?? ""}-${result.segment_id}`}
+                              model={activeTab}
+                              unavailableReason={result.pipeline_error}
+                              url={`/api/videos/${video.id}/analysis/pipeline/${encodeURIComponent(result.segment_id)}?analysis=${encodeURIComponent(state.analysis_id ?? "")}`}
+                            />
+                          )}
                           {visibleWarnings.length > 0 && (
                             <ul className="result-warnings">
                               {visibleWarnings.map((warning) => (

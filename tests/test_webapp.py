@@ -97,22 +97,23 @@ class WebAppTests(unittest.TestCase):
     def test_prepared_clip_setting_persists_per_recording(self):
         prepared = self.upload_recording()
         regular = self.upload_recording()
+        self.assertTrue(prepared["prepared_clip"])  # New uploads start as prepared clips.
 
         updated = self.client.put(
-            f"/api/videos/{prepared['id']}/analysis-settings",
-            json={"prepared_clip": True},
+            f"/api/videos/{regular['id']}/analysis-settings",
+            json={"prepared_clip": False},
         )
         listing = self.client.get("/api/videos")
         videos = {video["id"]: video for video in listing.json()["videos"]}
         metadata = json.loads(
-            (self.upload_dir / f"{prepared['id']}.video.json").read_text(encoding="utf-8")
+            (self.upload_dir / f"{regular['id']}.video.json").read_text(encoding="utf-8")
         )
 
         self.assertEqual(updated.status_code, 200)
-        self.assertTrue(updated.json()["prepared_clip"])
+        self.assertFalse(updated.json()["prepared_clip"])
         self.assertTrue(videos[prepared["id"]]["prepared_clip"])
         self.assertFalse(videos[regular["id"]]["prepared_clip"])
-        self.assertTrue(metadata["prepared_clip"])
+        self.assertFalse(metadata["prepared_clip"])
 
     def test_rejects_non_mp4_upload(self):
         response = self.client.post(

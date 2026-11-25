@@ -174,9 +174,20 @@ round is uploaded. Predictions below 0.6 confidence are flagged for review; they
 ground truth.
 
 In the **TCN only** and **GRU only** tabs, each prediction is paired with a walkthrough
-of clip preparation, detector counts, feature extraction and model scoring. It explains
-the recorded inference pipeline and class ranking; it is not a feature-attribution
-explanation of why the model chose a tactic.
+of clip preparation, detector counts, feature extraction and model scoring. Below it, the
+round's own values are drawn stage by stage:
+- detected icons on the radar with the map regions, and icon counts over time
+- region occupancy heatmaps
+- the ResNet-18 PCA features and the scaled model input
+- the TCN's five dilated residual blocks, or the GRU's projection and hidden state
+- mean and max pooling
+- each seed's probabilities and their average
+
+The analysis saves these values in `stratscout/web_pipeline.py`'s format, and the app reads
+them from `GET /api/videos/{id}/analysis/pipeline/{segment_id}`. Rounds analysed before
+this view existed need to be analysed again. It explains the recorded inference pipeline
+and class ranking; it is not a feature-attribution explanation of why the model chose a
+tactic.
 
 Older recordings uploaded before match rounds were introduced remain unassigned and
 available under **Previous recordings**. Existing saved segments are preserved; an older
@@ -186,8 +197,9 @@ after confirmation. It does not delete source footage, labels, or checkpoints. R
 blocked while an analysis is running. The app does not discover round boundaries in a
 full-match recording; upload one clip that already represents one round/tactic.
 
-For an already-prepared minimap clip (494×500 at 10 fps), enable the prepared-clip option
-in the round panel. For a full-screen recording, create the per-machine crop profile at
+New uploads start with the prepared-clip option ticked, for already-prepared minimap clips
+(494×500 at 10 fps). Untick it in the round panel for a full-screen recording, and
+create the per-machine crop profile at
 `configs/recording-video.json` using the [recording guide](docs/recording-setup.md)
 before running analysis. The app defaults to the guide's 2× replay speed for full-screen
 recordings; choose 1× if that recording was captured at normal speed. Prepared clips use

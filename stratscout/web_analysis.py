@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import shutil
 import threading
 import uuid
@@ -21,6 +22,7 @@ MODEL_SIZE = (494, 500)
 MODEL_FPS = 10.0
 ACTIVE_ANALYSES: set[str] = set()
 ACTIVE_LOCK = threading.Lock()
+SEGMENT_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")
 
 
 class AnalysisInProgress(RuntimeError):
@@ -364,7 +366,11 @@ def _detect_and_predict(
     prepared: list[tuple[dict, Path]],
     min_confidence: float,
     progress: Callable[[str, int, str], None],
+    pipeline_dir: Path | None = None,
 ) -> list[dict]:
+    """Detect, extract features and classify every prepared segment. With
+    ``pipeline_dir``, also save each segment's stage-by-stage record for the TCN and GRU
+    tabs (web_pipeline); a failure there is reported on the result, never fatal."""
     gru_predict = _predictor()
     paths = [path for _, path in prepared]
     progress("detecting", 45, "Detecting player and bomb icons in the prepared segments.")
@@ -420,7 +426,58 @@ def _detect_and_predict(
                 "predictions": result["predictions"],
             }
         )
+        if pipeline_dir is not None:
+            results[-1].update(
+                _save_pipeline(
+                    pipeline_dir,
+                    segment["id"],
+                    path,
+                    detection,
+                    features[path.stem],
+                    tcn_members,
+                    gru_members,
+                )
+            )
     return results
+
+
+def _pipeline_path(pipeline_dir: Path, segment_id: str) -> Path:
+    if not SEGMENT_ID.fullmatch(str(segment_id)):
+        raise ValueError("Invalid segment id")
+    return Path(pipeline_dir) / f"{segment_id}.json"
+
+
+def _save_pipeline(pipeline_dir, segment_id, path, detection, features, tcn_members, gru_members):
+    """{"pipeline": True} once the record is saved, else the reason it is missing."""
+    try:
+        from .web_pipeline import build_pipeline
+
+        record = build_pipeline(path, detection, features, tcn_members, gru_members)
+        target = _pipeline_path(pipeline_dir, segment_id)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temporary = target.with_name(f".{target.name}.{uuid.uuid4().hex}.tmp")
+        try:
+            temporary.write_text(json.dumps(record, separators=(",", ":")), encoding="utf-8")
+            os.replace(temporary, target)
+        finally:
+            temporary.unlink(missing_ok=True)
+        return {"pipeline": True}
+    except Exception as exc:  # The prediction stands without its walkthrough.
+        return {"pipeline": False, "pipeline_error": f"{type(exc).__name__}: {exc}"}
+
+
+def get_pipeline(upload_dir: Path, video_id: str, segment_id: str) -> dict:
+    """The saved stage-by-stage record of one segment of the latest completed analysis."""
+    state = get_analysis(Path(upload_dir), video_id)
+    if state.get("status") != "complete" or not state.get("analysis_id"):
+        raise FileNotFoundError("The analysis is not complete")
+    if not any(r.get("segment_id") == segment_id for r in state.get("results", [])):
+        raise FileNotFoundError("Segment not found in the latest analysis")
+    directory = _analysis_directory(Path(upload_dir), video_id, state["analysis_id"]) / "pipeline"
+    path = _pipeline_path(directory, segment_id)
+    if not path.is_file():
+        raise FileNotFoundError("This analysis has no pipeline record; analyse the round again")
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def run_analysis(
@@ -468,7 +525,12 @@ def run_analysis(
             prepared_clip,
             prepare_progress,
         )
-        results = _detect_and_predict(prepared, min_confidence, predict_progress)
+        results = _detect_and_predict(
+            prepared,
+            min_confidence,
+            predict_progress,
+            pipeline_dir=_analysis_directory(upload_dir, video_id, analysis_id) / "pipeline",
+        )
         state.update(results=results, error=None)
         _set_progress(
             upload_dir,
