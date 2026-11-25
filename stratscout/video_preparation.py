@@ -1,7 +1,9 @@
 """One decode/crop, aligned sampling and independently encoded video variants."""
 
 import math
+import os
 import time
+import uuid
 from pathlib import Path
 
 from .media import identity, json_write, probe, run_ffmpeg, validate_video, versions
@@ -15,6 +17,53 @@ ENCODING = {
     "audio": False,
     "faststart": True,
 }
+
+
+def browser_compatible_video(video, output):
+    """Return a browser-safe MP4, encoding a yuv420p H.264 playback copy when needed."""
+    video, output = Path(video).resolve(), Path(output).resolve()
+    info = probe(video)
+    if info["codec"] == "h264" and info["pixel_format"] == "yuv420p":
+        return video
+    if output.is_file():
+        existing = probe(output)
+        if existing["codec"] == "h264" and existing["pixel_format"] == "yuv420p":
+            return output
+        raise RuntimeError(f"Existing browser copy is not H.264/yuv420p: {output}")
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    temporary = output.with_name(f".{output.stem}.{uuid.uuid4().hex}.tmp.mp4")
+    log = temporary.with_suffix(".ffmpeg.log")
+    arguments = [
+        "-i",
+        video,
+        "-map",
+        "0:v:0",
+        "-an",
+        "-c:v",
+        ENCODING["codec"],
+        "-crf",
+        str(ENCODING["crf"]),
+        "-preset",
+        ENCODING["preset"],
+        "-pix_fmt",
+        ENCODING["pixel_format"],
+        "-movflags",
+        "+faststart",
+        temporary,
+    ]
+    try:
+        run_ffmpeg(arguments, log)
+        encoded = probe(temporary)
+        if encoded["codec"] != "h264" or encoded["pixel_format"] != "yuv420p":
+            raise RuntimeError(f"FFmpeg did not create a browser-compatible video: {temporary}")
+        os.replace(temporary, output)
+    except (OSError, RuntimeError, ValueError):
+        temporary.unlink(missing_ok=True)
+        raise
+    log.unlink(missing_ok=True)
+    log.with_suffix(".progress").unlink(missing_ok=True)
+    return output
 
 
 def validate_speed(playback_speed):

@@ -9,6 +9,15 @@ RUN npm run build
 FROM python:3.13-slim
 
 WORKDIR /app
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir \
+    --index-url https://download.pytorch.org/whl/cpu \
+    torch==2.14.1 torchvision==0.29.1
+COPY requirements-inference.txt ./
+RUN pip install --no-cache-dir -r requirements-inference.txt
+RUN python -c "from torchvision.models import ResNet18_Weights, resnet18; resnet18(weights=ResNet18_Weights.IMAGENET1K_V1)"
 COPY requirements-web.txt ./
 RUN pip install --no-cache-dir -r requirements-web.txt
 COPY stratscout/ ./stratscout/
