@@ -1,13 +1,23 @@
 # Streamlit deployment (cloud)
 
-A small web page that classifies prepared radar clips with the final models. It calls
-the same prediction code as `predict-tcn`, `predict-gru` and the web app
-(`stratscout.gru_predict.predict_clips`). It runs the detector, then the ResNet-18
-features, then the TCN, and optionally the Compact pooled GRU. Each model averages its
-three seeds.
+A cloud version of the local web app's classification flow. The local app is React +
+FastAPI, run with `docker compose up` (Frontend branch). This page keeps the same
+wording, result cards (TCN vs GRU, TCN only, GRU only), colours and model calls, so the
+same clip gives the same answer on both.
 
-The full React + FastAPI site (`docker compose up`) is the local deployment. This page
-is the cloud deployment, on Streamlit Community Cloud's free tier.
+It runs what `stratscout/web_analysis.py` runs. Each round clip builds its own
+empty-map background. Then the detector and the ResNet-18 features run once, and both
+saved ensembles classify the clip: the TCN and the Compact pooled GRU, three seeds each,
+with a 0.6 confidence threshold for the UNCERTAIN badge.
+
+## How it differs from the local app
+
+| | Local app | Cloud demo |
+|---|---|---|
+| Input | Raw round recordings (cropped with `configs/recording-video.json`) or prepared clips | **Prepared clips only** (494x500 radar crop, 10 fps) |
+| Saved state | Match list, rounds and analyses kept on disk | Nothing kept; results last for the browser session |
+| Video player and clip boundaries | Yes | No |
+| Sample clips | No | Three held-out test clips bundled |
 
 ## Files
 
@@ -15,8 +25,8 @@ is the cloud deployment, on Streamlit Community Cloud's free tier.
 |---|---|
 | `streamlit_app.py` | The page |
 | `requirements.txt` | Cloud packages: CPU-only PyTorch, OpenCV (headless), Streamlit |
-| `backgrounds/*.png` | Empty-map images, one per training broadcast layout, made with `save-background` from the training clips only |
 | `samples/*.mp4` | Three held-out **test** clips for the demo (never used in training) |
+| `../../.streamlit/config.toml` | The dark theme with the local app's colours. It is read from the repository root. |
 
 The models are read from `runs/tactic-tcn-clipdata-final/models` and
 `runs/tactic-gru-clipdata-final-20261121/models`, which are already tracked in git.
@@ -34,25 +44,19 @@ The page opens at http://localhost:8501.
 
 ## Deploy to Streamlit Community Cloud (free)
 
+Streamlit needs admin rights on the GitHub repository. Use the repository owner's
+account, or a fork or copy you own.
+
 1. Push the branch to GitHub.
 2. Sign in at <https://share.streamlit.io> with GitHub and choose **Create app**.
 3. Pick the repository and branch, and set the main file path to
    `deploy/streamlit/streamlit_app.py`.
 4. Under **Advanced settings**, choose Python **3.13**.
-5. Deploy. The first build installs PyTorch and takes a few minutes. The first
-   classification also downloads the ResNet-18 weights (about 45 MB).
+5. Deploy. The first build installs PyTorch and takes a few minutes. The first analysis
+   also downloads the ResNet-18 weights (about 45 MB).
+6. For a private repository, set the app to public in its **Share** settings so viewers
+   don't need to sign in. The code stays private.
 
 Streamlit uses `deploy/streamlit/requirements.txt` because it sits next to the app, not
 the repository's full `requirements.txt`. The app sleeps when unused and wakes on the
 next visit.
-
-## What the page accepts
-
-- Cropped spectator-radar clips at 10 fps, one tactic each, as `export-segments` makes
-  them. Full matches are not supported.
-- The detector needs an empty-map background of the same broadcast. Clips named like
-  the dataset (`<match>-<event>.<reviewer>.s<nn>.mp4`) get their event's background
-  automatically. For other names, pick the layout, or upload 5 or more clips of the same
-  match and build the background from them.
-- Layouts with a saved background: ESL Pro League Season 24, Cologne Major 2026, Cologne
-  Major, IEM Beijing 2026.
