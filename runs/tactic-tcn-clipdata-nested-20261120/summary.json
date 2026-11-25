@@ -1,0 +1,143 @@
+{
+  "method": "Nested epoch selection for train-tactics on the shared clip data (TCN and pooled control).",
+  "models": {
+    "tcn": {
+      "nested_macro_f1_mean_over_seeds": 0.8490592302434408,
+      "nested_macro_f1_seed_sd": 0.02058512676230173,
+      "per_seed": [
+        0.8717274392274392,
+        0.821906295458927,
+        0.853543956043956
+      ],
+      "ensemble_macro_f1": 0.8742872897711607,
+      "ensemble_accuracy": 0.8780487804878049,
+      "ensemble_per_class_f1": {
+        "A_DIRECT": 0.8387096774193549,
+        "B_DIRECT": 0.9333333333333333,
+        "A_SPLIT": 0.8387096774193549,
+        "B_SPLIT": 0.8888888888888888,
+        "RETAKE": 0.8717948717948718
+      },
+      "ensemble_confusion": [
+        [
+          13,
+          0,
+          2,
+          0,
+          0
+        ],
+        [
+          0,
+          21,
+          0,
+          1,
+          2
+        ],
+        [
+          1,
+          0,
+          13,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          1,
+          8,
+          0
+        ],
+        [
+          2,
+          0,
+          1,
+          0,
+          17
+        ]
+      ],
+      "per_match_macro_f1": {
+        "aurora-vitality-mirage-esl-pro-league-season-24": 0.9554978354978355,
+        "furia-falcons-mirage-cologne-major-2026": 0.91998334998335,
+        "mouz-betboom-mirage-iem-bejing-2026": 0.821916971916972,
+        "spirit-falcons-mirage-cologne-major": 0.6988387635756057
+      },
+      "chosen_epochs": {
+        "aurora-vitality-mirage-esl-pro-league-season-24": 140,
+        "furia-falcons-mirage-cologne-major-2026": 80,
+        "mouz-betboom-mirage-iem-bejing-2026": 120,
+        "spirit-falcons-mirage-cologne-major": 70
+      },
+      "clips": 82,
+      "seconds": 3669.5
+    },
+    "control": {
+      "nested_macro_f1_mean_over_seeds": 0.8088337150179256,
+      "nested_macro_f1_seed_sd": 0.03546304923026064,
+      "per_seed": [
+        0.8582564657564657,
+        0.7767409052935368,
+        0.791503774003774
+      ],
+      "ensemble_macro_f1": 0.8264914795349579,
+      "ensemble_accuracy": 0.8414634146341463,
+      "ensemble_per_class_f1": {
+        "A_DIRECT": 0.8000000000000002,
+        "B_DIRECT": 0.9130434782608695,
+        "A_SPLIT": 0.7857142857142857,
+        "B_SPLIT": 0.761904761904762,
+        "RETAKE": 0.8717948717948718
+      },
+      "ensemble_confusion": [
+        [
+          12,
+          0,
+          1,
+          2,
+          0
+        ],
+        [
+          0,
+          21,
+          0,
+          2,
+          1
+        ],
+        [
+          2,
+          0,
+          11,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          1,
+          8,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          0,
+          17
+        ]
+      ],
+      "per_match_macro_f1": {
+        "aurora-vitality-mirage-esl-pro-league-season-24": 0.8366859066859066,
+        "furia-falcons-mirage-cologne-major-2026": 0.8343811743811743,
+        "mouz-betboom-mirage-iem-bejing-2026": 0.8441591741591742,
+        "spirit-falcons-mirage-cologne-major": 0.7201086048454469
+      },
+      "chosen_epochs": {
+        "aurora-vitality-mirage-esl-pro-league-season-24": 30,
+        "furia-falcons-mirage-cologne-major-2026": 130,
+        "mouz-betboom-mirage-iem-bejing-2026": 70,
+        "spirit-falcons-mirage-cologne-major": 90
+      },
+      "clips": 82,
+      "seconds": 119.0
+    }
+  }
+}

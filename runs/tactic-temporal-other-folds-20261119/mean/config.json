@@ -1,0 +1,77 @@
+{
+  "model": "resnet18-mean-linear",
+  "settings": {
+    "size": 224,
+    "n_frames": 16,
+    "seeds": [
+      0,
+      1,
+      2
+    ],
+    "epochs": 200,
+    "patience": 30,
+    "learning_rate": 0.01,
+    "weight_decay": 0.001,
+    "fixed_epochs": null
+  },
+  "classes": [
+    "A_DIRECT",
+    "B_DIRECT",
+    "A_SPLIT",
+    "B_SPLIT",
+    "RETAKE"
+  ],
+  "weights": "ResNet18_Weights.IMAGENET1K_V1",
+  "normalisation": {
+    "mean": [
+      0.485,
+      0.456,
+      0.406
+    ],
+    "std": [
+      0.229,
+      0.224,
+      0.225
+    ]
+  },
+  "spatial_preprocessing": "Whole-map OpenCV INTER_AREA resize; no crop or augmentation",
+  "optimiser": "AdamW, full-batch",
+  "epoch_mode": "other-folds",
+  "selection": "The TCN's rule: every fold fitted for all epochs; each fold scored at the epoch best on the other folds' seed-mean macro-F1 curve (earliest on ties), the same epoch for every seed; refit to that exact epoch",
+  "optimistic_selection": "Own validation macro-F1; loss breaks ties",
+  "device": "cpu",
+  "torch_threads": 4,
+  "versions": {
+    "torch": "2.14.1+cpu",
+    "torchvision": "0.29.1+cpu",
+    "numpy": "2.2.6",
+    "opencv-python": "4.12.0.88"
+  },
+  "python": "3.13.15",
+  "manifest": "C:\\Users\\USER\\Documents\\GitHub\\CV-DL\\data\\processed\\datasets\\2026-11-16\\train\\manifest.csv",
+  "manifest_sha256": "4f4ba901b3b33ee1ee275785ff58d888fc8f9b1c9e14ad1e56701f6186aff4de",
+  "split": "train",
+  "exclude_uncertain": true,
+  "excluded_clip_ids": [
+    "spirit-falcons-mirage-cologne-major.jx.s005"
+  ],
+  "class_counts": {
+    "A_DIRECT": 15,
+    "B_DIRECT": 24,
+    "A_SPLIT": 14,
+    "B_SPLIT": 9,
+    "RETAKE": 20
+  },
+  "definition_version": "2026-10-30-pilot",
+  "temporal": {
+    "pooling": "mean over all sampled frames"
+  },
+  "inputs": {
+    "kind": "images",
+    "source": "ResNet18_Weights.IMAGENET1K_V1",
+    "width": 512,
+    "dropped_channels": [],
+    "feature_names": null
+  },
+  "trainable_parameters": 2565
+}

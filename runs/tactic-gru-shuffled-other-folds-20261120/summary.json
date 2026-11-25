@@ -1,0 +1,59 @@
+{
+  "epoch_mode": "other-folds",
+  "inputs": "images",
+  "feature_source": "ResNet18_Weights.IMAGENET1K_V1",
+  "feature_width": 512,
+  "dropped_channels": [],
+  "models": {
+    "gru": {
+      "folder": "gru",
+      "model": "resnet18-gru-linear",
+      "trainable_parameters": 5613,
+      "macro_f1": {
+        "mean": 0.6806937993780099,
+        "std": 0.04872772497537978,
+        "min": 0.6143634143634144,
+        "max": 0.7300391275391276
+      },
+      "accuracy": {
+        "mean": 0.7238123718386876,
+        "std": 0.05653235020630669,
+        "min": 0.6465766689450899,
+        "max": 0.7803144224196855
+      },
+      "optimistic_macro_f1": {
+        "mean": 0.7830932955932957,
+        "std": 0.00010107742067730668,
+        "min": 0.782950382950383,
+        "max": 0.7831673881673882
+      },
+      "majority": {
+        "macro_f1": 0.06465488215488216,
+        "accuracy": 0.19450615174299385
+      },
+      "seed_ensemble": {
+        "macro_f1": 0.7364839701062611,
+        "accuracy": 0.7560975609756098,
+        "clips": 82
+      },
+      "shuffled": {
+        "count": 20,
+        "macro_f1": {
+          "mean": 0.17639126181291176,
+          "std": 0.044664655748858126,
+          "min": 0.10132132086466451,
+          "max": 0.2639190817209393
+        },
+        "accuracy": {
+          "mean": 0.2206358699779752,
+          "std": 0.04764201588748094,
+          "min": 0.1324456975772765,
+          "max": 0.30891717931191615
+        },
+        "at_least_real": 0
+      }
+    }
+  },
+  "frame_features": "runs\\tactic-temporal-20261116\\frame-features.pt",
+  "repeated_frames": 0
+}

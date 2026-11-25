@@ -1,0 +1,768 @@
+{
+  "fold": 1,
+  "train_match_ids": [
+    "4cd15fe6925939096a09c0cea1cd49242c2be11a71fce8d676f2a74716351f29",
+    "5a97d3be099eec670803c4548a4cbbf8cfcb870c3cce894b4c1e0a7b74f8e65c",
+    "d346d1076089371f40c02b50eaa4f80a3de10b8f2c6977be4f1f3226ad39d024"
+  ],
+  "validation_match_id": "3ecf8682175f17808a278f15e975708ac4ad40afa9932faeea58fe377b7f23d5",
+  "train_clip_ids": [
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s001",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s002",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s004",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s005",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s006",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s010",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s012",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s014",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s016",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s018",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s019",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s020",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s021",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s022",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s023",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s025",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s028",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s029",
+    "aurora-vitality-mirage-esl-pro-league-season-24.jx.s030",
+    "furia-falcons-mirage-cologne-major-2026.jx.s030",
+    "furia-falcons-mirage-cologne-major-2026.jx.s001",
+    "furia-falcons-mirage-cologne-major-2026.jx.s002",
+    "furia-falcons-mirage-cologne-major-2026.jx.s004",
+    "furia-falcons-mirage-cologne-major-2026.jx.s003",
+    "furia-falcons-mirage-cologne-major-2026.jx.s005",
+    "furia-falcons-mirage-cologne-major-2026.jx.s006",
+    "furia-falcons-mirage-cologne-major-2026.jx.s007",
+    "furia-falcons-mirage-cologne-major-2026.jx.s010",
+    "furia-falcons-mirage-cologne-major-2026.jx.s009",
+    "furia-falcons-mirage-cologne-major-2026.jx.s011",
+    "furia-falcons-mirage-cologne-major-2026.jx.s012",
+    "furia-falcons-mirage-cologne-major-2026.jx.s014",
+    "furia-falcons-mirage-cologne-major-2026.jx.s018",
+    "furia-falcons-mirage-cologne-major-2026.jx.s019",
+    "furia-falcons-mirage-cologne-major-2026.jx.s022",
+    "furia-falcons-mirage-cologne-major-2026.jx.s024",
+    "furia-falcons-mirage-cologne-major-2026.jx.s025",
+    "furia-falcons-mirage-cologne-major-2026.jx.s026",
+    "furia-falcons-mirage-cologne-major-2026.jx.s027",
+    "furia-falcons-mirage-cologne-major-2026.jx.s028",
+    "furia-falcons-mirage-cologne-major-2026.jx.s029",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s001",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s005",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s002",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s007",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s008",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s009",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s010",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s011",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s012",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s013",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s014",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s015",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s018",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s019",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s020",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s022",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s023",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s024",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s027",
+    "mouz-betboom-mirage-iem-bejing-2026.jx.s026"
+  ],
+  "validation_clip_ids": [
+    "spirit-falcons-mirage-cologne-major.jx.s027",
+    "spirit-falcons-mirage-cologne-major.jx.s002",
+    "spirit-falcons-mirage-cologne-major.jx.s003",
+    "spirit-falcons-mirage-cologne-major.jx.s004",
+    "spirit-falcons-mirage-cologne-major.jx.s006",
+    "spirit-falcons-mirage-cologne-major.jx.s007",
+    "spirit-falcons-mirage-cologne-major.jx.s008",
+    "spirit-falcons-mirage-cologne-major.jx.s010",
+    "spirit-falcons-mirage-cologne-major.jx.s011",
+    "spirit-falcons-mirage-cologne-major.jx.s013",
+    "spirit-falcons-mirage-cologne-major.jx.s015",
+    "spirit-falcons-mirage-cologne-major.jx.s016",
+    "spirit-falcons-mirage-cologne-major.jx.s018",
+    "spirit-falcons-mirage-cologne-major.jx.s019",
+    "spirit-falcons-mirage-cologne-major.jx.s020",
+    "spirit-falcons-mirage-cologne-major.jx.s021",
+    "spirit-falcons-mirage-cologne-major.jx.s022",
+    "spirit-falcons-mirage-cologne-major.jx.s023",
+    "spirit-falcons-mirage-cologne-major.jx.s026",
+    "spirit-falcons-mirage-cologne-major.jx.s024",
+    "spirit-falcons-mirage-cologne-major.jx.s025"
+  ],
+  "train_counts": {
+    "A_DIRECT": 12,
+    "B_DIRECT": 13,
+    "A_SPLIT": 12,
+    "B_SPLIT": 7,
+    "RETAKE": 17
+  },
+  "validation_counts": {
+    "A_DIRECT": 3,
+    "B_DIRECT": 11,
+    "A_SPLIT": 2,
+    "B_SPLIT": 2,
+    "RETAKE": 3
+  },
+  "majority_class": "RETAKE",
+  "majority": {
+    "accuracy": 0.14285714285714285,
+    "macro_f1": 0.05,
+    "per_class": {
+      "A_DIRECT": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 3
+      },
+      "B_DIRECT": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 11
+      },
+      "A_SPLIT": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 2
+      },
+      "B_SPLIT": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 2
+      },
+      "RETAKE": {
+        "precision": 0.14285714285714285,
+        "recall": 1.0,
+        "f1": 0.25,
+        "support": 3
+      }
+    },
+    "confusion_matrix": [
+      [
+        0,
+        0,
+        0,
+        0,
+        3
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        11
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        2
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        2
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        3
+      ]
+    ]
+  },
+  "runs": [
+    {
+      "seed": 0,
+      "best_epoch": null,
+      "evaluation_epoch": 184,
+      "epoch_selection": "other-folds",
+      "epochs_run": 184,
+      "class_weights": {
+        "A_DIRECT": 1.0166667699813843,
+        "B_DIRECT": 0.9384615421295166,
+        "A_SPLIT": 1.0166667699813843,
+        "B_SPLIT": 1.7428570985794067,
+        "RETAKE": 0.7176470756530762
+      },
+      "metrics": {
+        "accuracy": 0.47619047619047616,
+        "macro_f1": 0.35488721804511275,
+        "per_class": {
+          "A_DIRECT": {
+            "precision": 0.25,
+            "recall": 0.3333333333333333,
+            "f1": 0.2857142857142857,
+            "support": 3
+          },
+          "B_DIRECT": {
+            "precision": 0.75,
+            "recall": 0.5454545454545454,
+            "f1": 0.631578947368421,
+            "support": 11
+          },
+          "A_SPLIT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 2
+          },
+          "B_SPLIT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 2
+          },
+          "RETAKE": {
+            "precision": 0.75,
+            "recall": 1.0,
+            "f1": 0.8571428571428571,
+            "support": 3
+          }
+        },
+        "confusion_matrix": [
+          [
+            1,
+            0,
+            2,
+            0,
+            0
+          ],
+          [
+            1,
+            6,
+            0,
+            3,
+            1
+          ],
+          [
+            2,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            2,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            3
+          ]
+        ]
+      },
+      "epoch_source_fold": null,
+      "selection": {
+        "epoch": 184,
+        "mean_other_folds_macro_f1": 0.38111086444419784,
+        "source_validation_match_ids": [
+          "4cd15fe6925939096a09c0cea1cd49242c2be11a71fce8d676f2a74716351f29",
+          "5a97d3be099eec670803c4548a4cbbf8cfcb870c3cce894b4c1e0a7b74f8e65c",
+          "d346d1076089371f40c02b50eaa4f80a3de10b8f2c6977be4f1f3226ad39d024"
+        ]
+      },
+      "optimistic": {
+        "seed": 0,
+        "best_epoch": 106,
+        "evaluation_epoch": 106,
+        "epoch_selection": "early-stopping",
+        "epochs_run": 200,
+        "class_weights": {
+          "A_DIRECT": 1.0166667699813843,
+          "B_DIRECT": 0.9384615421295166,
+          "A_SPLIT": 1.0166667699813843,
+          "B_SPLIT": 1.7428570985794067,
+          "RETAKE": 0.7176470756530762
+        },
+        "metrics": {
+          "accuracy": 0.5714285714285714,
+          "macro_f1": 0.51203007518797,
+          "per_class": {
+            "A_DIRECT": {
+              "precision": 1.0,
+              "recall": 0.3333333333333333,
+              "f1": 0.5,
+              "support": 3
+            },
+            "B_DIRECT": {
+              "precision": 0.75,
+              "recall": 0.5454545454545454,
+              "f1": 0.631578947368421,
+              "support": 11
+            },
+            "A_SPLIT": {
+              "precision": 0.4,
+              "recall": 1.0,
+              "f1": 0.5714285714285714,
+              "support": 2
+            },
+            "B_SPLIT": {
+              "precision": 0.0,
+              "recall": 0.0,
+              "f1": 0.0,
+              "support": 2
+            },
+            "RETAKE": {
+              "precision": 0.75,
+              "recall": 1.0,
+              "f1": 0.8571428571428571,
+              "support": 3
+            }
+          },
+          "confusion_matrix": [
+            [
+              1,
+              0,
+              2,
+              0,
+              0
+            ],
+            [
+              0,
+              6,
+              1,
+              3,
+              1
+            ],
+            [
+              0,
+              0,
+              2,
+              0,
+              0
+            ],
+            [
+              0,
+              2,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              3
+            ]
+          ]
+        }
+      },
+      "checkpoint": "fold-1-seed-0.pt"
+    },
+    {
+      "seed": 1,
+      "best_epoch": null,
+      "evaluation_epoch": 184,
+      "epoch_selection": "other-folds",
+      "epochs_run": 184,
+      "class_weights": {
+        "A_DIRECT": 1.0166667699813843,
+        "B_DIRECT": 0.9384615421295166,
+        "A_SPLIT": 1.0166667699813843,
+        "B_SPLIT": 1.7428570985794067,
+        "RETAKE": 0.7176470756530762
+      },
+      "metrics": {
+        "accuracy": 0.5714285714285714,
+        "macro_f1": 0.40428571428571425,
+        "per_class": {
+          "A_DIRECT": {
+            "precision": 0.5,
+            "recall": 0.6666666666666666,
+            "f1": 0.5714285714285714,
+            "support": 3
+          },
+          "B_DIRECT": {
+            "precision": 0.7777777777777778,
+            "recall": 0.6363636363636364,
+            "f1": 0.7,
+            "support": 11
+          },
+          "A_SPLIT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 2
+          },
+          "B_SPLIT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 2
+          },
+          "RETAKE": {
+            "precision": 0.6,
+            "recall": 1.0,
+            "f1": 0.75,
+            "support": 3
+          }
+        },
+        "confusion_matrix": [
+          [
+            2,
+            0,
+            0,
+            0,
+            1
+          ],
+          [
+            0,
+            7,
+            0,
+            3,
+            1
+          ],
+          [
+            2,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            2,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            3
+          ]
+        ]
+      },
+      "epoch_source_fold": null,
+      "selection": {
+        "epoch": 184,
+        "mean_other_folds_macro_f1": 0.38111086444419784,
+        "source_validation_match_ids": [
+          "4cd15fe6925939096a09c0cea1cd49242c2be11a71fce8d676f2a74716351f29",
+          "5a97d3be099eec670803c4548a4cbbf8cfcb870c3cce894b4c1e0a7b74f8e65c",
+          "d346d1076089371f40c02b50eaa4f80a3de10b8f2c6977be4f1f3226ad39d024"
+        ]
+      },
+      "optimistic": {
+        "seed": 1,
+        "best_epoch": 198,
+        "evaluation_epoch": 198,
+        "epoch_selection": "early-stopping",
+        "epochs_run": 200,
+        "class_weights": {
+          "A_DIRECT": 1.0166667699813843,
+          "B_DIRECT": 0.9384615421295166,
+          "A_SPLIT": 1.0166667699813843,
+          "B_SPLIT": 1.7428570985794067,
+          "RETAKE": 0.7176470756530762
+        },
+        "metrics": {
+          "accuracy": 0.6666666666666666,
+          "macro_f1": 0.6207017543859649,
+          "per_class": {
+            "A_DIRECT": {
+              "precision": 1.0,
+              "recall": 0.6666666666666666,
+              "f1": 0.8,
+              "support": 3
+            },
+            "B_DIRECT": {
+              "precision": 0.875,
+              "recall": 0.6363636363636364,
+              "f1": 0.7368421052631579,
+              "support": 11
+            },
+            "A_SPLIT": {
+              "precision": 0.3333333333333333,
+              "recall": 0.5,
+              "f1": 0.4,
+              "support": 2
+            },
+            "B_SPLIT": {
+              "precision": 0.5,
+              "recall": 0.5,
+              "f1": 0.5,
+              "support": 2
+            },
+            "RETAKE": {
+              "precision": 0.5,
+              "recall": 1.0,
+              "f1": 0.6666666666666666,
+              "support": 3
+            }
+          },
+          "confusion_matrix": [
+            [
+              2,
+              0,
+              1,
+              0,
+              0
+            ],
+            [
+              0,
+              7,
+              1,
+              1,
+              2
+            ],
+            [
+              0,
+              0,
+              1,
+              0,
+              1
+            ],
+            [
+              0,
+              1,
+              0,
+              1,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              3
+            ]
+          ]
+        }
+      },
+      "checkpoint": "fold-1-seed-1.pt"
+    },
+    {
+      "seed": 2,
+      "best_epoch": null,
+      "evaluation_epoch": 184,
+      "epoch_selection": "other-folds",
+      "epochs_run": 184,
+      "class_weights": {
+        "A_DIRECT": 1.0166667699813843,
+        "B_DIRECT": 0.9384615421295166,
+        "A_SPLIT": 1.0166667699813843,
+        "B_SPLIT": 1.7428570985794067,
+        "RETAKE": 0.7176470756530762
+      },
+      "metrics": {
+        "accuracy": 0.6190476190476191,
+        "macro_f1": 0.4017316017316017,
+        "per_class": {
+          "A_DIRECT": {
+            "precision": 0.3333333333333333,
+            "recall": 0.3333333333333333,
+            "f1": 0.3333333333333333,
+            "support": 3
+          },
+          "B_DIRECT": {
+            "precision": 0.8181818181818182,
+            "recall": 0.8181818181818182,
+            "f1": 0.8181818181818182,
+            "support": 11
+          },
+          "A_SPLIT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 2
+          },
+          "B_SPLIT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 2
+          },
+          "RETAKE": {
+            "precision": 0.75,
+            "recall": 1.0,
+            "f1": 0.8571428571428571,
+            "support": 3
+          }
+        },
+        "confusion_matrix": [
+          [
+            1,
+            0,
+            2,
+            0,
+            0
+          ],
+          [
+            0,
+            9,
+            0,
+            1,
+            1
+          ],
+          [
+            2,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            2,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            3
+          ]
+        ]
+      },
+      "epoch_source_fold": null,
+      "selection": {
+        "epoch": 184,
+        "mean_other_folds_macro_f1": 0.38111086444419784,
+        "source_validation_match_ids": [
+          "4cd15fe6925939096a09c0cea1cd49242c2be11a71fce8d676f2a74716351f29",
+          "5a97d3be099eec670803c4548a4cbbf8cfcb870c3cce894b4c1e0a7b74f8e65c",
+          "d346d1076089371f40c02b50eaa4f80a3de10b8f2c6977be4f1f3226ad39d024"
+        ]
+      },
+      "optimistic": {
+        "seed": 2,
+        "best_epoch": 8,
+        "evaluation_epoch": 8,
+        "epoch_selection": "early-stopping",
+        "epochs_run": 200,
+        "class_weights": {
+          "A_DIRECT": 1.0166667699813843,
+          "B_DIRECT": 0.9384615421295166,
+          "A_SPLIT": 1.0166667699813843,
+          "B_SPLIT": 1.7428570985794067,
+          "RETAKE": 0.7176470756530762
+        },
+        "metrics": {
+          "accuracy": 0.5238095238095238,
+          "macro_f1": 0.41666666666666663,
+          "per_class": {
+            "A_DIRECT": {
+              "precision": 0.3333333333333333,
+              "recall": 0.3333333333333333,
+              "f1": 0.3333333333333333,
+              "support": 3
+            },
+            "B_DIRECT": {
+              "precision": 0.8571428571428571,
+              "recall": 0.5454545454545454,
+              "f1": 0.6666666666666666,
+              "support": 11
+            },
+            "A_SPLIT": {
+              "precision": 0.0,
+              "recall": 0.0,
+              "f1": 0.0,
+              "support": 2
+            },
+            "B_SPLIT": {
+              "precision": 0.25,
+              "recall": 0.5,
+              "f1": 0.3333333333333333,
+              "support": 2
+            },
+            "RETAKE": {
+              "precision": 0.6,
+              "recall": 1.0,
+              "f1": 0.75,
+              "support": 3
+            }
+          },
+          "confusion_matrix": [
+            [
+              1,
+              0,
+              2,
+              0,
+              0
+            ],
+            [
+              0,
+              6,
+              0,
+              3,
+              2
+            ],
+            [
+              2,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              1,
+              0,
+              1,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              3
+            ]
+          ]
+        }
+      },
+      "checkpoint": "fold-1-seed-2.pt"
+    }
+  ],
+  "seed_spread": {
+    "macro_f1": {
+      "mean": 0.3869681780208096,
+      "std": 0.022708616095459815,
+      "min": 0.35488721804511275,
+      "max": 0.40428571428571425
+    },
+    "accuracy": {
+      "mean": 0.5555555555555555,
+      "std": 0.05939138709164988,
+      "min": 0.47619047619047616,
+      "max": 0.6190476190476191
+    }
+  },
+  "optimistic_seed_spread": {
+    "macro_f1": {
+      "mean": 0.5164661654135339,
+      "std": 0.08335601728938524,
+      "min": 0.41666666666666663,
+      "max": 0.6207017543859649
+    },
+    "accuracy": {
+      "mean": 0.5873015873015873,
+      "std": 0.059391387091649844,
+      "min": 0.5238095238095238,
+      "max": 0.6666666666666666
+    }
+  }
+}

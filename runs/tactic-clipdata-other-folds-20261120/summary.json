@@ -1,0 +1,118 @@
+{
+  "epoch_mode": "other-folds",
+  "inputs": "clip-data",
+  "feature_source": "clip-data clip-data-1 / mirage-spectator-v1",
+  "feature_width": 584,
+  "dropped_channels": [],
+  "models": {
+    "mean": {
+      "folder": "mean",
+      "model": "clipdata-mean-linear",
+      "trainable_parameters": 525,
+      "macro_f1": {
+        "mean": 0.7896130282972389,
+        "std": 0.021901875197508986,
+        "min": 0.760844024396656,
+        "max": 0.813937173937174
+      },
+      "accuracy": {
+        "mean": 0.8182074504442925,
+        "std": 0.019471066365767873,
+        "min": 0.7947795625427204,
+        "max": 0.8424527227158806
+      },
+      "optimistic_macro_f1": {
+        "mean": 0.8550406562248667,
+        "std": 0.016588162738519718,
+        "min": 0.8393149978676294,
+        "max": 0.8779792429792429
+      },
+      "majority": {
+        "macro_f1": 0.06465488215488216,
+        "accuracy": 0.19450615174299385
+      },
+      "seed_ensemble": {
+        "macro_f1": 0.8032446708168269,
+        "accuracy": 0.8170731707317073,
+        "clips": 82
+      },
+      "shuffled": null
+    },
+    "thirds": {
+      "folder": "thirds",
+      "model": "clipdata-thirds-linear",
+      "trainable_parameters": 1565,
+      "macro_f1": {
+        "mean": 0.7750119811961916,
+        "std": 0.01829988448198132,
+        "min": 0.7616572316572316,
+        "max": 0.8008874458874459
+      },
+      "accuracy": {
+        "mean": 0.8282961190855928,
+        "std": 0.028543951819998203,
+        "min": 0.8072795625427204,
+        "max": 0.8686517429938482
+      },
+      "optimistic_macro_f1": {
+        "mean": 0.8750587375587376,
+        "std": 0.015913039881431692,
+        "min": 0.8598226773226774,
+        "max": 0.897020202020202
+      },
+      "majority": {
+        "macro_f1": 0.06465488215488216,
+        "accuracy": 0.19450615174299385
+      },
+      "seed_ensemble": {
+        "macro_f1": 0.8370498084291187,
+        "accuracy": 0.8536585365853658,
+        "clips": 82
+      },
+      "shuffled": null
+    },
+    "gru": {
+      "folder": "gru",
+      "model": "clipdata-gru-linear",
+      "trainable_parameters": 2349,
+      "macro_f1": {
+        "mean": 0.8090702864387075,
+        "std": 0.03355528458020614,
+        "min": 0.7616213026739342,
+        "max": 0.8334121434121433
+      },
+      "accuracy": {
+        "mean": 0.8285723779144832,
+        "std": 0.03219611177781127,
+        "min": 0.7834159261790841,
+        "max": 0.8562058555479609
+      },
+      "optimistic_macro_f1": {
+        "mean": 0.8625877387719493,
+        "std": 0.02736942103362881,
+        "min": 0.8257646593172909,
+        "max": 0.8913275613275613
+      },
+      "majority": {
+        "macro_f1": 0.06465488215488216,
+        "accuracy": 0.19450615174299385
+      },
+      "seed_ensemble": {
+        "macro_f1": 0.8665515407203387,
+        "accuracy": 0.8780487804878049,
+        "clips": 82
+      },
+      "shuffled": null
+    }
+  },
+  "frame_features": "data\\processed\\clip-data-2026-11-16-train-only",
+  "repeated_frames": 0,
+  "clip_data": {
+    "folder": "data\\processed\\clip-data-2026-11-16-train-only",
+    "data_version": "clip-data-1",
+    "regions_version": "mirage-spectator-v1",
+    "detector_channels": 72,
+    "resnet_pcs": 32
+  },
+  "row_width": 104
+}

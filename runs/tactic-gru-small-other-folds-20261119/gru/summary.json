@@ -1,0 +1,139 @@
+{
+  "per_seed": [
+    {
+      "seed": 0,
+      "macro_f1": 0.3763583346478083,
+      "accuracy": 0.45092560947824106
+    },
+    {
+      "seed": 1,
+      "macro_f1": 0.3283513708513708,
+      "accuracy": 0.4360987696514012
+    },
+    {
+      "seed": 2,
+      "macro_f1": 0.35603146853146855,
+      "accuracy": 0.46343415356573253
+    }
+  ],
+  "model": {
+    "macro_f1": {
+      "mean": 0.3535803913435492,
+      "std": 0.019675246339397635,
+      "min": 0.3283513708513708,
+      "max": 0.3763583346478083
+    },
+    "accuracy": {
+      "mean": 0.45015284423179164,
+      "std": 0.011172993571720488,
+      "min": 0.4360987696514012,
+      "max": 0.46343415356573253
+    }
+  },
+  "majority": {
+    "macro_f1": 0.06465488215488216,
+    "accuracy": 0.19450615174299385
+  },
+  "epoch_mode": "other-folds",
+  "seed_ensemble": {
+    "method": "mean probability over seeds per clip; metrics pooled over all held-out clips",
+    "clips": 82,
+    "accuracy": 0.47560975609756095,
+    "macro_f1": 0.36685763188458953,
+    "per_class": {
+      "A_DIRECT": {
+        "precision": 0.391304347826087,
+        "recall": 0.6,
+        "f1": 0.47368421052631576,
+        "support": 15
+      },
+      "B_DIRECT": {
+        "precision": 0.6538461538461539,
+        "recall": 0.7083333333333334,
+        "f1": 0.68,
+        "support": 24
+      },
+      "A_SPLIT": {
+        "precision": 0.14285714285714285,
+        "recall": 0.07142857142857142,
+        "f1": 0.09523809523809523,
+        "support": 14
+      },
+      "B_SPLIT": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 9
+      },
+      "RETAKE": {
+        "precision": 0.5714285714285714,
+        "recall": 0.6,
+        "f1": 0.5853658536585366,
+        "support": 20
+      }
+    },
+    "confusion_matrix": [
+      [
+        9,
+        0,
+        5,
+        0,
+        1
+      ],
+      [
+        1,
+        17,
+        0,
+        3,
+        3
+      ],
+      [
+        10,
+        0,
+        1,
+        0,
+        3
+      ],
+      [
+        0,
+        7,
+        0,
+        0,
+        2
+      ],
+      [
+        3,
+        2,
+        1,
+        2,
+        12
+      ]
+    ],
+    "pooled_seed_macro_f1": [
+      0.3921414457255771,
+      0.34658977413736647,
+      0.37308883067397
+    ]
+  },
+  "optimistic": {
+    "macro_f1": {
+      "mean": 0.4950442247810669,
+      "std": 0.032245380533801896,
+      "min": 0.45096764346764345,
+      "max": 0.5272110930005667
+    },
+    "accuracy": {
+      "mean": 0.5393293840662262,
+      "std": 0.023458544150397418,
+      "min": 0.5136676919571657,
+      "max": 0.570369104579631
+    }
+  },
+  "limitations": [
+    "Other-folds is slightly optimistic: the epoch for a match comes from the other folds' models, and each of those trained on the scored match. Nested selection is the stricter estimate. This is not an independent test score.",
+    "The optimistic column selects and scores the epoch on the same validation match.",
+    "Seed spread describes initialisation variability, not uncertainty across unseen matches.",
+    "The GRU reads frames in order with their elapsed time, but has far more weights than training clips, so it can fit noise.",
+    "No synthetic pretraining, detection, temporal localisation or final test evaluation."
+  ]
+}

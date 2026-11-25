@@ -104,6 +104,144 @@ def main(argv=None):
     export.add_argument("--fps", type=int, default=10, help="Prepared variant to cut from")
     export.add_argument("--no-clips", action="store_true", help="Write the manifest only")
     export.add_argument("--labels-dir", type=Path, default=Path("labels"))
+    tactic = sub.add_parser(
+        "train-tactics", help="Cross-validate the tactic TCN on an exported clip dataset"
+    )
+    tactic.add_argument("--dataset", type=Path, required=True, help="export-segments folder")
+    tactic.add_argument("--output", type=Path, required=True, help="New folder; must not exist")
+    tactic.add_argument("--epochs", type=int, default=150, help="Most epochs to try")
+    tactic.add_argument("--seeds", type=int, default=5, help="Training seeds per setting")
+    tactic.add_argument("--grid", type=int, default=8, help="Occupancy grid cells per side")
+    tactic.add_argument("--models", nargs="+", default=["tcn", "control"])
+    tactic.add_argument("--cache", type=Path, default=Path("runs/tactic-cache"))
+    tactic.add_argument(
+        "--clip-data",
+        type=Path,
+        help="Train on shared clip data from build-clip-data instead of the original features",
+    )
+    tactic.add_argument(
+        "--resnet-pcs",
+        type=int,
+        default=32,
+        help="With --clip-data: ResNet numbers per row, compressed per fold (0 = detector only)",
+    )
+    tactic.add_argument("--device", default="cpu", help="PyTorch device, e.g. cpu or cuda")
+    tactic.add_argument(
+        "--exclude-uncertain",
+        action="store_true",
+        help="Omit clips with uncertain boundaries (listed in the report) instead of refusing",
+    )
+    tactic.add_argument(
+        "--evaluate-test",
+        action="store_true",
+        help="Also train on all training matches and score the test match (do this once)",
+    )
+    shared = sub.add_parser(
+        "build-clip-data",
+        help="Build the shared model-ready data (detector channels + ResNet) for every clip",
+    )
+    shared.add_argument("--dataset", type=Path, required=True, help="export-segments folder")
+    shared.add_argument("--output", type=Path, required=True, help="New folder; must not exist")
+    shared.add_argument("--cache", type=Path, default=Path("runs/tactic-cache"))
+    shared.add_argument("--no-resnet", action="store_true", help="Detector channels only")
+    shared.add_argument("--device", default="cpu")
+    guess = sub.add_parser(
+        "predict-tcn", help="Classify new prepared clips with the saved TCN seeds"
+    )
+    guess.add_argument("clips", nargs="+", type=Path, help="Clip files or folders of .mp4 clips")
+    guess.add_argument(
+        "--models",
+        type=Path,
+        default=Path("runs/tactic-tcn-clipdata-final/models"),
+        help="models/ folder written by train-tactics --evaluate-test",
+    )
+    guess.add_argument("--kind", default="tcn", choices=["tcn", "control"])
+    guess.add_argument("--output", type=Path, help="Also write a new CSV of predictions")
+    guess.add_argument(
+        "--background-from",
+        nargs="+",
+        type=Path,
+        help="Videos of the same match for the empty-map background (default: the clips)",
+    )
+    guess.add_argument(
+        "--min-confidence",
+        type=float,
+        default=0.6,
+        help="Flag predictions whose top probability is below this",
+    )
+    guess.add_argument(
+        "--regions",
+        type=Path,
+        help="Map-regions JSON for clip-data models (default: stratscout/mirage_regions.json)",
+    )
+    guess.add_argument("--device", default="cpu")
+    final_gru = sub.add_parser(
+        "train-gru-final",
+        help="Choose the Compact pooled GRU's epochs by leave-one-match-out CV, then train "
+        "every seed on all training clips and save it",
+    )
+    final_gru.add_argument(
+        "--manifest", type=Path, required=True, help="Exported train/manifest.csv"
+    )
+    final_gru.add_argument(
+        "--clip-data", type=Path, required=True, help="A train-only build-clip-data folder"
+    )
+    final_gru.add_argument("--output", type=Path, required=True, help="New folder; must not exist")
+    final_gru.add_argument("--exclude-uncertain", action="store_true")
+    final_gru.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2])
+    final_gru.add_argument("--epochs", type=int, default=200, help="Most epochs to try")
+    final_gru.add_argument("--device", default="cpu")
+    gru_guess = sub.add_parser(
+        "predict-gru",
+        help="Classify new prepared clips with the saved Compact pooled GRU seeds",
+    )
+    gru_guess.add_argument(
+        "clips", nargs="+", type=Path, help="Clip files or folders of .mp4 clips"
+    )
+    gru_guess.add_argument(
+        "--models",
+        type=Path,
+        help="models/ folder written by train-gru-final "
+        "(default: runs/tactic-gru-clipdata-final-20261121/models)",
+    )
+    gru_guess.add_argument(
+        "--with-tcn", action="store_true", help="Also run the TCN (the selected model) on the clips"
+    )
+    gru_guess.add_argument(
+        "--tcn-models", type=Path, help="With --with-tcn: the TCN models/ folder (default: final)"
+    )
+    gru_guess.add_argument("--output", type=Path, help="Also write a new CSV of predictions")
+    backgrounds = gru_guess.add_mutually_exclusive_group()
+    backgrounds.add_argument(
+        "--background", type=Path, help="A saved empty-map background (save-background)"
+    )
+    backgrounds.add_argument(
+        "--background-from",
+        nargs="+",
+        type=Path,
+        help="Videos of the same match for the empty-map background (default: the clips)",
+    )
+    gru_guess.add_argument(
+        "--min-confidence",
+        type=float,
+        default=0.6,
+        help="Flag predictions whose top probability is below this",
+    )
+    gru_guess.add_argument(
+        "--regions",
+        type=Path,
+        help="Map-regions JSON (default: stratscout/mirage_regions.json)",
+    )
+    gru_guess.add_argument("--device", default="cpu")
+    background = sub.add_parser(
+        "save-background",
+        help="Save an empty-map background from one training match's clips, for single clips",
+    )
+    background.add_argument("--dataset", type=Path, required=True, help="export-segments folder")
+    background.add_argument(
+        "--match", required=True, help="Training match folder (or a unique part of its name)"
+    )
+    background.add_argument("--output", type=Path, required=True, help="New .png file")
     counts = sub.add_parser(
         "icon-count-eval", help="Fit icon splitting on some matches; score team counts on others"
     )
@@ -111,10 +249,185 @@ def main(argv=None):
     counts.add_argument("--test", nargs="+", required=True, help="Held-out match name fragments")
     counts.add_argument("--output", type=Path, required=True, help="New folder; must not exist")
     counts.add_argument("--fps", type=int, default=5, help="Prepared variant to evaluate")
+    tactics = sub.add_parser("tactic-baseline", help="Train Plan A using whole-match validation")
+    tactics.add_argument("--manifest", type=Path, required=True, help="Exported train/manifest.csv")
+    tactics.add_argument("--output", type=Path, required=True, help="New run directory")
+    tactics.add_argument("--exclude-uncertain", action="store_true")
+    tactics.add_argument(
+        "--size", type=int, default=224, help="Whole-map square size, e.g. 224 or 320"
+    )
+    tactics.add_argument("--frames", type=int, default=16)
+    tactics.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2])
+    tactics.add_argument("--epochs", type=int, default=200)
+    tactics.add_argument("--patience", type=int, default=30)
+    epoch_choice = tactics.add_mutually_exclusive_group()
+    epoch_choice.add_argument(
+        "--fixed-epochs", type=int, metavar="N", help="Train exactly N epochs; no early stopping"
+    )
+    epoch_choice.add_argument(
+        "--cross-fold",
+        dest="fixed_epochs",
+        action="store_const",
+        const=None,
+        help="Choose each epoch without the scored match (default): the other fold with two "
+        "matches, nested with three or more",
+    )
+    tactics.add_argument(
+        "--epoch-mode",
+        choices=["nested", "other-folds"],
+        default="nested",
+        help="nested (default): each match's epoch from its training matches only; "
+        "other-folds: the TCN's rule, the epoch best on the other folds (slightly optimistic)",
+    )
+    tactics.add_argument("--device", default="cpu")
+    temporal = sub.add_parser(
+        "tactic-temporal", help="Train temporal average pooling and GRU on the baseline's protocol"
+    )
+    temporal.add_argument(
+        "--manifest", type=Path, required=True, help="Exported train/manifest.csv"
+    )
+    temporal.add_argument("--output", type=Path, required=True, help="New run directory")
+    temporal.add_argument("--exclude-uncertain", action="store_true")
+    temporal.add_argument(
+        "--models",
+        nargs="+",
+        default=["mean", "thirds", "gru"],
+        choices=["mean", "thirds", "random-thirds", "gru"],
+        help="thirds = temporal average pooling (3 segments) + linear classifier; "
+        "random-thirds = random-segment average pooling + linear classifier (control)",
+    )
+    temporal.add_argument(
+        "--inputs",
+        choices=["images", "positions", "clip-data"],
+        default="images",
+        help="Per-frame features: ResNet-18 images, detector positions or the shared clip data",
+    )
+    temporal.add_argument(
+        "--clip-data",
+        type=Path,
+        help="With --inputs clip-data: a train-only build-clip-data folder",
+    )
+    temporal.add_argument(
+        "--no-class-weights",
+        dest="class_weights",
+        action="store_false",
+        help="Ablation: train without balanced class weights in the loss (default: weighted)",
+    )
+    temporal.add_argument(
+        "--drop-channels",
+        nargs="+",
+        default=[],
+        choices=["t_observed", "ct_observed", "t_inferred_carrier", "bomb_badge"],
+        help="Position channels to remove, for an ablation",
+    )
+    temporal.add_argument(
+        "--features", type=Path, help="Reuse an earlier frame- or position-features.pt"
+    )
+    temporal.add_argument(
+        "--shuffles", type=int, default=0, help="Shuffled-label refits per model (0 skips)"
+    )
+    temporal.add_argument("--size", type=int, default=224)
+    temporal.add_argument("--frames", type=int, default=16)
+    temporal.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2])
+    temporal.add_argument("--epochs", type=int, default=200)
+    temporal.add_argument("--patience", type=int, default=30)
+    temporal.add_argument(
+        "--fixed-epochs", type=int, metavar="N", help="Train exactly N epochs; no early stopping"
+    )
+    temporal.add_argument(
+        "--gru-projection", type=int, default=8, help="GRU frame projection size (first GRU: 32)"
+    )
+    temporal.add_argument("--gru-hidden", type=int, default=16, help="GRU state size (first: 32)")
+    temporal.add_argument(
+        "--gru-dropout", type=float, default=0.3, help="GRU dropout in training (first: 0)"
+    )
+    temporal.add_argument(
+        "--gru-readout",
+        choices=["mean-max", "last"],
+        default="mean-max",
+        help="GRU readout: mean+max over all real frames (default) or the last state (earlier GRUs)",
+    )
+    temporal.add_argument(
+        "--epoch-mode",
+        choices=["nested", "other-folds"],
+        default="nested",
+        help="nested (default): each match's epoch from its training matches only; "
+        "other-folds: the TCN's rule, the epoch best on the other folds (slightly optimistic)",
+    )
+    temporal.add_argument("--device", default="cpu")
+    check = sub.add_parser(
+        "detector-check", help="Score detector positions against demo positions (Furia/Spirit)"
+    )
+    check.add_argument("--matches", nargs="+", required=True, help="e.g. furia spirit; never navi")
+    check.add_argument("--output", type=Path, required=True, help="New folder; must not exist")
+    check.add_argument("--demos-dir", type=Path, default=Path("demos"))
+    check.add_argument("--every", type=float, default=1.0, help="Seconds between scored frames")
+    check.add_argument("--fps", type=int, default=10, help="Prepared variant to read")
     args = parser.parse_args(argv)
     if args.command not in ("prototype", "ingest"):
         try:
-            if args.command == "bomb-scan":
+            if args.command == "tactic-baseline":
+                from .context import RunContext
+                from .tactic_training import BaselineConfig, run_baseline
+
+                run_baseline(
+                    args.manifest,
+                    args.output,
+                    context=RunContext(device=args.device),
+                    config=BaselineConfig(
+                        size=args.size,
+                        n_frames=args.frames,
+                        seeds=tuple(args.seeds),
+                        epochs=args.epochs,
+                        patience=args.patience,
+                        fixed_epochs=args.fixed_epochs,
+                    ),
+                    exclude_uncertain=args.exclude_uncertain,
+                    epoch_mode=args.epoch_mode,
+                )
+            elif args.command == "tactic-temporal":
+                from .context import RunContext
+                from .tactic_temporal import run_temporal
+                from .tactic_training import BaselineConfig
+
+                run_temporal(
+                    args.manifest,
+                    args.output,
+                    context=RunContext(device=args.device),
+                    config=BaselineConfig(
+                        size=args.size,
+                        n_frames=args.frames,
+                        seeds=tuple(args.seeds),
+                        epochs=args.epochs,
+                        patience=args.patience,
+                        fixed_epochs=args.fixed_epochs,
+                        class_weights=args.class_weights,
+                    ),
+                    exclude_uncertain=args.exclude_uncertain,
+                    models=tuple(args.models),
+                    features=args.features,
+                    shuffles=args.shuffles,
+                    inputs=args.inputs,
+                    drop_channels=tuple(args.drop_channels),
+                    epoch_mode=args.epoch_mode,
+                    gru={
+                        "projection": args.gru_projection,
+                        "hidden": args.gru_hidden,
+                        "dropout": args.gru_dropout,
+                        "readout": args.gru_readout,
+                    },
+                    clip_data=args.clip_data,
+                )
+            elif args.command == "detector-check":
+                from .detector_check import CheckConfig, run_detector_check
+
+                run_detector_check(
+                    args.matches,
+                    args.output,
+                    demos_dir=args.demos_dir,
+                    config=CheckConfig(every_s=args.every, fps=args.fps),
+                )
+            elif args.command == "bomb-scan":
                 from .bomb import write_bomb_scan
                 from .context import RunContext
 
@@ -239,6 +552,85 @@ def main(argv=None):
                 for split, counts in summary["counts"].items():
                     print(f"  {split}: {counts}")
                 print(f"  skipped: {summary['skipped']}")
+            elif args.command == "train-tactics":
+                from .tactic_tcn import TacticConfig, run_tactic_experiment
+
+                cfg = TacticConfig(
+                    epochs=args.epochs,
+                    seeds=tuple(range(args.seeds)),
+                    grid=args.grid,
+                    models=tuple(args.models),
+                    input="clip-data" if args.clip_data else "detections",
+                    resnet_pcs=args.resnet_pcs,
+                )
+                run_tactic_experiment(
+                    args.dataset,
+                    args.output,
+                    cfg,
+                    evaluate_test=args.evaluate_test,
+                    exclude_uncertain=args.exclude_uncertain,
+                    cache_dir=args.cache,
+                    clip_data=args.clip_data,
+                    device=args.device,
+                )
+                print(f"Report: {args.output / 'report.md'}")
+            elif args.command == "build-clip-data":
+                from .clip_data import build_clip_data
+
+                build_clip_data(
+                    args.dataset,
+                    args.output,
+                    cache_dir=args.cache,
+                    with_resnet=not args.no_resnet,
+                    device=args.device,
+                )
+                print(f"Report: {args.output / 'report.md'}")
+            elif args.command == "predict-tcn":
+                from .tcn_predict import run_predict
+
+                run_predict(
+                    args.clips,
+                    args.models,
+                    kind=args.kind,
+                    output=args.output,
+                    background_from=args.background_from,
+                    min_confidence=args.min_confidence,
+                    device=args.device,
+                    regions_path=args.regions,
+                )
+            elif args.command == "train-gru-final":
+                from .context import RunContext
+                from .gru_predict import train_final_gru
+                from .tactic_training import BaselineConfig
+
+                train_final_gru(
+                    args.manifest,
+                    args.clip_data,
+                    args.output,
+                    context=RunContext(device=args.device),
+                    config=BaselineConfig(seeds=tuple(args.seeds), epochs=args.epochs),
+                    exclude_uncertain=args.exclude_uncertain,
+                )
+                print(f"Report: {args.output / 'report.md'}")
+            elif args.command == "predict-gru":
+                from .gru_predict import run_predict_gru
+
+                run_predict_gru(
+                    args.clips,
+                    args.models,
+                    with_tcn=args.with_tcn,
+                    tcn_models=args.tcn_models,
+                    output=args.output,
+                    background=args.background,
+                    background_from=args.background_from,
+                    min_confidence=args.min_confidence,
+                    regions_path=args.regions,
+                    device=args.device,
+                )
+            elif args.command == "save-background":
+                from .gru_predict import save_background
+
+                save_background(args.dataset, args.match, args.output)
             elif args.command == "process-recordings":
                 from .recording_batch import process_recordings
 
