@@ -1447,6 +1447,50 @@ h1 {
   stroke-dasharray: 3 3;
 }
 
+/* GRU walkthrough: the unrolled cells and the wider number boxes */
+.diagram.wide {
+  max-width: 640px;
+}
+
+.diagram-box.time {
+  stroke-dasharray: 3 2;
+}
+
+.diagram-memory {
+  stroke: var(--accent);
+  stroke-width: 1.4;
+}
+
+.diagram-memory.skipped {
+  stroke-dasharray: 3 3;
+}
+
+.diagram-arrowhead {
+  fill: var(--accent);
+}
+
+.diagram-time {
+  stroke: #8d958e;
+  stroke-width: 1;
+}
+
+.diagram-join {
+  fill: #171b18;
+  stroke: #8d958e;
+}
+
+.diagram-cell-label {
+  fill: #e0e6df;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 7px;
+}
+
+.diagram-label.halo {
+  paint-order: stroke;
+  stroke: #101311;
+  stroke-width: 3px;
+}
+
 @media (max-width: 760px) {
   .viz-pair {
     grid-template-columns: 1fr;

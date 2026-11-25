@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { MouseEvent, ReactNode } from "react";
+import { largestMoments } from "./moments";
 
 // --------------------------------------------------------------------------- data
 
@@ -30,8 +31,45 @@ type TcnStage = ModelStage & {
 type GruStage = ModelStage & {
   projection: Heatmap;
   hidden: Heatmap;
-  architecture: { projection: number; hidden: number; readout: string; parameters: number };
+  // Records saved before the fuller GRU walkthrough lack these; analysing again adds them.
+  time_inputs?: Heatmap;
+  memory_change?: number[];
+  row_times_s?: number[];
+  architecture: {
+    projection: number;
+    hidden: number;
+    readout: string;
+    parameters: number;
+    projection_in?: number;
+    time_inputs?: number;
+    time_scale_s?: number;
+    gru_input?: number;
+    readout_width?: number;
+    classes?: number;
+  };
 };
+
+type FullGruStage = GruStage & {
+  time_inputs: Heatmap;
+  memory_change: number[];
+  row_times_s: number[];
+  architecture: Required<GruStage["architecture"]>;
+};
+
+function isFullGru(stage: GruStage): stage is FullGruStage {
+  const a = stage.architecture;
+  return Boolean(
+    stage.time_inputs &&
+      stage.memory_change &&
+      stage.row_times_s &&
+      a.projection_in !== undefined &&
+      a.time_inputs !== undefined &&
+      a.time_scale_s !== undefined &&
+      a.gru_input !== undefined &&
+      a.readout_width !== undefined &&
+      a.classes !== undefined,
+  );
+}
 
 export type PipelineRecord = {
   format: string;
@@ -111,9 +149,24 @@ function firstTime(values: number[], times: number[], threshold = 0.5): number |
   return column >= 0 ? times[column] : null;
 }
 
+/** A sentence placing a moment next to the closest first arrival in a region (within 1 s). */
+function nearArrival(time: number, steps: { region: string; time: number }[]): string | null {
+  const near = steps
+    .map((step) => ({ ...step, gap: time - step.time }))
+    .filter((step) => Math.abs(step.gap) <= 1)
+    .sort((a, b) => Math.abs(a.gap) - Math.abs(b.gap))[0];
+  if (!near) return null;
+  const when =
+    Math.abs(near.gap) < 0.05
+      ? "at the same moment as"
+      : `${Math.abs(near.gap).toFixed(1)} s ${near.gap > 0 ? "after" : "before"}`;
+  return `The change at ${seconds(time)} comes ${when} the Ts first reached ${nice(near.region)}.`;
+}
+
 // --------------------------------------------------------------------------- colour
 
-type Scale = "lime" | "t" | "ct" | "diverging";
+// "unit" is diverging over -1..+1, the range a GRU's memory values are bounded to.
+type Scale = "lime" | "t" | "ct" | "diverging" | "unit";
 const RGB = {
   ground: [20, 24, 21],
   lime: [200, 241, 105],
@@ -128,8 +181,8 @@ function mix(a: number[], b: number[], f: number): [number, number, number] {
 }
 
 function colour(scale: Scale, value: number, lo: number, hi: number): [number, number, number] {
-  if (scale === "diverging") {
-    const limit = 2.5;
+  if (scale === "diverging" || scale === "unit") {
+    const limit = scale === "unit" ? 1 : 2.5;
     return value >= 0
       ? mix(RGB.ground, RGB.lime, value / limit)
       : mix(RGB.ground, RGB.negative, -value / limit);
@@ -432,6 +485,28 @@ function PeakHistogram({ peaks, times, units }: { peaks: number[]; times: number
   );
 }
 
+function ChangeStrip({ change, times }: { change: number[]; times: number[] }) {
+  const top = Math.max(...change, 0);
+  return (
+    <figure className="viz-figure">
+      <figcaption className="viz-title">
+        <span>How much the memory changed at each moment</span>
+        <span className="viz-readout">largest {top.toFixed(2)}</span>
+      </figcaption>
+      <div className="bar-strip" role="img" aria-label="Memory change over time">
+        {change.map((value, i) => (
+          <span
+            key={i}
+            style={{ height: `${top > 0 ? (value / top) * 100 : 0}%` }}
+            title={`${seconds(times[i])}: ${value.toFixed(3)}`}
+          />
+        ))}
+      </div>
+      <TimeAxis duration={times[times.length - 1] ?? 0} />
+    </figure>
+  );
+}
+
 function SeedBars({ stage, classes }: { stage: ModelStage; classes: string[] }) {
   const winner = argmax(stage.ensemble, classes);
   return (
@@ -535,31 +610,186 @@ function DilationDiagram({ dilations, kernel, stepS }: { dilations: number[]; ke
   );
 }
 
+function UnrolledGru({ stage }: { stage: FullGruStage }) {
+  const a = stage.architecture;
+  const times = stage.row_times_s;
+  const rows = times.length;
+  const marker = `gru-arrow-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
+  // The first rows, then an ellipsis and the last row: about ten cells.
+  const head = 7;
+  const slots: (number | "gap")[] =
+    rows <= head + 2 ? times.map((_, i) => i) : [...Array(head).keys(), "gap", rows - 1];
+  const gapIndex = slots.indexOf("gap");
+  const width = 420;
+  const height = 196;
+  const left = 52;
+  const blockX = 336;
+  const slotW = (blockX - 22 - left) / slots.length;
+  const cellW = Math.min(22, slotW - 10);
+  const cx = (i: number) => left + slotW * (i + 0.5);
+  const busY = 30;
+  const cellY = 62;
+  const cellH = 22;
+  const joinY = 116;
+  const rowY = 140;
+  const rowH = 14;
+  const memoryY = cellY + cellH / 2;
+  const cells = slots.map((slot, i) => ({ slot, i })).filter((c) => c.slot !== "gap");
+  const labelX = gapIndex >= 0 ? cx(gapIndex) : (cx(0) + cx(Math.min(1, slots.length - 1))) / 2;
+  return (
+    <figure className="viz-figure">
+      <figcaption className="viz-title">
+        <span>The same GRU cell at every row</span>
+        <span className="viz-readout">{rows} rows</span>
+      </figcaption>
+      <svg className="diagram" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Unrolled GRU diagram">
+        <defs>
+          <marker id={marker} markerHeight={5} markerWidth={5} orient="auto" refX={5} refY={3} viewBox="0 0 6 6">
+            <path className="diagram-arrowhead" d="M0,0 L6,3 L0,6 z" />
+          </marker>
+        </defs>
+        {/* Every cell's output goes up to the mean + max readout. */}
+        <text className="diagram-label" x={cx(0) - cellW / 2} y={busY - 8}>
+          every cell's output ({a.hidden} numbers)
+        </text>
+        <line className="diagram-arrow" markerEnd={`url(#${marker})`} x1={cx(0)} x2={blockX - 2} y1={busY} y2={busY} />
+        {cells.map(({ i }) => (
+          <line className="diagram-edge" key={`out-${i}`} x1={cx(i)} x2={cx(i)} y1={cellY} y2={busY} />
+        ))}
+        <rect className="diagram-box" height={92} rx={5} width={width - blockX - 2} x={blockX} y={busY - 14} />
+        <text className="diagram-box-label" textAnchor="middle" x={(blockX + width) / 2} y={busY + 8}>
+          mean + max
+        </text>
+        <text className="diagram-box-label" textAnchor="middle" x={(blockX + width) / 2} y={busY + 30}>
+          → {a.readout_width}
+        </text>
+        <text className="diagram-box-label" textAnchor="middle" x={(blockX + width) / 2} y={busY + 52}>
+          → {a.classes} classes
+        </text>
+
+        {/* Memory: starts at zero, then passes from each cell to the next. */}
+        <text className="diagram-label" textAnchor="end" x={cx(0) - cellW / 2 - 9} y={memoryY + 3}>
+          0
+        </text>
+        <line
+          className="diagram-memory"
+          markerEnd={`url(#${marker})`}
+          x1={cx(0) - cellW / 2 - 7}
+          x2={cx(0) - cellW / 2 - 1}
+          y1={memoryY}
+          y2={memoryY}
+        />
+        {slots.slice(0, -1).map((slot, i) => {
+          const next = slots[i + 1];
+          if (slot === "gap") return null;
+          const to = next === "gap" ? i + 2 : i + 1;
+          return (
+            <line
+              className={`diagram-memory ${next === "gap" ? "skipped" : ""}`}
+              key={`mem-${i}`}
+              markerEnd={`url(#${marker})`}
+              x1={cx(i) + cellW / 2}
+              x2={cx(to) - cellW / 2 - 1}
+              y1={memoryY}
+              y2={memoryY}
+            />
+          );
+        })}
+        <text className="diagram-label halo" textAnchor="middle" x={labelX} y={cellY + cellH + 14}>
+          memory ({a.hidden})
+        </text>
+
+        {/* Each row: input box, joined by the time inputs, into its cell. */}
+        {cells.map(({ slot, i }) => (
+          <g key={`cell-${i}`}>
+            <rect className="diagram-box accent" height={cellH} rx={4} width={cellW} x={cx(i) - cellW / 2} y={cellY} />
+            <text className="diagram-cell-label" textAnchor="middle" x={cx(i)} y={memoryY + 3}>
+              GRU
+            </text>
+            <line className="diagram-arrow" x1={cx(i)} x2={cx(i)} y1={joinY - 6} y2={cellY + cellH + 1} />
+            <line className="diagram-time" x1={cx(i) - 12} x2={cx(i) - 5} y1={joinY + 9} y2={joinY + 3} />
+            <circle className="diagram-join" cx={cx(i)} cy={joinY} r={5} />
+            <text className="diagram-cell-label" textAnchor="middle" x={cx(i)} y={joinY + 3}>
+              +
+            </text>
+            <line className="diagram-arrow" x1={cx(i)} x2={cx(i)} y1={rowY} y2={joinY + 6} />
+            <rect className="diagram-box" height={rowH} rx={2} width={cellW} x={cx(i) - cellW / 2} y={rowY} />
+            <text className="diagram-label" textAnchor="middle" x={cx(i)} y={rowY + rowH + 12}>
+              {times[slot as number].toFixed(1)}s
+            </text>
+          </g>
+        ))}
+        {gapIndex >= 0 && (
+          <>
+            <text className="diagram-box-label" textAnchor="middle" x={cx(gapIndex)} y={memoryY - 4}>
+              …
+            </text>
+            <text className="diagram-box-label" textAnchor="middle" x={cx(gapIndex)} y={rowY + rowH - 2}>
+              …
+            </text>
+          </>
+        )}
+
+        <text className="diagram-label" x={0} y={memoryY + 3}>
+          cells
+        </text>
+        <text className="diagram-label" x={0} y={joinY + 3}>
+          +{a.time_inputs} time
+        </text>
+        <text className="diagram-label" x={0} y={rowY + rowH - 3}>
+          rows
+        </text>
+        <text className="diagram-label" textAnchor="middle" x={(left + blockX - 22) / 2} y={height - 4}>
+          ← rows of the clip, oldest first →
+        </text>
+      </svg>
+    </figure>
+  );
+}
+
 function GruDiagram({ stage }: { stage: GruStage }) {
-  const boxes = [
-    { label: `${stage.input_width}`, sub: "numbers in" },
-    { label: `${stage.architecture.projection}`, sub: "projection" },
-    { label: `${stage.architecture.hidden}`, sub: "GRU memory" },
-    { label: `${stage.architecture.hidden * 2}`, sub: "mean + max" },
-    { label: "5", sub: "classes" },
-  ];
-  const width = 360;
-  const box = 54;
+  const a = stage.architecture;
+  const full = isFullGru(stage) ? stage.architecture : null;
+  const boxes = full
+    ? [
+        { label: `${full.projection_in}`, sub: "numbers in" },
+        { label: `${full.projection}`, sub: "projection" },
+        { label: `+${full.time_inputs}`, sub: "time", kind: "time" },
+        { label: `${full.gru_input}`, sub: "GRU input" },
+        { label: `${full.hidden}`, sub: "memory", kind: "accent" },
+        { label: `${full.readout_width}`, sub: "mean + max" },
+        { label: `${full.classes}`, sub: "classes" },
+      ]
+    : [
+        { label: `${stage.input_width}`, sub: "numbers in" },
+        { label: `${a.projection}`, sub: "projection" },
+        { label: `${a.hidden}`, sub: "GRU memory", kind: "accent" },
+        { label: `${a.hidden * 2}`, sub: "mean + max" },
+        { label: `${Object.keys(stage.ensemble).length}`, sub: "classes" },
+      ];
+  const width = full ? 520 : 360;
+  const box = full ? 50 : 54;
   const gap = (width - boxes.length * box) / (boxes.length - 1);
-  const memory = 2 * (box + gap);
+  const memoryIndex = boxes.findIndex((b) => b.kind === "accent");
+  const memory = memoryIndex * (box + gap);
   return (
     <figure className="viz-figure">
       <figcaption className="viz-title">
         <span>What happens at every row</span>
-        <span className="viz-readout">{stage.architecture.parameters.toLocaleString()} parameters</span>
+        <span className="viz-readout">{a.parameters.toLocaleString()} parameters</span>
       </figcaption>
-      <svg className="diagram" viewBox={`0 0 ${width} 96`} role="img" aria-label="GRU diagram">
+      <svg
+        aria-label="GRU diagram"
+        className={`diagram ${full ? "wide" : ""}`}
+        role="img"
+        viewBox={full ? `-12 0 ${width + 24} 96` : `0 0 ${width} 96`}
+      >
         {boxes.map((b, i) => {
           const x0 = i * (box + gap);
           return (
             <g key={b.sub}>
               {i > 0 && <line className="diagram-arrow" x1={x0 - gap + 2} x2={x0 - 3} y1={40} y2={40} />}
-              <rect className={`diagram-box ${i === 2 ? "accent" : ""}`} height={36} rx={5} width={box} x={x0} y={22} />
+              <rect className={`diagram-box ${b.kind ?? ""}`} height={36} rx={5} width={box} x={x0} y={22} />
               <text className="diagram-box-label" textAnchor="middle" x={x0 + box / 2} y={44}>
                 {b.label}
               </text>
@@ -619,6 +849,70 @@ function Stage({
       </header>
       <div className="viz-stage-body">{children}</div>
     </section>
+  );
+}
+
+function GruMemoryStage({
+  gru,
+  times,
+  route: steps,
+}: {
+  gru: FullGruStage;
+  times: number[];
+  route: { region: string; time: number }[];
+}) {
+  const a = gru.architecture;
+  const cellInputs: Heatmap = {
+    labels: [...gru.projection.labels, ...gru.time_inputs.labels],
+    values: [...gru.projection.values, ...gru.time_inputs.values],
+    min: Math.min(gru.projection.min, gru.time_inputs.min),
+    max: Math.max(gru.projection.max, gru.time_inputs.max),
+  };
+  // The first row has no previous row, so its gap is 0; the rest show the row spacing.
+  const gapRow = (gru.time_inputs.values[1] ?? []).slice(1);
+  const steadyGap = gapRow.length > 0 && gapRow.every((v) => v === gapRow[0]);
+  const moments = largestMoments(gru.memory_change, times);
+  const arrival = moments.map((i) => nearArrival(times[i], steps)).find(Boolean);
+  const takeaway = moments.length
+    ? `The memory changed most around ${moments.map((i) => seconds(times[i])).join(", ")} (largest first).${arrival ? ` ${arrival}` : ""}`
+    : "The memory hardly changed in this clip.";
+  return (
+    <Stage
+      number="04"
+      text={`The GRU reads the rows in order, one at a time, with the same small cell at every row. Each row is squeezed to ${a.projection} numbers and joined with ${a.time_inputs} time inputs, then a ${a.hidden}-number memory is updated, keeping what matters from earlier in the clip.`}
+      title="Read the clip in order, with memory"
+    >
+      <GruDiagram stage={gru} />
+      <div className="viz-pair">
+        <UnrolledGru stage={gru} />
+        <HeatmapChart
+          bands={[
+            { label: `${a.projection} projection`, rows: a.projection },
+            { label: `${a.time_inputs} time`, rows: a.time_inputs },
+          ]}
+          data={cellInputs}
+          height={110}
+          scale="diverging"
+          times={times}
+          title="What each GRU cell receives"
+        />
+      </div>
+      <Explain
+        read={`One GRU cell per row. The memory starts at zero and passes from cell to cell; every output goes to the mean + max summary (step 05). Besides the memory, each cell gets ${a.projection} projection values (a learned layer turning ${a.projection_in} numbers into ${a.projection}) and ${a.time_inputs} time inputs (seconds since the clip started and since the last row, ÷ ${a.time_scale_s}${steadyGap ? `; rows are ${(gapRow[0] * a.time_scale_s).toFixed(1)} s apart` : ""}). Lime is above zero, blue below.`}
+      />
+      <HeatmapChart
+        data={gru.hidden}
+        scale="unit"
+        showLabels
+        times={times}
+        title={`The GRU's memory (${a.hidden} numbers) as it reads the clip`}
+      />
+      <ChangeStrip change={gru.memory_change} times={times} />
+      <Explain
+        read={`Each row is one of the ${a.hidden} memory numbers over the clip, from −1 (blue) through 0 (dark) to +1 (lime). A flat band means the GRU is holding that value; a colour change means it updated it. The bars show the total change across all ${a.hidden} numbers from one row to the next, so tall bars mark the biggest updates. They show when the memory changed, not why.`}
+        takeaway={takeaway}
+      />
+    </Stage>
   );
 }
 
@@ -811,6 +1105,8 @@ export default function ModelPipeline({
             read="Left: one output (top dot) traced back to the input rows it depends on; each block doubles the gap. Right: each row is one learned pattern detector, bright where its pattern appears. Block 1 reacts to moments, the last block to whole sequences of movement."
           />
         </Stage>
+      ) : isFullGru(gru) ? (
+        <GruMemoryStage gru={gru} route={summary.route} times={times} />
       ) : (
         <Stage
           number="04"
@@ -820,14 +1116,15 @@ export default function ModelPipeline({
           <GruDiagram stage={gru} />
           <HeatmapChart
             data={gru.hidden}
-            scale="diverging"
+            scale="unit"
             showLabels
             times={times}
             title={`The GRU's memory (${gru.architecture.hidden} units) as it reads the clip`}
           />
           <Explain
-            read="Each row is one memory unit, read left to right as the GRU moves through the clip. Sudden colour changes mark moments that changed what the model remembers, such as a group entering a new region."
+            read="Each row is one memory unit, read left to right as the GRU moves through the clip. Sudden colour changes mark moments that changed what the model remembers; a change may reflect a group entering a new region."
           />
+          <p className="viz-empty">Analyse this round again to see the full GRU walkthrough.</p>
         </Stage>
       )}
 
