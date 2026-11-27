@@ -1,0 +1,48 @@
+{
+  "detector": "colour + icon split (live_preview.detect, spectator settings)",
+  "matches": [
+    {
+      "folder": "furia-falcons-mirage-cologne-major-2026",
+      "demo": "furia-vs-falcons-m1-mirage.dem"
+    },
+    {
+      "folder": "spirit-falcons-mirage-cologne-major 2026",
+      "demo": "spirit-vs-falcons-m2-mirage.dem"
+    },
+    {
+      "folder": "aurora-vitality-mirage-esl-pro-league-season-24",
+      "demo": "aurora-vs-vitality-m3-mirage.dem"
+    },
+    {
+      "folder": "mouz-betboom-mirage-iem-bejing-2026",
+      "demo": "mouz-vs-betboom-m2-mirage.dem"
+    }
+  ],
+  "check": {
+    "every_s": 1.0,
+    "fps": 10,
+    "spawn_s": 5.0,
+    "overlap_px": 18.0,
+    "still_speed": 20.0,
+    "moving_speed": 150.0,
+    "offset_range_s": 3.0,
+    "offset_step_s": 0.05,
+    "pair_px": 20.0,
+    "band": 4
+  },
+  "pass_mark": {
+    "median_px": 6.0,
+    "p90_px": 12.0,
+    "min_found": 0.9,
+    "max_extra": 0.1,
+    "match_px": 12.0,
+    "error_gate_px": 36.0
+  },
+  "split": "clock line on every complete round start; offset and radar mapping on odd rounds; score even rounds",
+  "versions": {
+    "numpy": "2.2.6",
+    "opencv-python": "4.12.0.88",
+    "demoparser2": "0.42.0"
+  },
+  "python": "3.13.14"
+}

@@ -1,0 +1,1477 @@
+{
+  "groups": {
+    "pooled": {
+      "T": {
+        "all": {
+          "players": 13871,
+          "found": 13241,
+          "missed": 630,
+          "found_rate": 0.9545815009732536,
+          "detections": 13541,
+          "extra": 300,
+          "extra_rate": 0.022154936858429952,
+          "median_px": 0.8442465344898398,
+          "p90_px": 2.2378906024944634,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": true
+          },
+          "pass": true
+        },
+        "spawn stack": {
+          "players": 865,
+          "found": 767,
+          "missed": 98,
+          "found_rate": 0.8867052023121387,
+          "detections": 780,
+          "extra": 13,
+          "extra_rate": 0.016666666666666666,
+          "median_px": 1.5926966836850571,
+          "p90_px": 3.5736687984218336,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": false,
+            "extra": true
+          },
+          "pass": false
+        },
+        "after spawn": {
+          "players": 13006,
+          "found": 12474,
+          "missed": 532,
+          "found_rate": 0.9590958019375673,
+          "detections": 12761,
+          "extra": 287,
+          "extra_rate": 0.022490400438837082,
+          "median_px": 0.810677415774276,
+          "p90_px": 2.133401390573483,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": true
+          },
+          "pass": true
+        },
+        "overlapping": {
+          "players": 2816,
+          "found": 2421,
+          "missed": 395,
+          "found_rate": 0.8597301136363636,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 1.4386797903201323,
+          "p90_px": 3.0777807396648766,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": false,
+            "extra": false
+          },
+          "pass": false
+        },
+        "isolated": {
+          "players": 10190,
+          "found": 10053,
+          "missed": 137,
+          "found_rate": 0.9865554465161923,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 0.7106147103465552,
+          "p90_px": 1.869884387394814,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        },
+        "bomb carrier": {
+          "players": 2233,
+          "found": 2176,
+          "missed": 57,
+          "found_rate": 0.974473802060009,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 1.5557382482882383,
+          "p90_px": 2.4050563360001234,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        },
+        "still": {
+          "players": 3111,
+          "found": 2965,
+          "missed": 146,
+          "found_rate": 0.9530697524911604,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 0.5135432302286436,
+          "p90_px": 1.6969079659247481,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        },
+        "moving": {
+          "players": 4097,
+          "found": 3865,
+          "missed": 232,
+          "found_rate": 0.9433731999023676,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 1.3590842264937473,
+          "p90_px": 2.9262719102329484,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        }
+      },
+      "CT": {
+        "all": {
+          "players": 13853,
+          "found": 13619,
+          "missed": 234,
+          "found_rate": 0.9831083519815202,
+          "detections": 13681,
+          "extra": 62,
+          "extra_rate": 0.004531832468386814,
+          "median_px": 0.7088423393556788,
+          "p90_px": 1.9237318759244368,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": true
+          },
+          "pass": true
+        },
+        "spawn stack": {
+          "players": 865,
+          "found": 780,
+          "missed": 85,
+          "found_rate": 0.9017341040462428,
+          "detections": 780,
+          "extra": 0,
+          "extra_rate": 0.0,
+          "median_px": 1.7109417592059342,
+          "p90_px": 3.4955158994258775,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": true
+          },
+          "pass": true
+        },
+        "after spawn": {
+          "players": 12988,
+          "found": 12839,
+          "missed": 149,
+          "found_rate": 0.988527871881737,
+          "detections": 12901,
+          "extra": 62,
+          "extra_rate": 0.0048058290055034494,
+          "median_px": 0.6822874633778819,
+          "p90_px": 1.7428901430970127,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": true
+          },
+          "pass": true
+        },
+        "overlapping": {
+          "players": 1300,
+          "found": 1220,
+          "missed": 80,
+          "found_rate": 0.9384615384615385,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 1.2545414252448124,
+          "p90_px": 2.774087761064151,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        },
+        "isolated": {
+          "players": 11688,
+          "found": 11619,
+          "missed": 69,
+          "found_rate": 0.9940965092402464,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 0.6515633792336806,
+          "p90_px": 1.5849419153734723,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        },
+        "bomb carrier": {
+          "players": 0,
+          "found": 0,
+          "missed": 0,
+          "found_rate": null,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": null,
+          "p90_px": null,
+          "passes": {
+            "median": false,
+            "p90": false,
+            "found": false,
+            "extra": false
+          },
+          "pass": false
+        },
+        "still": {
+          "players": 3357,
+          "found": 3279,
+          "missed": 78,
+          "found_rate": 0.9767649687220733,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 0.48401472707775817,
+          "p90_px": 0.8490409732177893,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        },
+        "moving": {
+          "players": 3982,
+          "found": 3874,
+          "missed": 108,
+          "found_rate": 0.9728779507785033,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 1.2972808909545765,
+          "p90_px": 2.7837572110634676,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        }
+      }
+    },
+    "furia-falcons-mirage-cologne-major-2026": {
+      "T": {
+        "all": {
+          "players": 3024,
+          "found": 2862,
+          "missed": 162,
+          "found_rate": 0.9464285714285714,
+          "detections": 2926,
+          "extra": 64,
+          "extra_rate": 0.021872863978127138,
+          "median_px": 1.0037975332622293,
+          "p90_px": 2.684453468239261,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": true
+          },
+          "pass": true
+        },
+        "spawn stack": {
+          "players": 215,
+          "found": 195,
+          "missed": 20,
+          "found_rate": 0.9069767441860465,
+          "detections": 201,
+          "extra": 6,
+          "extra_rate": 0.029850746268656716,
+          "median_px": 1.8621491140194062,
+          "p90_px": 4.253245728869449,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": true
+          },
+          "pass": true
+        },
+        "after spawn": {
+          "players": 2809,
+          "found": 2667,
+          "missed": 142,
+          "found_rate": 0.9494482022071912,
+          "detections": 2725,
+          "extra": 58,
+          "extra_rate": 0.02128440366972477,
+          "median_px": 0.9515194231023628,
+          "p90_px": 2.5577207544920704,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": true
+          },
+          "pass": true
+        },
+        "overlapping": {
+          "players": 749,
+          "found": 635,
+          "missed": 114,
+          "found_rate": 0.8477970627503337,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 1.6234949492292605,
+          "p90_px": 3.501469091266528,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": false,
+            "extra": false
+          },
+          "pass": false
+        },
+        "isolated": {
+          "players": 2060,
+          "found": 2032,
+          "missed": 28,
+          "found_rate": 0.9864077669902913,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 0.7892791803433001,
+          "p90_px": 2.1589289084606698,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        },
+        "bomb carrier": {
+          "players": 570,
+          "found": 546,
+          "missed": 24,
+          "found_rate": 0.9578947368421052,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 1.594974225641551,
+          "p90_px": 2.6351095909659112,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        },
+        "still": {
+          "players": 606,
+          "found": 577,
+          "missed": 29,
+          "found_rate": 0.9521452145214522,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 0.5849457159191002,
+          "p90_px": 1.9507354951134246,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        },
+        "moving": {
+          "players": 964,
+          "found": 914,
+          "missed": 50,
+          "found_rate": 0.9481327800829875,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 1.4949992974640582,
+          "p90_px": 3.3210253401425778,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        }
+      },
+      "CT": {
+        "all": {
+          "players": 2917,
+          "found": 2869,
+          "missed": 48,
+          "found_rate": 0.9835447377442578,
+          "detections": 2878,
+          "extra": 9,
+          "extra_rate": 0.0031271716469770676,
+          "median_px": 0.7481577834291929,
+          "p90_px": 2.1889417706476957,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": true
+          },
+          "pass": true
+        },
+        "spawn stack": {
+          "players": 215,
+          "found": 188,
+          "missed": 27,
+          "found_rate": 0.8744186046511628,
+          "detections": 188,
+          "extra": 0,
+          "extra_rate": 0.0,
+          "median_px": 2.0857486559443177,
+          "p90_px": 4.074852967874978,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": false,
+            "extra": true
+          },
+          "pass": false
+        },
+        "after spawn": {
+          "players": 2702,
+          "found": 2681,
+          "missed": 21,
+          "found_rate": 0.9922279792746114,
+          "detections": 2690,
+          "extra": 9,
+          "extra_rate": 0.003345724907063197,
+          "median_px": 0.7196132545961887,
+          "p90_px": 1.9871393791772725,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": true
+          },
+          "pass": true
+        },
+        "overlapping": {
+          "players": 187,
+          "found": 171,
+          "missed": 16,
+          "found_rate": 0.9144385026737968,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 1.4143216326427175,
+          "p90_px": 2.705672530623185,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        },
+        "isolated": {
+          "players": 2515,
+          "found": 2510,
+          "missed": 5,
+          "found_rate": 0.9980119284294234,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 0.6953323710292205,
+          "p90_px": 1.8828771788443974,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        },
+        "bomb carrier": {
+          "players": 0,
+          "found": 0,
+          "missed": 0,
+          "found_rate": null,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": null,
+          "p90_px": null,
+          "passes": {
+            "median": false,
+            "p90": false,
+            "found": false,
+            "extra": false
+          },
+          "pass": false
+        },
+        "still": {
+          "players": 581,
+          "found": 576,
+          "missed": 5,
+          "found_rate": 0.9913941480206541,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 0.47598519235227355,
+          "p90_px": 0.8092293150018051,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        },
+        "moving": {
+          "players": 936,
+          "found": 905,
+          "missed": 31,
+          "found_rate": 0.9668803418803419,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 1.5543912699759537,
+          "p90_px": 3.1824781631931525,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        }
+      }
+    },
+    "spirit-falcons-mirage-cologne-major 2026": {
+      "T": {
+        "all": {
+          "players": 3510,
+          "found": 3340,
+          "missed": 170,
+          "found_rate": 0.9515669515669516,
+          "detections": 3446,
+          "extra": 106,
+          "extra_rate": 0.030760301799187463,
+          "median_px": 0.9504954622297088,
+          "p90_px": 2.3189960543251753,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": true
+          },
+          "pass": true
+        },
+        "spawn stack": {
+          "players": 220,
+          "found": 197,
+          "missed": 23,
+          "found_rate": 0.8954545454545455,
+          "detections": 199,
+          "extra": 2,
+          "extra_rate": 0.010050251256281407,
+          "median_px": 1.5401441372228408,
+          "p90_px": 3.5051613185959902,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": false,
+            "extra": true
+          },
+          "pass": false
+        },
+        "after spawn": {
+          "players": 3290,
+          "found": 3143,
+          "missed": 147,
+          "found_rate": 0.9553191489361702,
+          "detections": 3247,
+          "extra": 104,
+          "extra_rate": 0.032029565753002774,
+          "median_px": 0.9233509341346068,
+          "p90_px": 2.247428950409856,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": true
+          },
+          "pass": true
+        },
+        "overlapping": {
+          "players": 777,
+          "found": 662,
+          "missed": 115,
+          "found_rate": 0.851994851994852,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 1.4222598747769573,
+          "p90_px": 3.149773087443238,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": false,
+            "extra": false
+          },
+          "pass": false
+        },
+        "isolated": {
+          "players": 2513,
+          "found": 2481,
+          "missed": 32,
+          "found_rate": 0.987266215678472,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 0.8240999922880364,
+          "p90_px": 1.9757840257950963,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        },
+        "bomb carrier": {
+          "players": 603,
+          "found": 593,
+          "missed": 10,
+          "found_rate": 0.9834162520729685,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 1.522734876526772,
+          "p90_px": 2.5186866887408046,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        },
+        "still": {
+          "players": 775,
+          "found": 734,
+          "missed": 41,
+          "found_rate": 0.9470967741935484,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 0.5570806258815638,
+          "p90_px": 1.6865602093889278,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        },
+        "moving": {
+          "players": 1030,
+          "found": 976,
+          "missed": 54,
+          "found_rate": 0.9475728155339805,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 1.3703223779857314,
+          "p90_px": 2.9476367910739034,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        }
+      },
+      "CT": {
+        "all": {
+          "players": 3773,
+          "found": 3722,
+          "missed": 51,
+          "found_rate": 0.9864829048502518,
+          "detections": 3746,
+          "extra": 24,
+          "extra_rate": 0.006406833956219968,
+          "median_px": 0.7921068458785077,
+          "p90_px": 2.035512514223524,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": true
+          },
+          "pass": true
+        },
+        "spawn stack": {
+          "players": 220,
+          "found": 202,
+          "missed": 18,
+          "found_rate": 0.9181818181818182,
+          "detections": 202,
+          "extra": 0,
+          "extra_rate": 0.0,
+          "median_px": 1.785283372243148,
+          "p90_px": 3.2902153023103566,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": true
+          },
+          "pass": true
+        },
+        "after spawn": {
+          "players": 3553,
+          "found": 3520,
+          "missed": 33,
+          "found_rate": 0.9907120743034056,
+          "detections": 3544,
+          "extra": 24,
+          "extra_rate": 0.006772009029345372,
+          "median_px": 0.7711916681176441,
+          "p90_px": 1.8953342905966832,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": true
+          },
+          "pass": true
+        },
+        "overlapping": {
+          "players": 360,
+          "found": 349,
+          "missed": 11,
+          "found_rate": 0.9694444444444444,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 1.3298156827312306,
+          "p90_px": 2.7896321448412653,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        },
+        "isolated": {
+          "players": 3193,
+          "found": 3171,
+          "missed": 22,
+          "found_rate": 0.9931099279674287,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 0.7391547268910922,
+          "p90_px": 1.7105385917886438,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        },
+        "bomb carrier": {
+          "players": 0,
+          "found": 0,
+          "missed": 0,
+          "found_rate": null,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": null,
+          "p90_px": null,
+          "passes": {
+            "median": false,
+            "p90": false,
+            "found": false,
+            "extra": false
+          },
+          "pass": false
+        },
+        "still": {
+          "players": 993,
+          "found": 972,
+          "missed": 21,
+          "found_rate": 0.9788519637462235,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 0.5058378918650206,
+          "p90_px": 0.9081708184454249,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        },
+        "moving": {
+          "players": 1027,
+          "found": 1006,
+          "missed": 21,
+          "found_rate": 0.9795520934761441,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 1.3877931258939198,
+          "p90_px": 2.8577119621938563,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        }
+      }
+    },
+    "aurora-vitality-mirage-esl-pro-league-season-24": {
+      "T": {
+        "all": {
+          "players": 4132,
+          "found": 3950,
+          "missed": 182,
+          "found_rate": 0.9559535333978703,
+          "detections": 4003,
+          "extra": 53,
+          "extra_rate": 0.013240069947539346,
+          "median_px": 0.7102404154687187,
+          "p90_px": 1.941867738753792,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": true
+          },
+          "pass": true
+        },
+        "spawn stack": {
+          "players": 220,
+          "found": 192,
+          "missed": 28,
+          "found_rate": 0.8727272727272727,
+          "detections": 194,
+          "extra": 2,
+          "extra_rate": 0.010309278350515464,
+          "median_px": 1.4385165158294728,
+          "p90_px": 3.056562086614288,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": false,
+            "extra": true
+          },
+          "pass": false
+        },
+        "after spawn": {
+          "players": 3912,
+          "found": 3758,
+          "missed": 154,
+          "found_rate": 0.9606339468302658,
+          "detections": 3809,
+          "extra": 51,
+          "extra_rate": 0.01338934103439223,
+          "median_px": 0.6871567365240824,
+          "p90_px": 1.8642949817941847,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": true
+          },
+          "pass": true
+        },
+        "overlapping": {
+          "players": 759,
+          "found": 640,
+          "missed": 119,
+          "found_rate": 0.8432147562582345,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 1.391128551656582,
+          "p90_px": 2.7850375005620673,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": false,
+            "extra": false
+          },
+          "pass": false
+        },
+        "isolated": {
+          "players": 3153,
+          "found": 3118,
+          "missed": 35,
+          "found_rate": 0.9888994608309547,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 0.6035545643955471,
+          "p90_px": 1.637590864896097,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        },
+        "bomb carrier": {
+          "players": 569,
+          "found": 556,
+          "missed": 13,
+          "found_rate": 0.9771528998242531,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 1.5775120254380481,
+          "p90_px": 2.2990994436199577,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        },
+        "still": {
+          "players": 1100,
+          "found": 1042,
+          "missed": 58,
+          "found_rate": 0.9472727272727273,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 0.49010866174761947,
+          "p90_px": 1.6356300870027365,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        },
+        "moving": {
+          "players": 1054,
+          "found": 991,
+          "missed": 63,
+          "found_rate": 0.9402277039848197,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 1.2358032889698782,
+          "p90_px": 2.712875491237265,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        }
+      },
+      "CT": {
+        "all": {
+          "players": 3811,
+          "found": 3747,
+          "missed": 64,
+          "found_rate": 0.9832065074783521,
+          "detections": 3765,
+          "extra": 18,
+          "extra_rate": 0.004780876494023904,
+          "median_px": 0.6263923843787568,
+          "p90_px": 1.57244569728883,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": true
+          },
+          "pass": true
+        },
+        "spawn stack": {
+          "players": 220,
+          "found": 196,
+          "missed": 24,
+          "found_rate": 0.8909090909090909,
+          "detections": 196,
+          "extra": 0,
+          "extra_rate": 0.0,
+          "median_px": 1.5787294327651393,
+          "p90_px": 3.2181290018564246,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": false,
+            "extra": true
+          },
+          "pass": false
+        },
+        "after spawn": {
+          "players": 3591,
+          "found": 3551,
+          "missed": 40,
+          "found_rate": 0.9888610414926204,
+          "detections": 3569,
+          "extra": 18,
+          "extra_rate": 0.0050434295320818156,
+          "median_px": 0.6122577907845944,
+          "p90_px": 1.4077466340420217,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": true
+          },
+          "pass": true
+        },
+        "overlapping": {
+          "players": 442,
+          "found": 422,
+          "missed": 20,
+          "found_rate": 0.9547511312217195,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 1.1402994013470986,
+          "p90_px": 2.624728931604179,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        },
+        "isolated": {
+          "players": 3149,
+          "found": 3129,
+          "missed": 20,
+          "found_rate": 0.9936487773896475,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 0.5777597673221755,
+          "p90_px": 1.1905452545652961,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        },
+        "bomb carrier": {
+          "players": 0,
+          "found": 0,
+          "missed": 0,
+          "found_rate": null,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": null,
+          "p90_px": null,
+          "passes": {
+            "median": false,
+            "p90": false,
+            "found": false,
+            "extra": false
+          },
+          "pass": false
+        },
+        "still": {
+          "players": 1110,
+          "found": 1085,
+          "missed": 25,
+          "found_rate": 0.9774774774774775,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 0.48822451429483776,
+          "p90_px": 0.8308458554769995,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        },
+        "moving": {
+          "players": 914,
+          "found": 890,
+          "missed": 24,
+          "found_rate": 0.973741794310722,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 1.127076523357569,
+          "p90_px": 2.4143535285892805,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        }
+      }
+    },
+    "mouz-betboom-mirage-iem-bejing-2026": {
+      "T": {
+        "all": {
+          "players": 3205,
+          "found": 3089,
+          "missed": 116,
+          "found_rate": 0.9638065522620904,
+          "detections": 3166,
+          "extra": 77,
+          "extra_rate": 0.024320909665192673,
+          "median_px": 0.802087403659338,
+          "p90_px": 2.0466312661317243,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": true
+          },
+          "pass": true
+        },
+        "spawn stack": {
+          "players": 210,
+          "found": 183,
+          "missed": 27,
+          "found_rate": 0.8714285714285714,
+          "detections": 186,
+          "extra": 3,
+          "extra_rate": 0.016129032258064516,
+          "median_px": 1.6043978580752682,
+          "p90_px": 2.9792533587423584,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": false,
+            "extra": true
+          },
+          "pass": false
+        },
+        "after spawn": {
+          "players": 2995,
+          "found": 2906,
+          "missed": 89,
+          "found_rate": 0.9702838063439065,
+          "detections": 2980,
+          "extra": 74,
+          "extra_rate": 0.024832214765100672,
+          "median_px": 0.7630012105277142,
+          "p90_px": 1.9892785046322037,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": true
+          },
+          "pass": true
+        },
+        "overlapping": {
+          "players": 531,
+          "found": 484,
+          "missed": 47,
+          "found_rate": 0.911487758945386,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 1.356347464928032,
+          "p90_px": 2.6783471598856345,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        },
+        "isolated": {
+          "players": 2464,
+          "found": 2422,
+          "missed": 42,
+          "found_rate": 0.9829545454545454,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 0.6802238758840224,
+          "p90_px": 1.8494327421883614,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        },
+        "bomb carrier": {
+          "players": 491,
+          "found": 481,
+          "missed": 10,
+          "found_rate": 0.9796334012219959,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 1.491755287313387,
+          "p90_px": 2.1324349226064347,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        },
+        "still": {
+          "players": 630,
+          "found": 612,
+          "missed": 18,
+          "found_rate": 0.9714285714285714,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 0.46766502668712767,
+          "p90_px": 1.6252290028704355,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        },
+        "moving": {
+          "players": 1049,
+          "found": 984,
+          "missed": 65,
+          "found_rate": 0.9380362249761678,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 1.3824159876428364,
+          "p90_px": 2.640828069458196,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        }
+      },
+      "CT": {
+        "all": {
+          "players": 3352,
+          "found": 3281,
+          "missed": 71,
+          "found_rate": 0.97881861575179,
+          "detections": 3292,
+          "extra": 11,
+          "extra_rate": 0.003341433778857837,
+          "median_px": 0.6895820888338414,
+          "p90_px": 1.8377401556707802,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": true
+          },
+          "pass": true
+        },
+        "spawn stack": {
+          "players": 210,
+          "found": 194,
+          "missed": 16,
+          "found_rate": 0.9238095238095239,
+          "detections": 194,
+          "extra": 0,
+          "extra_rate": 0.0,
+          "median_px": 1.6220407935141714,
+          "p90_px": 3.133266612925667,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": true
+          },
+          "pass": true
+        },
+        "after spawn": {
+          "players": 3142,
+          "found": 3087,
+          "missed": 55,
+          "found_rate": 0.9824952259707193,
+          "detections": 3098,
+          "extra": 11,
+          "extra_rate": 0.0035506778566817302,
+          "median_px": 0.6623861023963754,
+          "p90_px": 1.6995355068130487,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": true
+          },
+          "pass": true
+        },
+        "overlapping": {
+          "players": 311,
+          "found": 278,
+          "missed": 33,
+          "found_rate": 0.8938906752411575,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 1.255581836776011,
+          "p90_px": 2.876029694458353,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": false,
+            "extra": false
+          },
+          "pass": false
+        },
+        "isolated": {
+          "players": 2831,
+          "found": 2809,
+          "missed": 22,
+          "found_rate": 0.9922288943836101,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 0.6244557771705547,
+          "p90_px": 1.566153410223423,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        },
+        "bomb carrier": {
+          "players": 0,
+          "found": 0,
+          "missed": 0,
+          "found_rate": null,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": null,
+          "p90_px": null,
+          "passes": {
+            "median": false,
+            "p90": false,
+            "found": false,
+            "extra": false
+          },
+          "pass": false
+        },
+        "still": {
+          "players": 673,
+          "found": 646,
+          "missed": 27,
+          "found_rate": 0.9598811292719168,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 0.44084125309594435,
+          "p90_px": 0.7971627909727526,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        },
+        "moving": {
+          "players": 1105,
+          "found": 1073,
+          "missed": 32,
+          "found_rate": 0.9710407239819004,
+          "detections": 0,
+          "extra": 0,
+          "extra_rate": null,
+          "median_px": 1.2468281826541068,
+          "p90_px": 2.3523050580264155,
+          "passes": {
+            "median": true,
+            "p90": true,
+            "found": true,
+            "extra": false
+          },
+          "pass": false
+        }
+      }
+    }
+  },
+  "calibration_flags": [],
+  "verdict": "PASS",
+  "inferred_carriers": 2516
+}

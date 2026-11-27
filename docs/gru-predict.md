@@ -192,8 +192,9 @@ This command:
 
 ## Limits
 
-- Detections are unvalidated colour estimates (see the README). Predictions inherit
-  their misses, for example stacked players or players standing on site letters.
+- Predictions inherit detector errors, including missed stacked players and icons
+  obscured by site letters. The [detector check](detector-check.md) measures position
+  accuracy on the four development matches.
 - The GRU's cross-validation score at its chosen epoch (0.833 mean macro-F1) is
   optimistic, because the epoch was picked on the same matches. It is not a test score.
 - The checks above were run on training clips. They show the code path reproduces the

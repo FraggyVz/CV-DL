@@ -3,6 +3,11 @@
 Follow these steps whenever new matches are recorded and labelled. They turn a replay
 recording into the shared data that every strategy model trains on.
 
+For the frozen six-match dataset, start with [Reproduce the submitted results](../README.md#reproduce-the-submitted-results).
+The 16 November export contains 128 reviewed clips (83 train, 45 test). The models
+omit Spirit segment #5 because its boundary is uncertain, leaving 82 training clips
+and 45 test clips. The 14 pending and 20 excluded segments remain in the label files.
+
 Run every command from the repository root with the project environment:
 `.\.venv\Scripts\python.exe -m stratscout <command>`.
 
@@ -76,9 +81,10 @@ match goes to training.
   `export.json` as `test_matches`).
 - To check the split before training, open `data/processed/datasets/<date>/export.json`
   or the two `manifest.csv` files and confirm which matches ended up in test.
-- Export uses every label file in `labels/` and every prepared recording on your
-  machine. **Get all of them first.** A match whose labels or recording are missing is
-  left out without an error.
+- Export starts from the label files in `labels/`. Each labelled match needs its
+  matching recording folder, `manifest.json` and minimap video. A missing recording
+  or mismatched match ID stops the export. Check that every intended match has a
+  label file before exporting.
 
 ### 5. Build the shared data
 
@@ -121,12 +127,19 @@ the same leave-one-match-out folds. Record the `data_version` and `regions_versi
 from `runs/clip-data-<date>/channels.json` with the results. **Score the test set once,
 at the end**, after all settings are fixed.
 
-Training on the shared data is not wired into the models yet. Until then,
-`train-tactics` still trains the TCN directly on the exported dataset:
+For TCN cross-validation, pass both the exported clips and the shared feature folder
+from step 5. The loader checks that the MP4 listed in each manifest row exists.
+Use a fresh output directory. For example, with the submitted dataset:
 
 ```powershell
-.\.venv\Scripts\python.exe -m stratscout train-tactics --dataset data/processed/datasets/<date> --output runs/tactic-tcn-<new> --exclude-uncertain --seeds 3
+.\.venv\Scripts\python.exe -m stratscout train-tactics --dataset data/processed/datasets/2026-11-16 --clip-data runs/clip-data-2026-11-16 --output runs/tactic-tcn-local-001 --exclude-uncertain --seeds 3
 ```
+
+This command runs development cross-validation. The submitted model comparison used
+nested epoch selection, documented in the [comparison notebook](../notebooks/tactic-model-comparison.ipynb).
+The [temporal model guide](tactic-temporal.md#clip-data-inputs) describes the shared
+inputs for the GRU and pooling baselines. The [GRU guide](gru-predict.md#command-line)
+gives the final fitting command using training-only inputs.
 
 ## Things to watch
 
@@ -151,6 +164,6 @@ Training on the shared data is not wired into the models yet. Until then,
 | Prepared recordings | `data/processed/recordings/<match>/` | No |
 | Label files | `labels/` | **Yes:** commit them so everyone exports the same dataset |
 | Exported datasets | `data/processed/datasets/<date>/` | No |
-| Detection cache | `runs/tactic-cache/` | **Yes** |
-| Shared clip data | `runs/clip-data-<date>/` | **Yes** |
-| Model runs | `runs/<run name>/` | **Yes:** commit the runs worth keeping, not scratch runs |
+| Detection cache | `runs/tactic-cache/` | The submitted cache is tracked |
+| Shared clip data | `runs/clip-data-<date>/` | The 16 November features are tracked |
+| Model runs | `runs/<run name>/` | Selected checkpoints and results are tracked. New runs are ignored by default |

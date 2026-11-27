@@ -2,18 +2,23 @@
 
 ## Get the videos (do this once)
 
-The match videos are too big for GitHub, so they come as ZIP files instead.
+To run the models or inspect the submitted results, use the
+[16 November clip dataset and results instructions](../README.md#reproduce-the-submitted-results).
+Open the labeller when you need the full match timeline to mark or check a boundary.
 
-1. Download the match ZIPs (Furia, Spirit, NaVi) from the shared folder.
-2. Right-click each ZIP → **Extract All…** → choose the `data/processed/recordings/`
-   folder inside the project. Create the folder if it does not exist.
-3. Check the result. Each match should be **one folder**, with the videos directly inside:
+1. Prepare a full match using the [recording guide](recording-setup.md), or obtain the
+   prepared recording from the teammate who holds it. Full-match recordings are shared
+   separately from the cut clips.
+2. Put the match folder under `data/processed/recordings/`. If supplied as a ZIP,
+   extract it there. Keep its original folder name and `manifest.json` so the labeller
+   can verify the saved labels belong to that recording.
+3. Check that the video and manifest sit directly inside the match folder, for example:
 
    ```text
    data/processed/recordings/
-       furia-falcons-mirage-cologne-major-2026/minimap-10fps.mp4
-       spirit-falcons-mirage-cologne-major/minimap-10fps.mp4
-       navi-falcons-mirage-cologne-major/minimap-10fps.mp4
+       furia-falcons-mirage-cologne-major-2026/
+           manifest.json
+           minimap-10fps.mp4
    ```
 
 **Common mistake:** a folder inside a folder with the same name, e.g.
@@ -189,10 +194,11 @@ python -m stratscout review-segments --match furia --reviewer jx --by gin --all-
 python -m stratscout review-segments --match navi --reviewer jx --by gin --ids 3 5 9
 ```
 
-`--all-labelled --except 7 12` leaves the listed segments pending. Then cut the clips:
+`--all-labelled --except 7 12` leaves the listed segments pending. For a fresh export
+with the submitted match split, hold out both NaVi–Falcons and Vitality–Falcons:
 
 ```powershell
-python -m stratscout export-segments --test navi --output data/processed/datasets/2026-11-01
+python -m stratscout export-segments --test navi-falcons-mirage-cologne-major vitality-falcons-mirage-esl-pro-league-season-24 --output data/processed/datasets/reviewed-export-001
 ```
 
 The output folder holds `train/` and `test/`, each with its own `manifest.csv` (one row

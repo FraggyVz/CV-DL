@@ -7,6 +7,16 @@ Demo files are used for evaluation, never as model input.
 
 ## Start here
 
+**[Open the StratScout live demo](https://stratscout.streamlit.app/)**. Select
+**Use sample clips**, add the Vitality–Falcons clip ending in `s006`, then select
+**Analyse Round 1**. Open **TCN only** or **GRU only** to follow the clip from
+player detections to its predicted tactic. The reviewed label for this example is
+`B_SPLIT`. The three bundled samples come from the held-out test matches.
+
+The cloud app accepts prepared radar clips. To analyse a full-screen recording of
+one tactic locally, use the [Docker setup](#run-the-web-application). For the
+dataset, checkpoints and scores, see [Reproduce the submitted results](#reproduce-the-submitted-results).
+
 | I want to…                                   | Read                                                                                                               |
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | Know what exists and what's next             | [Current status](#current-status) below                                                                            |
@@ -38,21 +48,54 @@ recording ─► prepare (crop radar, fix 2× speed, 5/10/30 fps) ─► label +
 | Shared clip data                                | Working: detector channels per named map region, bomb state and plant estimate, ResNet features on one timeline. Draft regions (`mirage-spectator-v1`). | ri3n                                     | `build-clip-data`, [doc](docs/clip-data.md)                      |
 | TCN strategy model                              | Working, with cross-validation and a scored test set                                                                                                    | ri3n                                     | `train-tactics`, `predict-tcn`, [Tactic model](#tactic-model)    |
 | Tactic baseline (ResNet mean + linear)          | Working, development scores only                                                                                                                        | jx                                       | `tactic-baseline`                                                |
-| Temporal models (temporal average pooling, GRU) | Working, development scores only                                                                                                                        | jx                                       | `tactic-temporal`, [doc](docs/tactic-temporal.md)                |
+| Temporal models (temporal average pooling, GRU) | Temporal pooling evaluated in development. The Compact pooled GRU was also scored on the held-out test set and is available in both apps. | jx | [Temporal models](docs/tactic-temporal.md), [GRU inference](docs/gru-predict.md) |
 | CNN icon detector                               | Exists; not used by the strategy models                                                                                                                 | Gin                                      | `detector`, `training`                                           |
 | Web app                                         | MP4 round upload, whole-clip review, match-wide analysis, TCN/GRU predictions, removal and reset                                                        | violetdisp2408                           | [Run the web application](#run-the-web-application)              |
 
 ### Data
 
-The current dataset is **`data/processed/datasets/2026-11-16`**: six matches, all
-segments reviewed. Training has 82 clips from Furia–Falcons, Spirit–Falcons,
-Aurora–Vitality and MOUZ–BetBoom; test has 45 clips from NaVi–Falcons and
-Vitality–Falcons. One clip, Spirit #5, has an uncertain boundary and is excluded
-with `--exclude-uncertain`. It contains every clip of the older `2026-11-01` export,
-so don't combine the two. Open label questions are in
-[labels/review-notes.md](labels/review-notes.md).
+The **2026-11-16 dataset** contains **128 reviewed clips from six matches**.
+The export has 83 training clips from Furia–Falcons, Spirit–Falcons,
+Aurora–Vitality and MOUZ–BetBoom, and 45 test clips from NaVi–Falcons and
+Vitality–Falcons. Spirit segment 5 has an uncertain boundary. Excluding it left
+**82 training + 45 test = 127 clips** for modelling. The label files retain 14
+pending and 20 excluded segments outside the export. The November export includes
+the clips from 1 November. Use one export at a time. [Review notes](labels/review-notes.md)
 
-### Results so far (2026-11-16, macro-F1)
+## Reproduce the submitted results
+
+**Inspect the scores from a clone.** Open the [model comparison notebook](notebooks/tactic-model-comparison.ipynb)
+for match-separated validation and the [final test notebook](notebooks/tactic-final-test.ipynb)
+for the 45 held-out clips. Both contain saved outputs. The [TCN test report](runs/tactic-tcn-clipdata-final/report.md)
+and [GRU test report](runs/tactic-gru-clipdata-test-20261121/report.md) include per-class results.
+For the upstream player-position check, read the [four-match detector report](docs/evidence/detector-check-2026-11-27/report.md).
+
+**Download the dataset to rerun training.** The [dataset ZIP (75 MiB)](https://github.com/FraggyVz/CV-DL/releases/download/dataset-2026-11-16/stratscout-clips-2026-11-16.zip)
+contains 128 cropped 10 fps MP4s, both split manifests and `export.json`.
+All 128 clips match the SHA-256 prefixes recorded in the original detection cache.
+The [dataset release](https://github.com/FraggyVz/CV-DL/releases/tag/dataset-2026-11-16)
+includes the archive digest and per-clip checksums.
+
+From the repository root in PowerShell, extract the downloaded ZIP into a fresh folder.
+Adjust the ZIP path if your browser saves downloads elsewhere.
+
+```powershell
+Expand-Archive "$env:USERPROFILE\Downloads\stratscout-clips-2026-11-16.zip" -DestinationPath data/processed/datasets/2026-11-16
+```
+
+You should see `export.json`, `train/manifest.csv` and `test/manifest.csv` directly
+under `data/processed/datasets/2026-11-16/`. Complete [Windows setup](#windows-setup),
+then train with the [shared features](runs/clip-data-2026-11-16/) and a fresh output directory.
+
+```powershell
+python -m stratscout train-tactics --dataset data/processed/datasets/2026-11-16 --clip-data runs/clip-data-2026-11-16 --exclude-uncertain --seeds 3 --output runs/submission-tcn-001
+```
+
+This runs the TCN's development comparison. The headline nested validation scores
+use a separate epoch-selection procedure documented in the comparison notebook.
+The [processing guide](docs/data-processing.md) covers feature extraction and training on new footage.
+
+### Submitted model results (macro-F1)
 
 Cross-validation on the 82 training clips (Spirit #5 excluded): each of the four training
 matches is held out in turn, seeds 0–2. The main column is **nested epoch selection**: the
@@ -112,9 +155,8 @@ dataset, exclusions, folds and seeds.
 
 ### Known gaps
 
-- Clips are cut by hand. Nothing finds tactic segments in a full match yet.
-- The web app still requires manually marked attack/retake boundaries; it does not find
-  tactics automatically in a full match.
+- A person picks each tactic's start and end when preparing clips. The app analyses
+  the entire uploaded clip as one interval. Full-match tactic segmentation is still open.
 - The detector is rule-based and imperfect: stacked or hidden icons are missed. There is
   no reliable player identity (tracker).
 - Map regions are a draft and need the team's review.
@@ -207,9 +249,9 @@ their source speed. New-round clips are analysed from start to finish.
 
 Videos that the browser cannot decode get a separate H.264/yuv420p playback copy; the
 uploaded original is preserved. Prepared analysis clips, manifests and result status are
-also kept under `data/web/uploads/analysis/` for provenance. The Docker image includes
-the CPU PyTorch/OpenCV inference stack, the tracked TCN/GRU checkpoints, FFmpeg and the
-cached ImageNet ResNet weights. The first build is larger and takes longer because it
+also kept under `data/web/uploads/analysis/` for provenance. Docker Compose mounts
+the tracked TCN and GRU checkpoints from the checkout. The image includes the CPU
+PyTorch/OpenCV inference stack, FFmpeg and the ImageNet ResNet weights. The first build takes longer because it
 installs these packages and downloads the ResNet weights. Docker is not required for
 the Python research commands elsewhere in this README.
 
@@ -250,8 +292,8 @@ Frontend unit tests use Node's built-in test runner and need no extra packages:
 
 ## Where files go
 
-Large files are shared outside GitHub. Put them in these folders, which Git already
-ignores, so every machine has the same layout and the commands find them by default:
+Keep full match videos and local exports in the following folders so the commands
+find them on each machine.
 
 ```text
 data/
@@ -273,12 +315,9 @@ runs/                              experiment outputs: ignored by Git except the
   each match is one folder with the videos directly inside it; see the
   [labelling guide](docs/labelling-guide.md#get-the-videos-do-this-once). Keep
   `manifest.json`: labels and exports check the match ID it contains.
-- **Shared clip dataset:** extract it into a dated folder such as
-  `data/processed/datasets/2026-11-01/`, with `export.json`, `train/` and `test/`
-  directly inside. If train and test arrive as separate ZIPs carrying the same
-  `export.json`, keep one copy at the top. Make a new dated folder for each export;
-  never mix clips from two exports.
-- **Tracked in Git:** Git ignores `runs/` (and `tmp/`), except for three kinds of files:
+- For the **submitted clip dataset**, follow [the download and extraction instructions](#reproduce-the-submitted-results).
+  Use a fresh dated directory for each subsequent export.
+- **Tracked in Git** under `runs/`:
   - the **final deployment models**, so a clone can predict straight away: the TCN in
     `runs/tactic-tcn-clipdata-final` and the Compact pooled GRU in
     `runs/tactic-gru-clipdata-final-20261121` (its `models/*.pt` and `report.json`);
@@ -288,12 +327,10 @@ runs/                              experiment outputs: ignored by Git except the
   - the **final test results**: the GRU's one test run in
     `runs/tactic-gru-clipdata-test-20261121` (made by `scripts/final_test_gru.py`), read
     by `notebooks/tactic-final-test.ipynb` with the TCN's saved test results.
-- **Shared run folders:** checkpoints, feature caches and all other run outputs stay
-  out of Git and are shared as a ZIP on the repo's Releases page. Extract it into `runs/`
-  so each run is one folder directly inside. The notebooks read these folders by name.
-- Do not commit videos, datasets or run outputs. `labels/` and code are shared through
-  Git. Two older folders committed before `runs/` was ignored (`clip-data-2026-11-16` and
-  `tactic-cache`) also stay tracked.
+  - the shared clip features in `runs/clip-data-2026-11-16/` and the per-clip player
+    and bomb detections in `runs/tactic-cache/`.
+- Keep raw match recordings, new exports and scratch runs outside Git. The three
+  curated [demo clips](deploy/streamlit/samples/) ship with the app.
 
 ## Process a recording
 
@@ -408,10 +445,10 @@ time-blind control (the same features pooled over the clip) and a majority-class
   image from a training match so a single clip is detected as in training. See the
   [prediction guide](docs/gru-predict.md).
 
-Detections are unvalidated colour estimates, so the features inherit their misses
-(e.g. players standing on site letters, stacks). The 2026-11-16 dataset (82 training
-clips from four matches, 45 test clips from two) shows feasibility, not deployable
-accuracy: the test matches share teams with training, and the clips are cut by hand.
+The strategy models inherit colour-detector errors on stacked players and obscured
+icons. The [detector check](docs/detector-check.md) compares estimated positions
+with demo coordinates on the four training matches. The tactic test covers two
+hand-segmented matches, both of which share teams with training.
 
 The smoke command trains a tiny synthetic detector and checks tracking, saving
 `detector.pt` and `summary.json`. It does not use real recordings or establish accuracy.
@@ -471,23 +508,15 @@ annotation/evaluation evidence, not vision-model inputs.
 
 ## Next steps
 
-1. **Compare the models fairly.** Retrain the TCN, GRU and baseline on the shared clip
-   data with the same dataset, exclusions, folds and seeds. Also run with and without
-   the ResNet part. Merge `feat/tactic-gru` when it's ready, checking its changes to
-   `tactic_features.py`.
+1. **Evaluate on new teams and matches.** Keep the submitted splits frozen. Prioritise
+   split attacks when collecting new data. Only nine `B_SPLIT` clips were available for training.
 2. **Review the map regions** in `stratscout/mirage_regions.json`, using the
    [walkthrough notebook](notebooks/clip-data-walkthrough.ipynb). Connector also
    catches some Ts on direct A attacks.
-3. **Resolve the open label items** in [labels/review-notes.md](labels/review-notes.md).
-   The Aurora, MOUZ and Vitality–Falcons label files are now in Git (done), so everyone
-   exports the same dataset.
-4. **Grow the dataset:** more matches, especially new teams and splits (B_SPLIT has only
-   9 training clips). Follow [data processing](docs/data-processing.md) and keep the
-   same test matches.
-5. **Showcase app:** connect the web scaffold to the saved models and results, with a
-   model comparison and per-round views.
-6. **Later:** automatic tactic segments in full matches, time since round start (needs
-   the recordings), a reliable tracker, and other maps.
+3. **Resolve open labels** for a future dataset version and record the decisions in
+   the [review notes](labels/review-notes.md). Keep the submitted annotations and scores reproducible.
+4. **Extend beyond prepared Mirage clips.** Full-match tactic segmentation, reliable
+   player identities and new maps each need separate validation.
 
 ## Development checks and historical references
 

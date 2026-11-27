@@ -161,9 +161,9 @@ X, mask = pad([assemble(c, compressor)[0] for c in train])  # (clips, max rows, 
 
 ## Limits
 
-- **The detector is an unvalidated colour detector.** jx's detector check measures it on
-  Furia and Spirit. Stacked or hidden icons are missed, and inferred carriers are about a
-  fifth of T detections.
+- **Stacked or hidden icons can be missed.** The colour detector was checked against
+  demo positions on the four development matches. Its T counts include bomb carriers
+  inferred from the badge. [Detector results and limits](detector-check.md)
 - **Draft regions.** See above.
 - **No time since round start.** The manifest gives each clip's round and start time in
   the recording, but the recordings are not on every machine. When they are, round starts

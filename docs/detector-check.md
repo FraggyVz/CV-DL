@@ -8,23 +8,32 @@ Vitality-Falcons, are refused by name.
 
 Demo positions are **evaluation evidence only**. They never become detector or model input.
 
-## Before you start (do this once)
+## Inspect the submitted verification
+
+The [four-match report](evidence/detector-check-2026-11-27/report.md) comes from a
+fresh verification on 27 November 2026 using the detector at `3d83112`. The
+[results notebook](../notebooks/detector-check-results.ipynb) reads the included
+summary, calibration curves and player-frame measurements without account IDs. Run it top
+to bottom in the project’s Python environment to reproduce the tables and figures.
+The [input checksums](evidence/detector-check-2026-11-27/input-sha256.txt)
+identify the four demos and four prepared videos used for verification.
+
+## Repeat the check from footage
 
 1. Put the prepared match folders in `data/processed/recordings/`; see the
-   [labelling guide](labelling-guide.md#get-the-videos-do-this-once).
+   [labelling guide](labelling-guide.md). The check uses the whole `minimap-10fps.mp4`
+   for each match.
 2. Put the matching demos in `demos/`. Each file name must start with the match name,
    for example `furia-vs-falcons-m1-mirage.dem` and `spirit-vs-falcons-m2-mirage.dem`.
 
-## Run it
-
 ```powershell
-python -m stratscout detector-check --matches furia spirit --output runs/detector-check-2026-11-11
+python -m stratscout detector-check --matches furia spirit aurora mouz --output runs/detector-check-new
 ```
 
-It takes about 4 minutes per match. Open `report.md` in the output folder, or run
-`notebooks/detector-check-results.ipynb` for plots.
-
-**Common mistake:** the output folder already exists. Choose a new name each time.
+Use a fresh output folder. Open its `report.md` or set `RUN` in the results notebook
+to that folder. A raw rerun also writes the per-detection table and player IDs. The
+submitted notebook uses the team, x and y coordinates, speed, distance to the
+matched detection and whether the player was found.
 
 ## What it does
 
@@ -65,7 +74,7 @@ error left over from the mapping, not from the detector.
 - Hidden carriers inferred from the C4 badge count as T detections. In the 2026-11-11 run
   they were 21% of T detections; counting observed icons only, T found falls to about 76%.
   A position-based model must take the inferred carrier too, marked as inferred.
-- Gaps are common: in that run at least one player was missing in 12% of team-frames, so
+- In the same 11 November two-match run, at least one player was missing in 12% of team-frames, so
   a model reading a sequence of frames must tolerate missing players.
 - The pass mark is pooled over the checked matches. Single rounds vary (in the 2026-11-11
   run, Furia round 2 had T found at 80.5%) and that run scored only 20 rounds.

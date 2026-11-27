@@ -1,0 +1,8 @@
+43202b23a12be5d71ea0006a68246c89d59d0e9cbb4fad127a814a463f6eb079  data/processed/recordings/furia-falcons-mirage-cologne-major-2026/minimap-10fps.mp4
+04f26f0f092f24fd13e7939dc56e72a3783a61872500b97b09810ed5a2363697  demos/furia-vs-falcons-m1-mirage.dem
+12d97f83e9efe7d5cd0f8a5790317d153392b0ea13f15c2d213e1c47de828ef0  data/processed/recordings/spirit-falcons-mirage-cologne-major 2026/minimap-10fps.mp4
+016036e5b8c3b9229d9e09adfeeef958fd911d6e1bad54c006fa757beeda023a  demos/spirit-vs-falcons-m2-mirage.dem
+ea91aa6ca7b40a7dcf88011c068486449a33a54114b98e19bf000ea181343f09  data/processed/recordings/aurora-vitality-mirage-esl-pro-league-season-24/minimap-10fps.mp4
+3ef7bfc9c4cb1bcd3960bf0f0c91b61272789e121ae8fdd42fcb7d15612bc4bf  demos/aurora-vs-vitality-m3-mirage.dem
+fe47538399ba13cee90d40afea7e5cb34a499f68fd22735af718c3e4339f2ec3  data/processed/recordings/mouz-betboom-mirage-iem-bejing-2026/minimap-10fps.mp4
+f729297bb563d6644cb1cd3cfeb10da0fd45a2795b8966c2ecc7c61d46e81502  demos/mouz-vs-betboom-m2-mirage.dem
