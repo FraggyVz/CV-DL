@@ -16,8 +16,9 @@ training matches only.
 ### The combined radar and image features performed best
 
 With the same mean-pooling approach, nested macro-F1 rose from 0.518 on ResNet-18
-image features alone to 0.796 on the combined detector and image features. The TCN
-using the combined features achieved the highest score overall
+image features alone to 0.796 on the combined detector and image features. The Compact
+pooled GRU gained the same way, from 0.600 to 0.792. The TCN using the combined features
+achieved the highest score overall
 ([model comparison](results.md#macro-f1-for-every-model)).
 
 | Input | Best nested macro-F1 | Model |
@@ -46,7 +47,8 @@ the same four matches, so this is a rough guide, not a significance test
 
 ### TCN and GRU on the held-out test set
 
-Both models were fixed before the test matches were scored. The TCN was selected by
+The test matches were never used for training or for choosing a model (see the
+[test notebook](../notebooks/tactic-final-test.ipynb) for details). The TCN was selected by
 nested cross-validation before the GRU was scored.
 
 | Model | Nested CV (mean ± seed SD) | Test, mean over seeds | Test, seed ensemble | Test accuracy (ensemble) |
@@ -243,10 +245,27 @@ These are problems the team hit, and what was done about each.
   training labels, so the clip-data scores may be optimistic.
 - **Little data.** There are 82 training clips and only nine B_SPLIT clips. Fold scores
   vary widely: the TCN scored 0.955 with Aurora–Vitality held out and 0.700 with
-  Spirit–Falcons held out. The GRU has about 280 weights per training clip, so it can
-  memorise a fold.
-- **Keeping the test set clean.** The test matches were scored once, after the settings
-  were fixed. Changing settings after seeing a test score would turn the test matches
+  Spirit–Falcons held out. The first (Last-state) GRU had about 280 weights per training
+  clip and memorised its folds; the Compact pooled GRU has about 29 (2,349 weights).
+- **The GRU was weak on ResNet images.** Even with the pooled readout
+  ([training choices](#training-choices-that-mattered)), the Compact pooled GRU reached
+  only 0.600 on ResNet-18 features, which describe the whole map rather than the players.
+  It was retrained on the shared clip features, whose region counts give the routes that
+  the class rules are defined by, and reached 0.792, close to the pooled classifier
+  (0.809). The gain also includes the change in sampling (16 frames per clip against 5
+  rows per second), so it cannot be credited to the features alone
+  ([model comparison](../notebooks/tactic-model-comparison.ipynb)).
+- **The first epoch rule was optimistic.** The TCN's original rule scored each held-out
+  match at the epoch that was best on the other folds, whose models had been trained on
+  that match. Nested selection chooses the epoch from the training matches only. Rerun
+  that way, the old rule had scored most image models higher, by up to 0.081, but made
+  little difference on clip data (−0.015 to +0.017). Nested selection is now the main
+  score. It is slower: the nested TCN run took about an hour, and the detector-features
+  TCN has no nested result yet
+  ([nested against other-folds](../notebooks/tactic-model-comparison.ipynb)).
+- **Keeping the test set clean.** The test matches were never used for training or for
+  choosing a model (see the [test notebook](../notebooks/tactic-final-test.ipynb) for
+  details). Changing settings after seeing a test score would turn the test matches
   into validation data.
 
 ### Deployment

@@ -15,7 +15,7 @@ SD. The TCN's **other-folds rule** (each match scored at the epoch best on the o
 matches, whose models were trained on it) is shown for reference only; it scored most
 models higher.
 
-| Model                                 | Input             | Nested macro-F1 (main) | Other-folds | Test (scored once)                                                 | Details                                                 |
+| Model                                 | Input             | Nested macro-F1 (main) | Other-folds | Test                                                               | Details                                                 |
 | ------------------------------------- | ----------------- | ---------------------- | ----------- | ------------------------------------------------------------------ | ------------------------------------------------------- |
 | Mean pooling                          | ResNet images     | 0.518 ± 0.034          | 0.584       | not run                                                            | [tactic baseline](tactic-baseline.md)                   |
 | Temporal average pooling (3 segments) | ResNet images     | 0.620 ± 0.015          | 0.650       | not run                                                            | [temporal models](tactic-temporal.md)                   |
