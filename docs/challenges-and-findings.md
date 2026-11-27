@@ -60,6 +60,38 @@ class's F1 a lot. The TCN stays the selected model; the GRU is the second opinio
 ([test notebook](../notebooks/tactic-final-test.ipynb),
 [GRU test report](../runs/tactic-gru-clipdata-test-20261121/report.md)).
 
+### Playback speed did not change the reported confidence
+
+The supplied 1× and 2× comparison reports identical TCN and GRU confidence for all
+24 clips. In this run, playback speed made no difference to the reported confidence.
+This does not establish that speed cannot affect predictions in other clips or setups.
+
+Across the 24 clips, the GRU has a slightly higher mean confidence than the TCN
+(90.2% against 87.8%) and a higher median (97% against 91%). The GRU reaches at least
+90% confidence on 17 clips, compared with 14 for the TCN. The TCN's scores range from
+61% to 97%; the GRU ranges from 46% to 100%. The GRU is more confident on average in
+this sample, but this alone does not show that it is more reliable.
+
+| Class | Clips | TCN mean confidence (range) | GRU mean confidence (range) |
+|---|---:|---:|---:|
+| A_DIRECT | 10 | 89.4% (61–97%) | 90.8% (74–99%) |
+| A_SPLIT | 1 | 86% | 73% |
+| B_DIRECT | 3 | 87.0% (78–92%) | 88.0% (65–100%) |
+| B_SPLIT | 3 | 90.3% (87–95%) | 77.7% (46–98%) |
+| RETAKE | 7 | 84.9% (61–92%) | 95.3% (83–100%) |
+
+The models' confidence differs by 9.5 percentage points on average (absolute gap),
+with gaps of at least 20 points on three clips. GRU confidence varies most on B_SPLIT:
+it is 46% on clip 009 while the TCN reports 89%. The models also differ on RETAKE clip
+019 (61% TCN, 92% GRU) and A_DIRECT clip 007 (61%, 90%). These are useful clips to
+review. Only clip 009 falls below the app's 0.6 review threshold, with the GRU at 46%;
+no TCN confidence is below it.
+Confidence describes the model's certainty, not whether its prediction is correct.
+The comparison does not record whether each prediction matches a reviewed label, so it
+cannot establish accuracy or whether confidence is calibrated. One A_SPLIT clip is too
+few to support a class trend; the class averages are descriptive only (manual 1×/2×
+confidence comparison, `testing results.txt`).
+
 ### Where the TCN is wrong
 
 In nested cross-validation, the TCN ensemble misclassified 10 of 82 clips. Four
@@ -219,9 +251,15 @@ These are problems the team hit, and what was done about each.
 
 ### Deployment
 
-- **Free hosting.** Hugging Face Docker and Gradio Spaces needed a paid plan when this
-  was checked in November 2026. The cloud demo runs on Streamlit Community Cloud instead,
-  on CPU.
+- **Finding a free public host for the Docker app.** The local website is a React +
+  FastAPI app run with Docker Compose. The team wanted a cloud deployment that anyone
+  could open, without requiring each visitor to run Docker or sign in. The Docker-based
+  hosting options investigated (Hugging Face Docker and Gradio Spaces) required a paid
+  plan for the needed deployment when checked in November 2026, so they did not meet the
+  free-hosting requirement. The team chose Streamlit Community Cloud for the public
+  StratScout demo instead. Its app runs on CPU and uses the same analysis code as the
+  local website, with a Streamlit page around the results view
+  ([deployment guide](../deploy/streamlit/README.md)).
 - **Reusing the local app in the cloud.** The cloud page calls the same
   `stratscout.web_analysis` code as the local app. It embeds the local app's React
   results view as a Streamlit component. Streamlit Community Cloud has no Node, so the
