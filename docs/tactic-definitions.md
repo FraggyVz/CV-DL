@@ -211,5 +211,5 @@ Preserve elapsed time when sampling model inputs. Rush tempo or an actual defaul
 opening may be future attributes/phases, not additions needed to inflate the class count.
 Other maps require their own region and route definitions. See the
 [README next steps](../README.md#next-steps) for implementation gaps and the
-[project structure](../README.md#project-structure-and-contracts) for module responsibilities.
+[project structure](development.md#project-structure-and-contracts) for module responsibilities.
 The [recording guide](recording-setup.md) covers capture and preparation.
