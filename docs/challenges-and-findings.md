@@ -6,22 +6,25 @@ evidence. The scores and dataset are described in the
 [README](../README.md#reproduce-the-submitted-results); this page does not repeat them in
 full.
 
-All scores are macro-F1 on the 2026-11-16 dataset: 82 training clips from four matches
-and 45 test clips from two matches. "Nested" means leave-one-match-out cross-validation
-with the epoch chosen from the training matches only.
+Tactic scores use macro-F1 unless another metric is named. The 2026-11-16 dataset
+provided 82 training clips from four matches and 45 test clips from two matches.
+"Nested" means leave-one-match-out cross-validation with the epoch chosen from the
+training matches only.
 
 ## Findings
 
-### Detector features beat raw images
+### The combined radar and image features performed best
 
-Models that read the detector's player positions per map region did much better than
-models that read ResNet-18 image features of the whole radar.
+With the same mean-pooling approach, nested macro-F1 rose from 0.518 on ResNet-18
+image features alone to 0.796 on the combined detector and image features. The TCN
+using the combined features achieved the highest score overall
+([model comparison](results.md#macro-f1-for-every-model)).
 
 | Input | Best nested macro-F1 | Model |
 |---|---:|---|
 | ResNet images | 0.620 ± 0.015 | Temporal average pooling (3 segments) |
 | Detector positions on an 8×8 grid | 0.595 | Mean pooling |
-| Clip data (72 detector channels per map region + 32 ResNet PCA numbers) | **0.849 ± 0.021** | TCN |
+| Clip data (72 detector channels in total + 32 ResNet PCA components) | **0.849 ± 0.021** | TCN |
 
 ResNet-18 was trained on everyday photos, and resizing to 224 × 224 shrinks the radar
 icons from about 18 px to about 8 px. Its features describe the whole map's appearance,
@@ -59,10 +62,11 @@ class's F1 a lot. The TCN stays the selected model; the GRU is the second opinio
 
 ### Where the TCN is wrong
 
-In cross-validation, 13 of the 82 training clips were misclassified by the TCN's seed
-ensemble. Seven of them confuse direct and split on the same site: four A_DIRECT clips
-called A_SPLIT, two B_DIRECT clips called B_SPLIT, and one A_SPLIT called A_DIRECT. Four
-RETAKE clips were called attacks.
+In nested cross-validation, the TCN ensemble misclassified 10 of 82 clips. Four
+errors confused direct and split attacks on the same site. Two A_DIRECT clips were
+called A_SPLIT, one A_SPLIT was called A_DIRECT, and one B_DIRECT was called
+B_SPLIT. The ensemble also classified three retakes as attacks
+([nested confusion matrix](../runs/tactic-tcn-clipdata-nested-20261120/summary.json)).
 
 On the test set the ensemble missed 3 of 45 clips: one A_DIRECT called B_SPLIT, one
 B_DIRECT called B_SPLIT, and one RETAKE called A_DIRECT
@@ -80,16 +84,30 @@ B_DIRECT called B_SPLIT, and one RETAKE called A_DIRECT
   whose models were trained on it, gave most models higher scores than nested selection.
   Nested selection is reported as the main score.
 
-### The detector is accurate on isolated players
+### Overall player detection
 
-Against demo positions on the four training matches, the colour detector found 95.5% of
-T players and 98.3% of CT players. The median error was under 1 px
-([detector check](evidence/detector-check-2026-11-27/report.md)). The difficult cases are
-listed under [edge cases](#edge-cases).
+Across the scored rounds of the four training matches, the detector found 95.5% of T
+and 98.3% of CT player positions within 12 radar pixels of their demo positions.
+Median error was under one pixel for both teams
+([detector check](evidence/detector-check-2026-11-27/report.md)). The
+[edge-case table](#detection) breaks down the results for isolated players, overlapping
+icons and spawn stacks.
 
 ## Challenges
 
 These are problems the team hit, and what was done about each.
+
+### Recording and storage
+
+- **Full matches took too long to record.** Gin recorded each replay once in OBS at
+  2560×1440 and 60 fps with playback fixed at 2×. For Aurora–Vitality, 24 minutes
+  of recording covered about 48 minutes of gameplay
+  ([recording setup](recording-setup.md#current-capture-setup)).
+- **Full-screen recordings were too large to share.** Gin’s `process-recordings` script
+  crops the minimap, restores 1× game time and exports aligned 5, 10 and 30 fps videos
+  in one pass. For the same Aurora–Vitality footage, the files were 22.7, 29.2 and
+  40.9 MB respectively. The 10 fps version used for labelling and modelling was 29%
+  smaller than the 30 fps version ([sampling implementation](../stratscout/video_preparation.py)).
 
 ### Modelling
 
@@ -146,8 +164,8 @@ These are problems the team hit, and what was done about each.
 - **Single rounds vary.** Furia round 2 had 80.5% of T players found, against a pooled
   95.5%.
 - **Connector picks up some direct A attacks.** 60% of A_DIRECT clips have a T in
-  connector at some point, against 100% of A_SPLIT clips. This fits the most common
-  error, A_DIRECT called A_SPLIT ([data checks](data-processing.md)).
+  connector at some point, against 100% of A_SPLIT clips. Occupying connector alone
+  cannot distinguish the two ([data checks](data-processing.md)).
 
 ### Labels and tactics
 
