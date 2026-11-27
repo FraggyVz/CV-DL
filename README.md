@@ -19,6 +19,7 @@ dataset, checkpoints and scores, see [Reproduce the submitted results](#reproduc
 
 | I want to…                                   | Read                                                                                                               |
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Walk through StratScout in one notebook      | [Project showcase](notebooks/stratscout-showcase.ipynb) — a real clip, detector overlays, both model predictions and held-out results |
 | Know what exists and what's next             | [Current status](#current-status) below                                                                            |
 | Record and prepare a match                   | [Recording guide](docs/recording-setup.md)                                                                         |
 | Label a match                                | [Labelling guide](docs/labelling-guide.md), with the class rules in the [tactic guide](docs/tactic-definitions.md) |
