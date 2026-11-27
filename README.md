@@ -103,7 +103,8 @@ The [processing guide](docs/data-processing.md) covers feature extraction and tr
 
 Cross-validation holds out each of the four training matches in turn (82 clips, Spirit #5
 excluded, seeds 0–2), with the epoch chosen from the other training matches only. The
-test set is 45 clips from two held-out matches, scored once after the settings were fixed.
+test set is 45 clips from two held-out matches, never used for training or for choosing a
+model.
 
 | Model              | Input         | Nested CV (mean ± seed SD) | Test, mean over seeds | Test, seed ensemble |
 | ------------------ | ------------- | -------------------------- | --------------------- | ------------------- |
