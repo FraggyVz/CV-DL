@@ -93,6 +93,65 @@ Median error was under one pixel for both teams
 [edge-case table](#detection) breaks down the results for isolated players, overlapping
 icons and spawn stacks.
 
+### Why the detector also finds the bomb
+
+Yongheng added C4 badge detection to Gin's colour baseline for three reasons
+([bomb-detection experiments](archive/bomb-detection.md)):
+
+- **The badge looked like a T player.** The orange badge (OpenCV hue ≈ 16) lies within
+  the colour baseline's hue tolerance of T yellow (≈ 27) and is player-sized (about
+  16 × 11 px), so the baseline would count it as a T. A shape rule (aspect, box fill and
+  corner fill) separates the rectangular badge from round icons, and player detection
+  skips it.
+- **The badge hides its carrier.** It is drawn on top of the carrier's icon, so one T
+  disappears whenever the bomb is carried. The detector infers that carrier at the
+  badge. In the four-match check, bomb carriers were found 97.4% of the time
+  ([detector check](evidence/detector-check-2026-11-27/report.md)). In the 2026-11-11
+  run, inferred carriers were 21% of T detections; without them, T found fell to about 76%
+  ([detector limits](detector-check.md#limits)).
+- **The bomb marks the post-plant phase.** Clip data gives the models the badge
+  position, its state (carried, alone, dropped or missing), an estimated plant and the
+  badge's distance to each site
+  ([detector channels](clip-data.md#detector-channels-72-per-row)). An estimated plant
+  appears in 75% of training RETAKE clips, against 0–20% of attack clips
+  ([data checks](data-processing.md)).
+
+In the bomb-badge ablation on 8×8 position features, planned before the scores were seen,
+removing the badge lowered macro-F1 by only 0.004–0.025. RETAKE F1 fell by about 0.1 for
+every model ([position results](tactic-temporal.md#results-with-position-features-2026-11-16)).
+The badge matters for the post-plant class, not for telling the attacks apart.
+
+### Overlapping icons are counted by disc fitting
+
+Icons of one team that overlap merge into a single blob, which the colour baseline
+counted as one player. Yongheng's splitter (`icon_split.find_icons_split`) gives each team
+its own colour mask, so a T touching a CT stays separate. For each blob it places k equal
+discs (k = 1–5, radius from the median icon area of 246 px²) at k-means centres and keeps
+the k whose union best matches the blob (IoU). Each team is capped at five, or four while
+a carrier is hidden under the badge ([overlapping icons](archive/icon-split.md)).
+
+Label-free checks on NaVi–Falcons, with thresholds fitted on Furia–Falcons and
+Spirit–Falcons:
+
+| | Old baseline | Area rule + cap | Disc fit + markers + cap |
+|---|---:|---:|---:|
+| All-alive frames showing five per team | 8.9% | 96.6% | 53.4% |
+| Whole-match frames with a team above five | 0.03% | 0% | 0% |
+
+The area rule scored higher on all-alive frames, which are mostly tight spawn stacks, but
+it over-counted small groups and death markers later in rounds. On a reviewed late-round
+frame showing 1 T and 3 CT, it reported 5 T and 5 CT. The disc fit matched every reviewed
+live-play frame, so the live preview and clip data use it. In the four-match demo check,
+overlapping icons were found 86.0% (T) and 93.8% (CT) of the time.
+
+### Round starts from video alone
+
+`rounds.py` estimates round starts from freeze time, when nearly all T colour sits in T
+spawn and all CT colour in CT spawn. Each recorded match gave 20–21 rounds, with the
+halftime pause before round 13. The [detector check](detector-check.md#what-it-does) pairs
+these video rounds with demo rounds, and the counts must agree. No calibration flags were
+raised on the four matches.
+
 ## Challenges
 
 These are problems the team hit, and what was done about each.
@@ -108,6 +167,38 @@ These are problems the team hit, and what was done about each.
   in one pass. For the same Aurora–Vitality footage, the files were 22.7, 29.2 and
   40.9 MB respectively. The 10 fps version used for labelling and modelling was 29%
   smaller than the 30 fps version ([sampling implementation](../stratscout/video_preparation.py)).
+
+### Player and bomb detection
+
+- **The badge merged with its carrier.** Shape alone found the badge in only 26% of
+  Furia–Falcons frames. 58% of the misses were a badge merged with an adjacent icon,
+  usually its carrier. The detector now keeps badge-orange pixels first (hue 10–21), then
+  applies a 3×3 opening to strip thin fringes, and only then checks the shape:
+
+  | 5 fps scan | Shape only | Colour then shape | + opening |
+  |---|---:|---:|---:|
+  | Furia–Falcons frames with a badge | 26% | 86% | 94% |
+  | Spirit–Falcons frames with a badge | 32% | 89% | 96% |
+
+  All 48 detections checked by eye were on the badge. This is not labelled recall.
+- **Carried and dropped badges look identical.** A first rule called the bomb carried
+  when T yellow was within 40 px. It misread a still carrier hidden under the badge as
+  dropped, and a teammate beside a dropped bomb as carried. The current rule reads the
+  badge's rim: four or more T-yellow or white arrow pixels in a 4 px band mean the
+  carrier is underneath. On Furia–Falcons, 99.7% of moving badges (certainly carried)
+  were judged carried. A still badge with no carrier for 2 s becomes a dropped candidate.
+- **Look-alikes at the rim.** The yellow A/B site letters, where a planted bomb often
+  sits, and the white arrow of a CT beside or defusing the bomb read as a carrier. Rim
+  yellow that matches the empty-map background, and arrows attached to cyan icons, are
+  now ignored.
+- **Death markers looked like players.** A ✕ marker appears in the team colour for about
+  2 s. Every living icon has a white direction arrow and a ✕ does not, so blobs touching
+  fewer than 8 white pixels are dropped. On the training matches, single living icons
+  touched at least 21–32 white pixels (1st–5th percentile).
+- **No labels for player counts.** No frames had hand-labelled players, so detector
+  versions were first compared with label-free checks: all-alive frames (freeze time and
+  the first 8 s after it) should show five per team, and a team never has more than five.
+  The demo-based [detector check](detector-check.md) later supplied true positions.
 
 ### Modelling
 
@@ -166,6 +257,17 @@ These are problems the team hit, and what was done about each.
 - **Connector picks up some direct A attacks.** 60% of A_DIRECT clips have a T in
   connector at some point, against 100% of A_SPLIT clips. Occupying connector alone
   cannot distinguish the two ([data checks](data-processing.md)).
+- **Planted or dropped.** The badge alone cannot tell them apart, so a bomb dropped on a
+  site counts as planted. A planted badge flickers in and out of detection and resets the
+  2 s stillness timer, so the bomb-state tracker reached "dropped" in only 20% of training
+  RETAKE clips. The plant estimate counts badge frames in a 3 s window instead
+  ([clip-data notes](clip-data.md#detector-channels-72-per-row)).
+- **Drops by death are reported late.** A yellow ✕ beside the badge reads as a carrier
+  for the ~2 s it is visible, so the drop appears about 2 s after the death.
+- **Spawn stacks of five** fit best as four discs, so they are under-counted. Tracking
+  players seen separately just before they stack, or a trained detector, could recover
+  them.
+- **A ✕ merged with living icons** keeps their arrows, so it is not removed until it fades.
 
 ### Labels and tactics
 
@@ -220,6 +322,12 @@ These rounds are open in the [review notes](../labels/review-notes.md):
   matches, the CNN detector, freeze time or post-round frames.
 - The pipeline graphs in the app show the recorded inference steps. They are not a
   feature-attribution explanation of why a model chose a tactic.
+- Bomb states, dropped candidates and plant estimates have not been checked against the
+  demo's `bomb_dropped`, `bomb_pickup` and `bomb_planted` events. Badge detections and
+  icon counts were reviewed by eye, not against hand labels.
+- The disc fit was chosen over the area rule using label-free counts and a visual review
+  of NaVi–Falcons video, which is now a test match. No tactic labels were involved, but
+  that match's video informed the detector choice.
 
 ### Components
 
