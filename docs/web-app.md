@@ -90,6 +90,45 @@ files are not deleted when the container stops. Files manually extracted into ne
 dataset folders are not automatically registered as recordings; use the upload control
 for a match video.
 
+## How the deployed models are kept fast
+
+Both apps, local and cloud, run the same analysis on CPU. Per clip, measured on the
+development laptop for clips of 19 to 33 s
+([timings](gru-predict.md#time-per-clip-cpu)):
+
+| Step | Time per clip | Share |
+|---|---|---|
+| Detection (colour rules, every frame) | about 11 s | most of it |
+| ResNet-18 features (every 2nd frame) | about 3 s | most of the rest |
+| TCN, 3 seeds | about 0.1 s | under 1% |
+| GRU, 3 seeds | about 0.07 s | under 1% |
+
+The choices that keep it at this level:
+
+- **Small models.** The TCN has 35,365 trainable weights per seed and the GRU 2,349.
+  All six checkpoints together, including each seed's saved scaling and ResNet
+  compression, are 1.7 MB and ship in the repository, so neither app downloads a model.
+- **Features computed once.** Detection and the ResNet features run once per clip, and
+  both ensembles read the same features.
+- **Small, fixed input.** Analysis runs on the 494 × 500 radar crop at 10 fps, never on
+  the full-screen video. The detector is colour and shape rules, with no neural network.
+- **Frozen ResNet-18 in inference mode.** The encoder runs in evaluation mode without
+  gradient tracking. The Docker image downloads its ImageNet weights at build time, not
+  on the first request.
+- **Models loaded once.** The ensembles are cached in memory after the first load (about
+  0.1 s); the cloud app loads them when it starts (`st.cache_resource`).
+- **CPU-only PyTorch.** Both apps install the CPU wheels, which keeps the image small and
+  lets the cloud app run on Streamlit Community Cloud, which has no GPU.
+- **Work off the request.** Each analysis runs in a background task (FastAPI) or thread
+  (Streamlit), so the page stays responsive and shows progress. A second analysis of a
+  recording that is already being analysed is refused.
+
+**Not done.** The models are not exported to TorchScript or ONNX, quantised or served
+with TorchServe. The TCN and GRU take under 1% of the time, so this would save little.
+The worthwhile targets are ResNet-18 (quantising or scripting it, about 3 s per clip)
+and detection (about 11 s). Running the detector on fewer frames would change the
+model's input, so it would need the cross-validation rerun.
+
 ## Frontend development
 
 For frontend development outside Docker, use Python 3.13 and Node.js 22. In one

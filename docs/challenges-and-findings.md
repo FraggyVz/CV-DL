@@ -409,4 +409,5 @@ These rounds are open in the [review notes](../labels/review-notes.md):
 
 The README's [next steps](../README.md#next-steps) list what follows from this page: new
 teams and matches (especially split attacks), a team review of the map regions, decisions
-on the open labels, and work beyond prepared Mirage clips.
+on the open labels, and work beyond prepared Mirage clips. How the project can grow
+further, to more maps, tactics and game mechanics, is in [scalability](scalability.md).

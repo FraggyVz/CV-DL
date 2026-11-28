@@ -29,6 +29,7 @@ dataset, checkpoints and scores, see [Reproduce the submitted results](#reproduc
 | See how accurate the detector is             | [Detector check](docs/detector-check.md)                                                                           |
 | See every model's scores                     | [Submitted results](docs/results.md)                                                                               |
 | Know the findings, challenges and limits     | [Findings, challenges, edge cases and limitations](docs/challenges-and-findings.md)                                |
+| See how it scales and what's next            | [Scalability](docs/scalability.md) and [Next steps](#next-steps)                           |
 | Run or change the web app                    | [Web app guide](docs/web-app.md) and the [Streamlit deployment](deploy/streamlit/README.md)                        |
 | Work on the ResNet models                    | [Tactic baseline](docs/tactic-baseline.md), [clip loader](docs/clip-loader.md)                                     |
 | Contribute code                              | [Contributor rules](AGENTS.md), [commands and code structure](docs/development.md) and [Development checks](#development-checks-and-historical-references) |
@@ -174,7 +175,8 @@ New uploads assume a prepared radar clip (494×500 at 10 fps); a full-screen rec
 needs the crop profile from the [recording guide](docs/recording-setup.md) first.
 
 The [web app guide](docs/web-app.md) covers the pipeline view, removing and resetting
-rounds, full-screen recordings, storage limits and frontend development. The cloud
+rounds, full-screen recordings, storage limits, [inference performance](docs/web-app.md#how-the-deployed-models-are-kept-fast)
+and frontend development. The cloud
 version is described in the [Streamlit deployment](deploy/streamlit/README.md).
 
 ## Where files go
