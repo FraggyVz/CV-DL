@@ -123,11 +123,35 @@ The choices that keep it at this level:
   (Streamlit), so the page stays responsive and shows progress. A second analysis of a
   recording that is already being analysed is refused.
 
-**Not done.** The models are not exported to TorchScript or ONNX, quantised or served
-with TorchServe. The TCN and GRU take under 1% of the time, so this would save little.
-The worthwhile targets are ResNet-18 (quantising or scripting it, about 3 s per clip)
-and detection (about 11 s). Running the detector on fewer frames would change the
-model's input, so it would need the cross-validation rerun.
+### Tried: int8 quantisation of ResNet-18
+
+ResNet-18 is the only neural network in the analysis that takes noticeable time, so it
+was converted to int8 with post-training static quantisation, calibrated on 8 training
+clips. The [quantisation notebook](../notebooks/quantised-resnet.ipynb) has the charts;
+`scripts/quantised_resnet_demo.py` runs the same check from the command line.
+
+| | float32 (used) | int8 (tried) |
+|---|---|---|
+| ResNet-18, one batch of 64 frames | 1.06 s | 0.27 s (3.9× faster) |
+| ResNet-18 per demo clip, including reading and resizing frames | | 2.1× faster |
+| ResNet-18 weights | 45 MB | 11 MB |
+| Detector + ResNet time per demo clip | | about 9% less |
+| Features (cosine similarity to float32, 512 frames) | | median 0.9987, lowest 0.9979 |
+| TCN and GRU predictions on the 3 demo clips | | same class in 6 of 6; largest confidence change 0.057 |
+
+**The apps keep float32.** A user would save about 9% per clip, because the colour
+detector still takes most of the time. The reported TCN and GRU results come from
+float32 features, and three clips cannot show that predictions never change. Switching
+would need the check on all 45 test clips, an int8 model file built once and committed
+(the cloud app has no training clips to calibrate on), and a move to `torchao`, because
+the `torch.ao.quantization` API used here is deprecated.
+
+**Not done.** The TCN and GRU are not exported to TorchScript or ONNX, quantised or
+served with TorchServe: they take under 1% of the time, so this would save little.
+TorchServe would also need a separate model server, which Streamlit Community Cloud
+cannot run. The larger target is detection (about 11 s per clip), but running the
+detector on fewer frames would change the models' input and need the cross-validation
+rerun.
 
 ## Frontend development
 
